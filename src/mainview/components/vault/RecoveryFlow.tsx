@@ -67,11 +67,11 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
               className="mx-auto mb-3 h-16 w-16"
             />
             <h1 className="font-bold text-3xl text-primary">object0</h1>
-            <p className="mt-2 text-muted-foreground text-sm">Vault Recovery</p>
+            <p className="mt-2 text-muted-foreground text-sm">恢复密码库</p>
           </div>
-          <CardTitle>Recovery</CardTitle>
+          <CardTitle>恢复</CardTitle>
           <CardDescription>
-            Recover your vault using a recovery key or reset it entirely.
+            使用恢复密钥找回密码库，或将其完全重置。
           </CardDescription>
         </CardHeader>
 
@@ -81,11 +81,11 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
             <TabsList className="w-full">
               <TabsTrigger value="recovery-key" className="flex-1">
                 <IconKey className="size-4 mr-1.5" />
-                Recovery Key
+                恢复密钥
               </TabsTrigger>
               <TabsTrigger value="reset" className="flex-1">
                 <IconTrashCan className="size-4 mr-1.5" />
-                Reset
+                重置
               </TabsTrigger>
             </TabsList>
 
@@ -94,28 +94,23 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
               <div className="rounded-lg bg-muted p-4">
                 <h3 className="mb-2 font-semibold text-sm flex items-center gap-2">
                   <IconKey className="size-4 text-warning" />
-                  Enter Recovery Key
+                  输入恢复密钥
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  Enter the recovery key you saved when you created your vault.
-                  After unlocking, you'll set a new passphrase and can choose to
-                  save it in OS keychain.
+                  输入创建密码库时保存的恢复密钥。解锁后请设置新密码，并可选择将其保存在系统钥匙串中。
                 </p>
               </div>
 
               {!hasRecoveryKey && (
                 <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 flex items-start gap-2 text-sm">
                   <IconTriangleExclamation className="size-4 text-warning shrink-0 mt-0.5" />
-                  <span>
-                    This vault does not have a recovery key configured. You may
-                    need to reset the vault.
-                  </span>
+                  <span>此密码库没有配置恢复密钥，可能需要重置密码库。</span>
                 </div>
               )}
 
               <form onSubmit={handleRecoveryKeySubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="recovery-key-input">Recovery Key</Label>
+                  <Label htmlFor="recovery-key-input">恢复密钥</Label>
                   <Input
                     id="recovery-key-input"
                     type="text"
@@ -137,7 +132,7 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
                   {loading ? (
                     <IconSpinner className="size-4 animate-spin" />
                   ) : (
-                    "Recover with Key"
+                    "使用密钥恢复"
                   )}
                 </Button>
               </form>
@@ -148,17 +143,16 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
                 <h3 className="mb-2 font-semibold text-destructive text-sm flex items-center gap-2">
                   <IconTriangleExclamation className="size-4" />
-                  Destructive Action
+                  危险操作
                 </h3>
                 <p className="text-sm">
-                  This will permanently delete your vault and all stored
-                  profiles. Your S3 data is not affected — only the locally
-                  stored API keys and connection profiles will be lost.
+                  这将永久删除本地密码库及其中所有存储账号。S3
+                  中的数据不受影响，但本地保存的 API 密钥和连接配置将丢失。
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirm-delete">Type DELETE to confirm</Label>
+                <Label htmlFor="confirm-delete">输入 DELETE 以确认</Label>
                 <Input
                   id="confirm-delete"
                   type="text"
@@ -186,7 +180,7 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
                 ) : (
                   <>
                     <IconTrashCan className="size-4 mr-2" />
-                    Delete Vault & Start Over
+                    删除密码库并重新开始
                   </>
                 )}
               </Button>
@@ -202,7 +196,7 @@ export function RecoveryFlow({ onBack }: RecoveryFlowProps) {
             onClick={onBack}
           >
             <IconArrowLeft className="size-4 mr-2" />
-            Back to Unlock
+            返回解锁
           </Button>
         </CardContent>
       </Card>

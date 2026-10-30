@@ -111,7 +111,7 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
       // Stale failure must not clobber a newer load's state either.
       if (generation !== loadGeneration) return;
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
     }

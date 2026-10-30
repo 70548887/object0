@@ -52,15 +52,15 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
             />
             <h1 className="font-bold text-3xl text-primary">object0</h1>
             <p className="mt-2 text-muted-foreground text-sm">
-              S3 Bucket Manager
+              S3 存储桶管理器
             </p>
           </div>
           <CardTitle className="flex items-center gap-2">
             <IconLock className="size-4" />
-            Vault Locked
+            密码库已锁定
           </CardTitle>
           <CardDescription>
-            Unlock with OS keychain or enter your passphrase to access profiles.
+            通过系统钥匙串或输入密码来解锁存储账号。
           </CardDescription>
         </CardHeader>
 
@@ -74,21 +74,21 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
               onClick={handleKeychainUnlock}
             >
               <IconFingerprint className="size-4 mr-2" />
-              Unlock with OS Keychain
+              使用系统钥匙串解锁
             </Button>
 
             <div className="flex items-center gap-3">
               <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground">OR</span>
+              <span className="text-xs text-muted-foreground">或</span>
               <Separator className="flex-1" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="unlock-passphrase">Passphrase</Label>
+              <Label htmlFor="unlock-passphrase">密码</Label>
               <Input
                 id="unlock-passphrase"
                 type="password"
-                placeholder="Enter vault passphrase"
+                placeholder={"输入密码库密码"}
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
               />
@@ -104,7 +104,7 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
                 htmlFor="unlock-remember"
                 className="text-sm font-normal cursor-pointer"
               >
-                Remember in OS keychain
+                在系统钥匙串中记住密码
               </Label>
             </div>
 
@@ -118,7 +118,7 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
               {loading ? (
                 <IconSpinner className="size-4 animate-spin" />
               ) : (
-                "Unlock"
+                "解锁"
               )}
             </Button>
 
@@ -134,7 +134,7 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
                 }}
               >
                 <IconCircleQuestion className="size-4 mr-1.5" />
-                Forgot passphrase?
+                忘记密码？
               </Button>
             </div>
           </form>

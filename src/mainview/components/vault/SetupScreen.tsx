@@ -27,17 +27,17 @@ export function SetupScreen() {
     setError("");
 
     if (passphrase.length < 8) {
-      setError("Passphrase must be at least 8 characters");
+      setError("密码至少需要 8 个字符");
       return;
     }
     if (passphrase !== confirm) {
-      setError("Passphrases do not match");
+      setError("两次输入的密码不一致");
       return;
     }
 
     const ok = await setup(passphrase, remember);
     if (!ok) {
-      setError("Failed to create vault");
+      setError("创建密码库失败");
     }
   };
 
@@ -53,38 +53,37 @@ export function SetupScreen() {
             />
             <h1 className="font-bold text-3xl text-primary">object0</h1>
             <p className="mt-2 text-muted-foreground text-sm">
-              S3 Bucket Manager
+              S3 存储桶管理器
             </p>
           </div>
           <CardTitle className="flex items-center gap-2">
             <IconVault className="size-4" />
-            Create Vault
+            创建密码库
           </CardTitle>
           <CardDescription>
-            Set a passphrase to encrypt your API keys. A recovery key will be
-            generated after setup.
+            设置密码以加密保存的 API 密钥。完成后将生成恢复密钥。
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="setup-passphrase">Passphrase</Label>
+              <Label htmlFor="setup-passphrase">密码</Label>
               <Input
                 id="setup-passphrase"
                 type="password"
-                placeholder="Enter passphrase (min 8 characters)"
+                placeholder={"输入密码，至少 8 个字符"}
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="setup-confirm">Confirm Passphrase</Label>
+              <Label htmlFor="setup-confirm">确认密码</Label>
               <Input
                 id="setup-confirm"
                 type="password"
-                placeholder="Re-enter passphrase"
+                placeholder={"再次输入密码"}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
               />
@@ -100,7 +99,7 @@ export function SetupScreen() {
                 htmlFor="setup-remember"
                 className="text-sm font-normal cursor-pointer"
               >
-                Remember in OS keychain
+                在系统钥匙串中记住密码
               </Label>
             </div>
 
@@ -114,7 +113,7 @@ export function SetupScreen() {
               {loading ? (
                 <IconSpinner className="size-4 animate-spin" />
               ) : (
-                "Create Vault"
+                "创建密码库"
               )}
             </Button>
           </form>

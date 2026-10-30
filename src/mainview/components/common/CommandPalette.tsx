@@ -84,7 +84,7 @@ export function CommandPalette() {
     const baseCommands: PaletteCommand[] = [
       {
         id: "toggle-sidebar",
-        label: "Toggle Sidebar",
+        label: "显示或隐藏侧栏",
         Icon: IconSidebar,
         section: "View",
         shortcut: "Ctrl+B",
@@ -92,7 +92,7 @@ export function CommandPalette() {
       },
       {
         id: "toggle-theme",
-        label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Theme`,
+        label: `切换到${theme === "dark" ? "浅色" : "深色"}主题`,
         Icon: theme === "dark" ? IconSun : IconMoon,
         section: "View",
         shortcut: "Ctrl+\\",
@@ -100,7 +100,7 @@ export function CommandPalette() {
       },
       {
         id: "toggle-jobs",
-        label: jobPanelOpen ? "Hide Job Panel" : "Show Job Panel",
+        label: jobPanelOpen ? "隐藏任务面板" : "显示任务面板",
         Icon: IconBarsProgress,
         section: "View",
         shortcut: "Ctrl+J",
@@ -108,35 +108,35 @@ export function CommandPalette() {
       },
       {
         id: "toggle-share-history",
-        label: shareHistoryOpen ? "Hide Share History" : "Show Share History",
+        label: shareHistoryOpen ? "隐藏分享记录" : "显示分享记录",
         Icon: IconClockRotateLeft,
         section: "View",
         action: () => setShareHistoryOpen(!shareHistoryOpen),
       },
       {
         id: "view-table",
-        label: "Switch to Table View",
+        label: "切换为列表视图",
         Icon: IconTableList,
         section: "View",
         action: () => setViewMode("table"),
       },
       {
         id: "view-grid",
-        label: "Switch to Grid View",
+        label: "切换为网格视图",
         Icon: IconGrip,
         section: "View",
         action: () => setViewMode("grid"),
       },
       {
         id: "open-settings",
-        label: settingsOpen ? "Close Settings" : "Open Settings",
+        label: settingsOpen ? "关闭设置" : "打开设置",
         Icon: IconGear,
         section: "App",
         action: () => setSettingsOpen(!settingsOpen),
       },
       {
         id: "lock-vault",
-        label: "Lock Vault",
+        label: "锁定密码库",
         Icon: IconLock,
         section: "App",
         action: lock,
@@ -144,15 +144,15 @@ export function CommandPalette() {
       {
         id: "toggle-live-folder-sync",
         label: folderSyncPanelOpen
-          ? "Hide Live Folder Sync"
-          : "Show Live Folder Sync",
+          ? "隐藏实时文件夹同步"
+          : "显示实时文件夹同步",
         Icon: IconFolderOpen,
         section: "Sync",
         action: () => setFolderSyncPanelOpen(!folderSyncPanelOpen),
       },
       {
         id: "choose-sync-type",
-        label: "Choose Sync Type",
+        label: "选择同步方式",
         Icon: IconCodeCompare,
         section: "Sync",
         action: openSyncChooser,
@@ -166,7 +166,7 @@ export function CommandPalette() {
     const objectCommands: PaletteCommand[] = [
       {
         id: "obj-search",
-        label: "Search Objects",
+        label: "搜索文件",
         Icon: IconMagnifyingGlass,
         section: "Objects",
         shortcut: "Ctrl+F",
@@ -175,7 +175,7 @@ export function CommandPalette() {
       },
       {
         id: "obj-refresh",
-        label: "Refresh Objects",
+        label: "刷新文件列表",
         Icon: IconArrowsRotate,
         section: "Objects",
         action: () =>
@@ -183,7 +183,7 @@ export function CommandPalette() {
       },
       {
         id: "obj-upload-files",
-        label: "Upload Files",
+        label: "上传文件",
         Icon: IconCloudArrowUp,
         section: "Objects",
         action: () =>
@@ -191,7 +191,7 @@ export function CommandPalette() {
       },
       {
         id: "obj-upload-folder",
-        label: "Upload Folder",
+        label: "上传文件夹",
         Icon: IconFolderPlus,
         section: "Objects",
         action: () =>
@@ -199,7 +199,7 @@ export function CommandPalette() {
       },
       {
         id: "obj-new-folder",
-        label: "Create Folder",
+        label: "新建文件夹",
         Icon: IconFolder,
         section: "Objects",
         action: () =>
@@ -207,7 +207,7 @@ export function CommandPalette() {
       },
       {
         id: "obj-sync",
-        label: "Open Sync (Default)",
+        label: "打开同步（默认）",
         Icon: IconRotate,
         section: "Objects",
         action: () =>
@@ -219,7 +219,7 @@ export function CommandPalette() {
       objectCommands.push(
         {
           id: "obj-download-selection",
-          label: `Download Selected (${selectedCount})`,
+          label: `下载选中项（${selectedCount}）`,
           Icon: IconCloudArrowDown,
           section: "Objects",
           action: () =>
@@ -229,7 +229,7 @@ export function CommandPalette() {
         },
         {
           id: "obj-transfer-selection",
-          label: `Transfer Selected (${selectedCount})`,
+          label: `传输选中项（${selectedCount}）`,
           Icon: IconArrowRightArrowLeft,
           section: "Objects",
           action: () =>
@@ -237,7 +237,7 @@ export function CommandPalette() {
         },
         {
           id: "obj-delete-selection",
-          label: `Delete Selected (${selectedCount})`,
+          label: `删除选中项（${selectedCount}）`,
           Icon: IconTrashCan,
           section: "Objects",
           action: () =>
@@ -249,7 +249,7 @@ export function CommandPalette() {
     if (shareableSelection) {
       objectCommands.push({
         id: "obj-share-selection",
-        label: "Share Selected File",
+        label: "分享选中文件",
         Icon: IconShareNodes,
         section: "Objects",
         action: () =>
@@ -311,9 +311,9 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <Command>
-        <CommandInput placeholder="Type a command…" />
+        <CommandInput placeholder={"输入命令…"} />
         <CommandList>
-          <CommandEmpty>No matching commands</CommandEmpty>
+          <CommandEmpty>没有匹配的命令</CommandEmpty>
           {Array.from(sections.entries()).map(([section, cmds]) => (
             <CommandGroup key={section} heading={section}>
               {cmds.map((cmd) => (

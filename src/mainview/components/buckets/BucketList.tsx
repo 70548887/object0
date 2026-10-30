@@ -42,7 +42,7 @@ export function BucketList({
   if (buckets.length === 0) {
     return (
       <div className="px-3 py-4 text-center text-muted-foreground/60 text-xs">
-        No buckets found
+        未找到存储桶
       </div>
     );
   }
@@ -83,7 +83,7 @@ export function BucketList({
               e.stopPropagation();
               toggleFavorite(profileId, b.name);
             }}
-            title={showStar ? "Unpin bucket" : "Pin bucket"}
+            title={showStar ? "取消固定存储桶" : "固定存储桶"}
           >
             <IconStar className={`size-3 ${showStar ? "fill-current" : ""}`} />
           </Button>
@@ -99,12 +99,12 @@ export function BucketList({
         <>
           <li className="flex items-center gap-1 px-3 py-1 text-[10px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
             <IconStar className="size-2.5" />
-            Pinned
+            已固定
           </li>
           {pinned.map((b) => renderBucket(b, true))}
           {unpinned.length > 0 && (
             <li className="px-3 py-1 text-[10px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
-              All Buckets
+              所有存储桶
             </li>
           )}
         </>

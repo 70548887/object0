@@ -29,12 +29,12 @@ export function useJobProgress() {
       // Desktop notification
       const notificationsEnabled = useUIStore.getState().desktopNotifications;
       if (notificationsEnabled && Notification.permission === "granted") {
-        const title = data.success ? "Transfer Complete" : "Transfer Failed";
+        const title = data.success ? "传输完成" : "传输失败";
         const body = data.fileName
-          ? `${data.fileName} — ${data.success ? "finished" : data.error || "failed"}`
+          ? `${data.fileName} — ${data.success ? "已完成" : data.error || "失败"}`
           : data.success
-            ? "Job completed successfully"
-            : data.error || "Job failed";
+            ? "任务已成功完成"
+            : data.error || "任务失败";
         new Notification(title, { body, silent: true });
       }
 

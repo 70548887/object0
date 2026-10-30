@@ -23,7 +23,7 @@ export function ShareResult({
       {/* Generated URL */}
       <div className="space-y-2">
         <span className="font-semibold text-foreground/70 text-xs">
-          Shareable Link
+          分享链接
         </span>
         <div className="flex gap-2">
           <Input
@@ -38,7 +38,7 @@ export function ShareResult({
             variant="outline"
             size="icon-sm"
             onClick={onCopy}
-            title="Copy to clipboard"
+            title={"复制到剪贴板"}
           >
             <IconCopy className="size-3.5" />
           </Button>
@@ -48,7 +48,7 @@ export function ShareResult({
       {/* Expiration info */}
       <div className="flex items-center gap-2 text-foreground/70 text-sm">
         <IconClock className="size-4" />
-        <span>Expires in {expiresLabel}</span>
+        <span>剩余有效期 {expiresLabel}</span>
       </div>
 
       {/* QR Code toggle */}
@@ -63,12 +63,12 @@ export function ShareResult({
           {showQR ? (
             <>
               <IconChevronDown className="size-3.5 mr-1" />
-              Hide QR Code
+              隐藏二维码
             </>
           ) : (
             <>
               <IconQrcode className="size-3.5 mr-1" />
-              Show QR Code
+              显示二维码
             </>
           )}
         </Button>

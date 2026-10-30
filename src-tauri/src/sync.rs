@@ -166,7 +166,7 @@ pub(crate) fn execute_sync_diff(
             JobType::Sync,
             file_name,
             format!(
-                "Sync {}:{} -> {}:{}",
+                "同步 {}:{} → {}:{}",
                 input.source_bucket, source_key, input.dest_bucket, dest_key
             ),
             entry.source_size.unwrap_or(0),

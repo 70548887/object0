@@ -65,7 +65,7 @@ export function DetailPanel() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error");
+          setError(err instanceof Error ? err.message : "未知错误");
           setLoading(false);
         }
       });
@@ -92,7 +92,7 @@ export function DetailPanel() {
         <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
           <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
             <IconCircleInfo className="size-4 shrink-0 text-foreground/60" />
-            <span className="truncate">Details</span>
+            <span className="truncate">详细信息</span>
           </SheetTitle>
           <div className="flex shrink-0 items-center gap-0.5">
             <Button
@@ -100,7 +100,7 @@ export function DetailPanel() {
               size="icon-sm"
               className="text-foreground/50 hover:text-foreground"
               onClick={() => setDetailKey(null)}
-              title="Close"
+              title={"关闭"}
             >
               <IconXmark className="size-4" />
             </Button>
@@ -141,8 +141,8 @@ export function DetailPanel() {
               {isImage && profileId && bucket && (
                 <div className="overflow-hidden rounded-lg bg-muted">
                   <div className="flex items-center justify-center p-2 text-foreground/30 text-xs">
-                    <IconImage className="mr-1 size-3" />
-                    Image preview not available in S3 directly
+                    <IconImage className="mr-1 size-3" />此 S3
+                    对象暂不支持直接预览图片
                   </div>
                 </div>
               )}
@@ -150,15 +150,15 @@ export function DetailPanel() {
               {/* Metadata table */}
               <table className="w-full text-xs">
                 <tbody>
-                  <DetailRow label="Full Key" value={detailKey} mono />
-                  <DetailRow label="Size" value={formatBytes(stat.size)} />
+                  <DetailRow label={"完整对象路径"} value={detailKey} mono />
+                  <DetailRow label={"大小"} value={formatBytes(stat.size)} />
                   <DetailRow
-                    label="Last Modified"
+                    label={"最后修改时间"}
                     value={formatDate(stat.lastModified)}
                   />
                   <DetailRow label="ETag" value={stat.etag} mono />
-                  <DetailRow label="Content Type" value={stat.type || "—"} />
-                  <DetailRow label="Extension" value={ext || "—"} />
+                  <DetailRow label={"内容类型"} value={stat.type || "—"} />
+                  <DetailRow label={"扩展名"} value={ext || "—"} />
                 </tbody>
               </table>
 
@@ -176,7 +176,7 @@ export function DetailPanel() {
                     }
                   }}
                 >
-                  <IconClipboard /> Copy Key
+                  <IconClipboard /> 复制对象路径
                 </Button>
               </div>
             </div>

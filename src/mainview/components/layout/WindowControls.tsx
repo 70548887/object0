@@ -33,8 +33,8 @@ export function WindowControls() {
         variant="ghost"
         size="icon-sm"
         onClick={() => win.minimize()}
-        title="Minimize"
-        aria-label="Minimize window"
+        title={"最小化"}
+        aria-label={"最小化窗口"}
       >
         <IconWindowMinimize className="size-4" />
       </Button>
@@ -42,8 +42,8 @@ export function WindowControls() {
         variant="ghost"
         size="icon-sm"
         onClick={() => win.toggleMaximize()}
-        title={maximized ? "Restore" : "Maximize"}
-        aria-label={maximized ? "Restore window" : "Maximize window"}
+        title={maximized ? "还原" : "最大化"}
+        aria-label={maximized ? "还原窗口" : "最大化窗口"}
       >
         {maximized ? (
           <IconWindowRestore className="size-4" />
@@ -56,8 +56,8 @@ export function WindowControls() {
         size="icon-sm"
         className="hover:bg-destructive hover:text-destructive-foreground"
         onClick={() => win.close()}
-        title="Close"
-        aria-label="Close window"
+        title={"关闭"}
+        aria-label={"关闭窗口"}
       >
         <IconXmark className="size-4" />
       </Button>

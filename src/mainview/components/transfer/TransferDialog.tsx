@@ -66,9 +66,7 @@ export function TransferDialog() {
       const buckets = await rpcCall("buckets:list", { profileId });
       setDestBuckets(buckets.map((b) => b.name));
     } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to load buckets",
-      );
+      toast.error(err instanceof Error ? err.message : "加载存储桶失败");
     }
     setLoadingBuckets(false);
   }, []);
@@ -102,7 +100,7 @@ export function TransferDialog() {
       if (result.jobIds.length > 0) {
         useUIStore.getState().setJobPanelOpen(true);
         toast.success(
-          `${effectiveMode === "move" ? "Moving" : "Copying"} ${result.jobIds.length} object(s)`,
+          `正在${effectiveMode === "move" ? "移动" : "复制"} ${result.jobIds.length} 个文件`,
         );
       }
 
@@ -115,7 +113,7 @@ export function TransferDialog() {
           .loadObjects(currentProfileId, currentBucket, currentPrefix);
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Transfer failed");
+      toast.error(err instanceof Error ? err.message : "传输失败");
     }
     setTransferring(false);
   };
@@ -129,26 +127,26 @@ export function TransferDialog() {
   };
 
   const summaryParts: string[] = [];
-  if (fileCount > 0) summaryParts.push(`${fileCount} file(s)`);
-  if (folderCount > 0) summaryParts.push(`${folderCount} folder(s)`);
-  const summary = summaryParts.join(" and ") || "0 items";
+  if (fileCount > 0) summaryParts.push(`${fileCount} 个文件`);
+  if (folderCount > 0) summaryParts.push(`${folderCount} 个文件夹`);
+  const summary = summaryParts.join("和") || "0 个项目";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent showCloseButton={false} className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{`${effectiveMode === "move" ? "Move" : "Copy"} to Bucket`}</DialogTitle>
+          <DialogTitle>{`${effectiveMode === "move" ? "移动" : "复制"}到存储桶`}</DialogTitle>
           <DialogDescription>
             {effectiveMode === "move"
-              ? "Move the selected items to another bucket, deleting the originals after a successful transfer."
-              : "Copy the selected items to another bucket, keeping the originals."}
+              ? "将选中项目移动到其他存储桶，传输成功后会删除原文件。"
+              : "将选中项目复制到其他存储桶，保留原文件。"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Source summary */}
           <div className="rounded bg-muted p-2 text-xs">
-            <span className="font-semibold">Source:</span> {currentBucket}
+            <span className="font-semibold">来源：</span> {currentBucket}
             {currentPrefix ? `/${currentPrefix}` : ""} — {summary}
             {keys.length <= 5 && (
               <ul className="mt-1 ml-2 list-inside list-disc text-foreground/60">
@@ -168,7 +166,7 @@ export function TransferDialog() {
 
           {/* Transfer mode */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Mode</Label>
+            <Label className="text-xs">方式</Label>
             <Select
               value={effectiveMode}
               onValueChange={(v) => {
@@ -179,25 +177,23 @@ export function TransferDialog() {
                 <SelectValue>
                   {(value) => {
                     const labels: Record<string, string> = {
-                      copy: "Copy — keep original files",
-                      move: "Move — delete originals after transfer",
+                      copy: "复制：保留原文件",
+                      move: "移动：传输完成后删除原文件",
                     };
                     return labels[value as string] ?? (value as string);
                   }}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="copy">Copy — keep original files</SelectItem>
-                <SelectItem value="move">
-                  Move — delete originals after transfer
-                </SelectItem>
+                <SelectItem value="copy">复制：保留原文件</SelectItem>
+                <SelectItem value="move">移动：传输完成后删除原文件</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Destination profile */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Destination Profile</Label>
+            <Label className="text-xs">目标存储账号</Label>
             <Select
               value={destProfileId}
               onValueChange={(v) => {
@@ -205,7 +201,7 @@ export function TransferDialog() {
               }}
             >
               <SelectTrigger size="sm" className="w-full">
-                <SelectValue placeholder="Select profile...">
+                <SelectValue placeholder={"选择存储账号..."}>
                   {(value) =>
                     profiles.find((p) => p.id === value)?.name ??
                     (value as string)
@@ -224,7 +220,7 @@ export function TransferDialog() {
 
           {/* Destination bucket */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Destination Bucket</Label>
+            <Label className="text-xs">目标存储桶</Label>
             <Select
               value={destBucket}
               onValueChange={(v) => {
@@ -234,9 +230,7 @@ export function TransferDialog() {
             >
               <SelectTrigger size="sm" className="w-full">
                 <SelectValue
-                  placeholder={
-                    loadingBuckets ? "Loading..." : "Select bucket..."
-                  }
+                  placeholder={loadingBuckets ? "正在加载..." : "选择存储桶..."}
                 >
                   {(value) => value as string}
                 </SelectValue>
@@ -253,15 +247,15 @@ export function TransferDialog() {
 
           {/* Destination prefix */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Destination Path (optional)</Label>
+            <Label className="text-xs">目标路径（可选）</Label>
             <Input
               className="h-7 text-xs"
-              placeholder="e.g. backups/2026/"
+              placeholder={"例如 backups/2026/"}
               value={destPrefix}
               onChange={(e) => setDestPrefix(e.target.value)}
             />
             <p className="mt-1 text-[10px] text-foreground/50">
-              Files will be placed under this prefix in the destination bucket.
+              文件将放在目标存储桶的此路径下。
             </p>
           </div>
 
@@ -269,16 +263,15 @@ export function TransferDialog() {
           {effectiveMode === "move" && (
             <div className="rounded border border-warning/30 bg-warning/10 p-2 text-warning text-xs">
               <IconTriangleExclamation className="mr-1 inline size-3.5" />
-              Move will delete the original files from{" "}
-              <span className="font-semibold">{currentBucket}</span> after
-              successful transfer.
+              移动成功后将删除原文件，来源：{" "}
+              <span className="font-semibold">{currentBucket}</span> 。
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={handleClose}>
-            Cancel
+            取消
           </Button>
           <Button
             size="sm"
@@ -291,11 +284,11 @@ export function TransferDialog() {
               <IconSpinner className="size-3.5 animate-spin" />
             ) : effectiveMode === "move" ? (
               <>
-                <IconArrowRightArrowLeft className="size-3.5" /> Move
+                <IconArrowRightArrowLeft className="size-3.5" /> 移动
               </>
             ) : (
               <>
-                <IconCopy className="size-3.5" /> Copy
+                <IconCopy className="size-3.5" /> 复制
               </>
             )}
           </Button>

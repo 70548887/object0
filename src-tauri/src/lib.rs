@@ -666,6 +666,21 @@ struct ProfileIdInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ProfileCredentialInput {
+    profile_id: String,
+    field: ProfileCredentialField,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum ProfileCredentialField {
+    AccessKeyId,
+    SecretAccessKey,
+    SessionToken,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FavoritesSaveInput {
     favorites: Vec<String>,
 }

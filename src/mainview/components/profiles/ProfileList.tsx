@@ -1,28 +1,45 @@
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
 import type { ProfileInfo } from "@shared/profile.types";
 import { PROVIDER_LABELS } from "@shared/profile.types";
+import { useState } from "react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 import {
   IconAws,
   IconCloud,
+  IconCopy,
   IconDigitalOcean,
   IconFire,
   IconGear,
   IconGoogle,
+  IconInfo,
+  IconKey,
   IconPenToSquare,
   IconServer,
   IconTrashCan,
+  IconWifi,
 } from "@/lib/icons";
+import { rpcCall } from "@/lib/rpc-client";
+import { toast } from "../common/Toast";
+import {
+  copyAllProfileInformation,
+  copyCredential,
+  copyValue,
+  profileInformation,
+} from "./profileCredentials";
 
 interface ProfileListProps {
   profiles: ProfileInfo[];
   activeId: string | null;
   onSelect: (profile: ProfileInfo) => void;
+  onView: (profile: ProfileInfo) => void;
   onEdit: (profile: ProfileInfo) => void;
   onDelete: (profile: ProfileInfo) => void;
 }
@@ -31,13 +48,45 @@ export function ProfileList({
   profiles,
   activeId,
   onSelect,
+  onView,
   onEdit,
   onDelete,
 }: ProfileListProps) {
+  const [testingProfiles, setTestingProfiles] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const testSavedConnection = async (profile: ProfileInfo) => {
+    if (testingProfiles.has(profile.id)) return;
+    setTestingProfiles((current) => new Set(current).add(profile.id));
+    const toastId = toast.loading(`正在测试“${profile.name}”的连接...`);
+    try {
+      const result = await rpcCall("profile:test-saved", {
+        profileId: profile.id,
+      });
+      if (result.success) {
+        toast.success(`“${profile.name}”连接成功`, { id: toastId });
+      } else {
+        toast.error(`连接失败：${result.error ?? "请检查账号配置"}`, {
+          id: toastId,
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "请确认密码库已解锁";
+      toast.error(`测试连接失败：${message}`, { id: toastId });
+    } finally {
+      setTestingProfiles((current) => {
+        const next = new Set(current);
+        next.delete(profile.id);
+        return next;
+      });
+    }
+  };
+
   if (profiles.length === 0) {
     return (
       <div className="px-3 py-4 text-center text-muted-foreground/60 text-xs">
-        No profiles yet. Click + to add one.
+        暂无存储账号，点击 + 添加。
       </div>
     );
   }
@@ -81,11 +130,53 @@ export function ProfileList({
           </ContextMenuPrimitive.Trigger>
           <ContextMenuContent>
             <ContextMenuItem onClick={() => onEdit(p)}>
-              <IconPenToSquare className="size-3.5 shrink-0" /> Edit
+              <IconPenToSquare className="size-3.5 shrink-0" /> 编辑
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={testingProfiles.has(p.id)}
+              onClick={() => void testSavedConnection(p)}
+            >
+              <IconWifi className="size-3.5 shrink-0" />
+              {testingProfiles.has(p.id) ? "正在测试连接..." : "测试连接"}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => void copyAllProfileInformation(p)}>
+              <IconCopy className="size-3.5 shrink-0" /> 复制信息（含密钥）
             </ContextMenuItem>
             <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onView(p)}>
+              <IconInfo className="size-3.5 shrink-0" /> 查看账号信息
+            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <IconCopy className="size-3.5 shrink-0" /> 复制指定信息
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                <ContextMenuItem
+                  onClick={() =>
+                    void copyValue(profileInformation(p), "账号信息")
+                  }
+                >
+                  <IconCopy className="size-3.5 shrink-0" /> 复制普通信息
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() =>
+                    void copyCredential(p, "accessKeyId", "访问密钥 ID")
+                  }
+                >
+                  <IconKey className="size-3.5 shrink-0" /> 复制访问密钥 ID
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() =>
+                    void copyCredential(p, "secretAccessKey", "访问密钥")
+                  }
+                >
+                  <IconKey className="size-3.5 shrink-0" /> 复制访问密钥
+                </ContextMenuItem>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+            <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => onDelete(p)}>
-              <IconTrashCan className="size-3.5 shrink-0" /> Delete
+              <IconTrashCan className="size-3.5 shrink-0" /> 删除
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>

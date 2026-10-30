@@ -4,6 +4,33 @@
 
 use super::*;
 
+async fn test_profile_connection(profile: &Profile) -> Value {
+    let client = match to_s3_client(profile) {
+        Ok(client) => client,
+        Err(error) => {
+            return json!({ "success": false, "bucketCount": 0, "error": error });
+        }
+    };
+
+    if let Some(default_bucket) = profile.default_bucket.as_ref() {
+        if client
+            .head_bucket()
+            .bucket(default_bucket.clone())
+            .send()
+            .await
+            .is_ok()
+        {
+            return json!({ "success": true, "bucketCount": 1 });
+        }
+        // Some providers deny HeadBucket but allow listing buckets.
+    }
+
+    match client.list_buckets().send().await {
+        Ok(output) => json!({ "success": true, "bucketCount": output.buckets().len() }),
+        Err(err) => json!({ "success": false, "bucketCount": 0, "error": err.to_string() }),
+    }
+}
+
 #[tauri::command]
 pub(crate) async fn rpc_request(
     app: AppHandle,
@@ -323,6 +350,22 @@ pub(crate) async fn rpc_request(
             ensure_unlocked(&vault)?;
             Ok(json!(profile_infos(&vault)))
         }
+        RpcMethod::ProfileCredential => {
+            let input: ProfileCredentialInput = parse_payload(payload)?;
+            let vault = lock_state(&state.vault)?;
+            ensure_unlocked(&vault)?;
+            let profile = vault
+                .data
+                .as_ref()
+                .and_then(|data| data.profiles.iter().find(|profile| profile.id == input.profile_id))
+                .ok_or_else(|| "Profile not found".to_string())?;
+            let value = match input.field {
+                ProfileCredentialField::AccessKeyId => profile.access_key_id.as_str(),
+                ProfileCredentialField::SecretAccessKey => profile.secret_access_key.as_str(),
+                ProfileCredentialField::SessionToken => profile.session_token.as_deref().unwrap_or(""),
+            };
+            Ok(json!({ "value": value }))
+        }
         RpcMethod::ProfileAdd => {
             let input: ProfileInput = parse_payload(payload)?;
             let path = vault_path()?;
@@ -439,47 +482,12 @@ pub(crate) async fn rpc_request(
                 updated_at: now_iso(),
             };
 
-            let client = match to_s3_client(&profile) {
-                Ok(client) => client,
-                Err(error) => {
-                    return Ok(json!({
-                        "success": false,
-                        "bucketCount": 0,
-                        "error": error,
-                    }));
-                }
-            };
-
-            if let Some(default_bucket) = input.default_bucket {
-                match client
-                    .head_bucket()
-                    .bucket(default_bucket.clone())
-                    .send()
-                    .await
-                {
-                    Ok(_) => {
-                        return Ok(json!({
-                            "success": true,
-                            "bucketCount": 1,
-                        }));
-                    }
-                    Err(_) => {
-                        // Fall back to bucket listing below for providers that deny HeadBucket.
-                    }
-                }
-            }
-
-            match client.list_buckets().send().await {
-                Ok(output) => Ok(json!({
-                    "success": true,
-                    "bucketCount": output.buckets().len(),
-                })),
-                Err(err) => Ok(json!({
-                    "success": false,
-                    "bucketCount": 0,
-                    "error": err.to_string(),
-                })),
-            }
+            Ok(test_profile_connection(&profile).await)
+        }
+        RpcMethod::ProfileTestSaved => {
+            let input: ProfileIdInput = parse_payload(payload)?;
+            let profile = profile_for_id(&state, &input.profile_id)?;
+            Ok(test_profile_connection(&profile).await)
         }
 
         RpcMethod::BucketsList => {
@@ -678,7 +686,7 @@ pub(crate) async fn rpc_request(
                 &app,
                 JobType::Upload,
                 file_name,
-                format!("Upload to {}/{}", input.bucket, input.key),
+                format!("上传到 {}/{}", input.bucket, input.key),
                 bytes_total,
                 JobTaskKind::Upload {
                     profile_id: input.profile_id,
@@ -702,7 +710,7 @@ pub(crate) async fn rpc_request(
                 &app,
                 JobType::Download,
                 file_name,
-                format!("Download {}/{}", input.bucket, input.key),
+                format!("下载 {}/{}", input.bucket, input.key),
                 0,
                 JobTaskKind::Download {
                     profile_id: input.profile_id,
@@ -739,7 +747,7 @@ pub(crate) async fn rpc_request(
                     &app,
                     JobType::Upload,
                     file_name.clone(),
-                    format!("Upload to {}/{}", input.bucket, key),
+                    format!("上传到 {}/{}", input.bucket, key),
                     bytes_total,
                     JobTaskKind::Upload {
                         profile_id: input.profile_id.clone(),
@@ -793,7 +801,7 @@ pub(crate) async fn rpc_request(
                     &app,
                     JobType::Upload,
                     relative_path.clone(),
-                    format!("Upload to {}/{}", input.bucket, key),
+                    format!("上传到 {}/{}", input.bucket, key),
                     bytes_total,
                     JobTaskKind::Upload {
                         profile_id: input.profile_id.clone(),
@@ -850,7 +858,7 @@ pub(crate) async fn rpc_request(
                     &app,
                     JobType::Download,
                     relative_path.clone(),
-                    format!("Download {}/{}", input.bucket, key),
+                    format!("下载 {}/{}", input.bucket, key),
                     size.max(0),
                     JobTaskKind::Download {
                         profile_id: input.profile_id.clone(),
@@ -878,7 +886,7 @@ pub(crate) async fn rpc_request(
                 JobType::Copy,
                 file_name,
                 format!(
-                    "Copy {}/{} -> {}/{}",
+                    "复制 {}/{} → {}/{}",
                     input.source_bucket, input.source_key, input.dest_bucket, input.dest_key
                 ),
                 0,
@@ -907,7 +915,7 @@ pub(crate) async fn rpc_request(
                 JobType::Move,
                 file_name,
                 format!(
-                    "Move {}/{} -> {}/{}",
+                    "移动 {}/{} → {}/{}",
                     input.source_bucket, input.source_key, input.dest_bucket, input.dest_key
                 ),
                 0,
@@ -975,7 +983,7 @@ pub(crate) async fn rpc_request(
                     file_name,
                     format!(
                         "{} -> {}/{}",
-                        if is_move { "Move" } else { "Copy" },
+                        if is_move { "移动" } else { "复制" },
                         input.dest_bucket,
                         dest_key
                     ),

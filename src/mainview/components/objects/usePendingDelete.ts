@@ -43,10 +43,10 @@ export function usePendingDelete({
       if (!profileId || !bucket) return;
       try {
         await rpcCall("objects:delete", { profileId, bucket, keys });
-        toast.success(`Deleted ${keys.length} object(s)`);
+        toast.success(`已删除 ${keys.length} 个文件`);
         refresh();
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "未知错误");
       }
     },
     [profileId, bucket, refresh],
@@ -76,15 +76,15 @@ export function usePendingDelete({
 
     pendingDeleteRef.current = { keys: keysToDelete, timerId };
 
-    toast.warning(`Deleting ${count} object(s)...`, {
+    toast.warning(`正在删除 ${count} 个文件...`, {
       duration: UNDO_WINDOW_MS,
       action: {
-        label: "Undo",
+        label: "撤销",
         onClick: () => {
           if (pendingDeleteRef.current?.timerId === timerId) {
             clearTimeout(timerId);
             pendingDeleteRef.current = null;
-            toast.info("Delete cancelled");
+            toast.info("已取消删除");
             refresh();
           }
         },

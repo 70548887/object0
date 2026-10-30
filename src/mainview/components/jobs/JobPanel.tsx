@@ -71,10 +71,10 @@ export function JobPanel() {
       <div className="flex flex-row items-center justify-between gap-2 border-border border-b px-4 py-3">
         <div className="flex min-w-0 items-center gap-2 font-semibold text-sm">
           <IconListCheck className="size-4 shrink-0 text-foreground/60" />
-          <span className="truncate">Jobs</span>
+          <span className="truncate">任务</span>
           {activeJobs.length > 0 && (
             <span className="rounded-full bg-info/15 px-1.5 py-px text-[9px] text-info tabular-nums">
-              {activeJobs.length} active
+              {activeJobs.length} 进行中
             </span>
           )}
           {succeededCount > 0 && (
@@ -98,7 +98,7 @@ export function JobPanel() {
               size="xs"
               className="text-foreground/40 hover:text-foreground/70"
               onClick={clearCompleted}
-              title="Clear completed"
+              title={"清除已完成任务"}
             >
               <IconBroom className="size-[10px]" />
             </Button>
@@ -109,7 +109,7 @@ export function JobPanel() {
             size="xs"
             className="text-foreground/40 hover:text-foreground/70"
             onClick={refreshJobs}
-            title="Refresh"
+            title={"刷新"}
           >
             <IconArrowsRotate className="size-[10px]" />
           </Button>
@@ -119,7 +119,7 @@ export function JobPanel() {
             size="icon-sm"
             className="text-foreground/50 hover:text-foreground"
             onClick={() => setJobPanelOpen(false)}
-            title="Close"
+            title={"关闭"}
           >
             <IconXmark className="size-4" />
           </Button>
@@ -163,7 +163,7 @@ export function JobPanel() {
         {jobs.length === 0 ? (
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-1.5 text-foreground/30">
             <IconFolderOpen className="size-8" />
-            <span className="text-xs">No jobs</span>
+            <span className="text-xs">暂无任务</span>
           </div>
         ) : shouldVirtualize ? (
           <div
@@ -190,10 +190,10 @@ export function JobPanel() {
                       ) : (
                         <IconCheck className="mr-1 inline size-[8px] text-success/50" />
                       )}
-                      {isActive ? "Active" : "Completed"}
+                      {isActive ? "进行中" : "已完成"}
                       {isActive && row.queuedCount && row.queuedCount > 0 && (
                         <span className="ml-1 font-normal text-foreground/20">
-                          ({row.queuedCount} queued)
+                          ({row.queuedCount} 个排队中）
                         </span>
                       )}
                     </span>
@@ -227,10 +227,10 @@ export function JobPanel() {
                   <div className="sticky top-0 z-10 border-border/40 border-b bg-card/95 px-3 py-1">
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       <IconPlay className="mr-1 inline size-[8px] text-info/50" />
-                      Active
+                      进行中
                       {queuedJobs.length > 0 && (
                         <span className="ml-1 font-normal text-foreground/20">
-                          ({queuedJobs.length} queued)
+                          ({queuedJobs.length} 个排队中）
                         </span>
                       )}
                     </span>
@@ -251,7 +251,7 @@ export function JobPanel() {
                   <div className="sticky top-0 z-10 border-border/40 border-b bg-card/95 px-3 py-1">
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       <IconCheck className="mr-1 inline size-[8px] text-success/50" />
-                      Completed
+                      已完成
                     </span>
                   </div>
                 )}

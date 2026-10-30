@@ -36,10 +36,10 @@ const MS_PER_HOUR = HOUR_SECONDS * 1000;
 const MS_PER_DAY = DAY_SECONDS * 1000;
 
 const EXPIRATION_PRESETS: ExpirationPreset[] = [
-  { label: "1 hour", seconds: HOUR_SECONDS },
-  { label: "6 hours", seconds: 6 * HOUR_SECONDS },
-  { label: "24 hours", seconds: DAY_SECONDS },
-  { label: "7 days", seconds: 7 * DAY_SECONDS },
+  { label: "1 小时", seconds: HOUR_SECONDS },
+  { label: "6 小时", seconds: 6 * HOUR_SECONDS },
+  { label: "24 小时", seconds: DAY_SECONDS },
+  { label: "7 天", seconds: 7 * DAY_SECONDS },
 ];
 
 const EXPIRATION_UNIT_SECONDS: Record<ExpirationUnit, number> = {
@@ -109,11 +109,9 @@ export function ShareDialog() {
 
       // Auto-copy to clipboard
       await navigator.clipboard.writeText(result.url);
-      toast.success("Link copied to clipboard!");
+      toast.success("链接已复制到剪贴板！");
     } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to generate share link",
-      );
+      toast.error(err instanceof Error ? err.message : "生成分享链接失败");
     }
     setGenerating(false);
   };
@@ -122,9 +120,9 @@ export function ShareDialog() {
     if (!shareResult) return;
     try {
       await navigator.clipboard.writeText(shareResult.url);
-      toast.success("Link copied to clipboard!");
+      toast.success("链接已复制到剪贴板！");
     } catch {
-      toast.error("Failed to copy to clipboard");
+      toast.error("复制到剪贴板失败");
     }
   };
 
@@ -135,14 +133,14 @@ export function ShareDialog() {
 
     if (diff < MS_PER_HOUR) {
       const mins = Math.round(diff / MS_PER_MINUTE);
-      return `${mins} minute${mins !== 1 ? "s" : ""}`;
+      return `${mins} 分钟`;
     }
     if (diff < MS_PER_DAY) {
       const hours = Math.round(diff / MS_PER_HOUR);
-      return `${hours} hour${hours !== 1 ? "s" : ""}`;
+      return `${hours} 小时`;
     }
     const days = Math.round(diff / MS_PER_DAY);
-    return `${days} day${days !== 1 ? "s" : ""}`;
+    return `${days} 天`;
   };
 
   const fileName = target?.key.split("/").pop() || target?.key || "";
@@ -151,7 +149,7 @@ export function ShareDialog() {
     <Dialog open={open} onOpenChange={(o) => !o && closeDialog()}>
       <DialogContent showCloseButton={false} className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Share File</DialogTitle>
+          <DialogTitle>分享文件</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -177,7 +175,7 @@ export function ShareDialog() {
                   className="flex-1"
                   onClick={() => setExpirationMode("preset")}
                 >
-                  Presets
+                  预设时长
                 </Button>
                 <Button
                   type="button"
@@ -186,7 +184,7 @@ export function ShareDialog() {
                   className="flex-1"
                   onClick={() => setExpirationMode("custom")}
                 >
-                  Custom
+                  自定义
                 </Button>
               </div>
 
@@ -238,18 +236,18 @@ export function ShareDialog() {
                       <SelectValue>
                         {(value) => {
                           const labels: Record<string, string> = {
-                            minutes: "Minutes",
-                            hours: "Hours",
-                            days: "Days",
+                            minutes: "分钟",
+                            hours: "小时",
+                            days: "天",
                           };
                           return labels[value as string] ?? (value as string);
                         }}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="minutes">Minutes</SelectItem>
-                      <SelectItem value="hours">Hours</SelectItem>
-                      <SelectItem value="days">Days</SelectItem>
+                      <SelectItem value="minutes">分钟</SelectItem>
+                      <SelectItem value="hours">小时</SelectItem>
+                      <SelectItem value="days">天</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -258,7 +256,7 @@ export function ShareDialog() {
               {/* Max expiration note */}
               <p className="text-foreground/50 text-xs">
                 <IconCircleInfo className="mr-1 inline size-3" />
-                Maximum expiration: 7 days
+                最长有效期：7 天
               </p>
             </>
           ) : (
@@ -274,7 +272,7 @@ export function ShareDialog() {
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={closeDialog}>
-            Close
+            关闭
           </Button>
           {!shareResult && (
             <Button size="sm" onClick={handleGenerate} disabled={generating}>
@@ -283,7 +281,7 @@ export function ShareDialog() {
               ) : (
                 <>
                   <IconLink className="size-3.5 mr-1" />
-                  Generate Link
+                  生成链接
                 </>
               )}
             </Button>

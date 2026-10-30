@@ -65,9 +65,9 @@ export function FolderSyncPanel() {
     if (!deletingRule) return;
     try {
       await removeRule(deletingRule.id);
-      toast.success("Sync rule removed");
+      toast.success("同步规则已移除");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "未知错误");
     }
     setDeletingRule(null);
   }, [deletingRule, removeRule]);
@@ -76,9 +76,9 @@ export function FolderSyncPanel() {
     async (id: string) => {
       try {
         await syncNow(id);
-        toast.success("Sync triggered");
+        toast.success("已开始同步");
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "未知错误");
       }
     },
     [syncNow],
@@ -88,9 +88,9 @@ export function FolderSyncPanel() {
     async (id: string, enabled: boolean) => {
       try {
         await toggleRule(id, enabled);
-        toast.success(enabled ? "Sync rule enabled" : "Sync rule paused");
+        toast.success(enabled ? "同步规则已启用" : "同步规则已暂停");
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "未知错误");
       }
     },
     [toggleRule],
@@ -131,7 +131,7 @@ export function FolderSyncPanel() {
           <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
             <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
               <IconFolderOpen className="size-4 shrink-0 text-foreground/60" />
-              <span className="truncate">Live Folder Sync</span>
+              <span className="truncate">实时文件夹同步</span>
             </SheetTitle>
             <div className="flex shrink-0 items-center gap-0.5">
               <Button
@@ -139,7 +139,7 @@ export function FolderSyncPanel() {
                 size="icon-sm"
                 className="text-foreground/50 hover:text-foreground"
                 onClick={() => setFolderSyncPanelOpen(false)}
-                title="Close"
+                title={"关闭"}
               >
                 <IconXmark className="size-4" />
               </Button>
@@ -148,19 +148,19 @@ export function FolderSyncPanel() {
 
           {/* subtitle — moved out of header */}
           <p className="border-border border-b px-4 py-2 text-[11px] text-foreground/50">
-            Continuous local folder ↔ bucket sync in the background
+            在后台持续同步本地文件夹与存储桶
           </p>
 
           {/* secondary toolbar */}
           <div className="flex flex-wrap items-center gap-1.5 border-border border-b px-3 py-1.5">
             {activeCount > 0 && (
               <span className="rounded-full bg-success/20 px-1.5 py-px text-[9px] text-success tabular-nums">
-                {activeCount} active
+                {activeCount} 进行中
               </span>
             )}
             {conflicts.length > 0 && (
               <span className="rounded-full bg-warning/20 px-1.5 py-px text-[9px] text-warning tabular-nums">
-                {conflicts.length} conflict{conflicts.length === 1 ? "" : "s"}
+                {conflicts.length} 个冲突{conflicts.length === 1 ? "" : ""}
               </span>
             )}
             <Button
@@ -168,10 +168,10 @@ export function FolderSyncPanel() {
               size="xs"
               className="h-5 min-h-5 gap-1 px-1.5 text-[10px] text-foreground/55 hover:text-primary"
               onClick={() => setAddDialogOpen(true)}
-              title="Add Live Sync Rule"
+              title={"添加实时同步规则"}
             >
               <IconPlus className="size-[9px]" />
-              Add rule
+              添加规则
             </Button>
             <div className="ml-auto flex">
               <Button
@@ -180,7 +180,7 @@ export function FolderSyncPanel() {
                 className="h-5 min-h-5 rounded-r-none px-1.5 text-[10px]"
                 onClick={() => setFolderSyncListDensity("comfortable")}
               >
-                Cozy
+                宽松
               </Button>
               <Button
                 variant={isCompact ? "default" : "ghost"}
@@ -188,7 +188,7 @@ export function FolderSyncPanel() {
                 className="h-5 min-h-5 rounded-l-none px-1.5 text-[10px]"
                 onClick={() => setFolderSyncListDensity("compact")}
               >
-                Dense
+                紧凑
               </Button>
             </div>
             {rules.length > 0 && (
@@ -199,10 +199,10 @@ export function FolderSyncPanel() {
                     size="xs"
                     className="h-5 min-h-5 gap-1 px-1.5 text-[10px] text-warning/70 hover:text-warning"
                     onClick={() => clearConflicts()}
-                    title="Clear conflict notifications"
+                    title={"清除冲突通知"}
                   >
                     <IconBroom className="size-[9px]" />
-                    Clear conflicts
+                    清除冲突
                   </Button>
                 )}
                 <Button
@@ -210,7 +210,7 @@ export function FolderSyncPanel() {
                   size="icon-xs"
                   className="size-5 min-h-5 text-foreground/40 hover:text-success"
                   onClick={resumeAll}
-                  title="Resume All"
+                  title={"全部恢复"}
                 >
                   <IconPlay className="size-[9px]" />
                 </Button>
@@ -219,7 +219,7 @@ export function FolderSyncPanel() {
                   size="icon-xs"
                   className="size-5 min-h-5 text-foreground/40 hover:text-warning"
                   onClick={pauseAll}
-                  title="Pause All"
+                  title={"全部暂停"}
                 >
                   <IconPause className="size-[9px]" />
                 </Button>
@@ -230,7 +230,7 @@ export function FolderSyncPanel() {
           {/* the "For one-time..." info row stays AS-IS */}
           <div className="flex flex-wrap items-center justify-between gap-1.5 border-border border-b bg-card/50 px-3 py-1.5 text-[10px] text-foreground/55">
             <span className="min-w-0 flex-1">
-              For one-time bucket copies, use Object Sync.
+              如需一次性复制存储桶，请使用对象同步。
             </span>
             <Button
               variant="ghost"
@@ -238,7 +238,7 @@ export function FolderSyncPanel() {
               className="h-5 min-h-5 px-1.5 text-[10px] text-info hover:text-info"
               onClick={() => setSyncDialogOpen(true)}
             >
-              Open Object Sync
+              打开对象同步
             </Button>
           </div>
 
@@ -256,10 +256,9 @@ export function FolderSyncPanel() {
                   <IconFolderOpen className="size-6 text-primary" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium text-sm">No live sync rules</p>
+                  <p className="font-medium text-sm">暂无实时同步规则</p>
                   <p className="mt-0.5 text-foreground/50 text-xs">
-                    Add a live folder sync rule to continuously mirror a local
-                    folder and an S3 bucket path
+                    添加实时同步规则，持续同步本地文件夹和 S3 存储桶路径
                   </p>
                 </div>
                 <Button
@@ -268,7 +267,7 @@ export function FolderSyncPanel() {
                   className="mt-1"
                   onClick={() => setAddDialogOpen(true)}
                 >
-                  <IconPlus className="size-3.5" /> Add Live Sync Rule
+                  <IconPlus className="size-3.5" /> 添加实时同步规则
                 </Button>
               </div>
             )}
@@ -278,7 +277,7 @@ export function FolderSyncPanel() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1 text-[10px] text-warning/80">
                     <IconTriangleExclamation className="size-[9px]" />
-                    Recent conflicts
+                    最近的冲突
                   </div>
                   <Button
                     variant="ghost"
@@ -286,7 +285,7 @@ export function FolderSyncPanel() {
                     className="h-5 min-h-5 px-1.5 text-[10px] text-warning/70 hover:text-warning"
                     onClick={() => clearConflicts()}
                   >
-                    Clear
+                    清除
                   </Button>
                 </div>
                 <ul className="mt-1 space-y-1">
@@ -338,7 +337,7 @@ export function FolderSyncPanel() {
       >
         <DialogContent className="sm:max-w-lg" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Add Live Folder Sync Rule</DialogTitle>
+            <DialogTitle>添加实时文件夹同步规则</DialogTitle>
           </DialogHeader>
           <FolderSyncRuleEditor
             onDone={() => {
@@ -356,7 +355,7 @@ export function FolderSyncPanel() {
       >
         <DialogContent className="sm:max-w-lg" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Edit Live Folder Sync Rule</DialogTitle>
+            <DialogTitle>编辑实时文件夹同步规则</DialogTitle>
           </DialogHeader>
           {editingRule && (
             <FolderSyncRuleEditor
@@ -373,9 +372,9 @@ export function FolderSyncPanel() {
       {/* Delete Confirmation */}
       <ConfirmDialog
         open={!!deletingRule}
-        title="Remove Live Sync Rule"
-        message={`Remove live sync rule for "${deletingRule?.localPath.split("/").pop()}"? This will stop syncing but won't delete any files.`}
-        confirmLabel="Remove"
+        title={"移除实时同步规则"}
+        message={`确定移除“${deletingRule?.localPath.split("/").pop()}”的实时同步规则吗？同步将停止，但不会删除文件。`}
+        confirmLabel={"移除"}
         destructive
         onConfirm={handleDelete}
         onClose={() => setDeletingRule(null)}

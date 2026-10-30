@@ -62,15 +62,15 @@ function getStatusChipClassName(status: FolderSyncRuleStatus): string {
 function statusLabel(status: FolderSyncRuleStatus): string {
   switch (status) {
     case "syncing":
-      return "Syncing";
+      return "同步中";
     case "watching":
-      return "Watching";
+      return "监测中";
     case "error":
-      return "Error";
+      return "错误";
     case "paused":
-      return "Paused";
+      return "已暂停";
     default:
-      return "Idle";
+      return "空闲";
   }
 }
 
@@ -92,11 +92,11 @@ function DirectionIcon({
 function directionLabel(direction: FolderSyncRule["direction"]): string {
   switch (direction) {
     case "bidirectional":
-      return "Bidirectional";
+      return "双向同步";
     case "local-to-remote":
-      return "Upload only";
+      return "仅上传";
     case "remote-to-local":
-      return "Download only";
+      return "仅下载";
   }
 }
 
@@ -168,8 +168,8 @@ export function SyncRuleCard({
                   isCompact ? "mt-0.5" : "mt-1"
                 }`}
               >
-                {conflictCount} conflict
-                {conflictCount === 1 ? "" : "s"}
+                {conflictCount} 个冲突
+                {conflictCount === 1 ? "" : ""}
               </span>
             )}
           </div>
@@ -212,7 +212,7 @@ export function SyncRuleCard({
               }`}
             >
               <span>
-                {progress.completed}/{progress.total} files
+                {progress.completed}/{progress.total} 个文件
               </span>
               <span>
                 {formatBytes(progress.bytesTransferred)} /{" "}
@@ -258,7 +258,7 @@ export function SyncRuleCard({
               isCompact ? "text-[8px]" : "text-[9px]"
             }`}
           >
-            Last sync {new Date(rule.lastSyncAt).toLocaleString()}
+            上次同步 {new Date(rule.lastSyncAt).toLocaleString()}
             {rule.lastSyncStatus === "success" && (
               <IconCheck className="ml-1 inline size-[9px] text-success/80" />
             )}
@@ -284,11 +284,11 @@ export function SyncRuleCard({
               isCompact ? "h-5 min-h-5 text-[9px]" : "h-6 min-h-6 text-[10px]"
             }`}
             onClick={() => onSyncNow(rule.id)}
-            title="Sync now"
+            title={"立即同步"}
             disabled={status === "syncing"}
           >
             <IconArrowsRotate className="size-[9px]" />
-            Sync
+            同步
           </Button>
           <Button
             variant="ghost"
@@ -297,14 +297,14 @@ export function SyncRuleCard({
               isCompact ? "h-5 min-h-5 text-[9px]" : "h-6 min-h-6 text-[10px]"
             }`}
             onClick={() => onToggle(rule.id, !rule.enabled)}
-            title={rule.enabled ? "Pause rule" : "Enable rule"}
+            title={rule.enabled ? "暂停规则" : "启用规则"}
           >
             {rule.enabled ? (
               <IconPause className="size-[9px] text-warning" />
             ) : (
               <IconPlay className="size-[9px] text-success" />
             )}
-            {rule.enabled ? "Pause" : "Enable"}
+            {rule.enabled ? "暂停" : "启用"}
           </Button>
           {conflictCount > 0 && (
             <Button
@@ -314,10 +314,10 @@ export function SyncRuleCard({
                 isCompact ? "h-5 min-h-5 text-[9px]" : "h-6 min-h-6 text-[10px]"
               }`}
               onClick={() => onClearConflicts(rule.id)}
-              title="Clear conflicts for this rule"
+              title={"清除此规则的冲突"}
             >
               <IconBroom className="size-[9px]" />
-              Clear conflicts
+              清除冲突
             </Button>
           )}
           <div className="ml-auto flex items-center gap-0.5">
@@ -326,7 +326,7 @@ export function SyncRuleCard({
               size="icon-xs"
               className={isCompact ? "size-5 min-h-5" : "size-6 min-h-6"}
               onClick={() => onEdit(rule)}
-              title="Edit"
+              title={"编辑"}
             >
               <IconPen className="size-[10px]" />
             </Button>
@@ -335,7 +335,7 @@ export function SyncRuleCard({
               size="icon-xs"
               className={`text-destructive/55 hover:text-destructive ${isCompact ? "size-5 min-h-5" : "size-6 min-h-6"}`}
               onClick={() => onDelete(rule)}
-              title="Remove"
+              title={"移除"}
             >
               <IconTrash className="size-[10px]" />
             </Button>

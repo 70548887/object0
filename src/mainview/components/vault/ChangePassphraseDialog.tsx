@@ -32,11 +32,11 @@ export function ChangePassphraseDialog({
     setError("");
 
     if (passphrase.length < 8) {
-      setError("Passphrase must be at least 8 characters");
+      setError("密码至少需要 8 个字符");
       return;
     }
     if (passphrase !== confirm) {
-      setError("Passphrases do not match");
+      setError("两次输入的密码不一致");
       return;
     }
 
@@ -44,7 +44,7 @@ export function ChangePassphraseDialog({
     if (ok) {
       onComplete();
     } else {
-      setError("Failed to change passphrase");
+      setError("修改密码失败");
     }
   };
 
@@ -56,10 +56,9 @@ export function ChangePassphraseDialog({
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-success/20">
               <IconLockOpen className="size-6 text-success" />
             </div>
-            <CardTitle>Vault Recovered</CardTitle>
+            <CardTitle>密码库已恢复</CardTitle>
             <CardDescription className="mt-1">
-              Set a new passphrase to secure your vault. A new recovery key will
-              also be generated.
+              请设置新密码以保护密码库，系统也会生成新的恢复密钥。
             </CardDescription>
           </div>
         </CardHeader>
@@ -67,22 +66,22 @@ export function ChangePassphraseDialog({
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cp-passphrase">New Passphrase</Label>
+              <Label htmlFor="cp-passphrase">新密码</Label>
               <Input
                 id="cp-passphrase"
                 type="password"
-                placeholder="Enter new passphrase (min 8 characters)"
+                placeholder={"输入新密码，至少 8 个字符"}
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cp-confirm">Confirm Passphrase</Label>
+              <Label htmlFor="cp-confirm">确认密码</Label>
               <Input
                 id="cp-confirm"
                 type="password"
-                placeholder="Re-enter new passphrase"
+                placeholder={"再次输入新密码"}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
               />
@@ -98,7 +97,7 @@ export function ChangePassphraseDialog({
                 htmlFor="cp-remember"
                 className="text-sm font-normal cursor-pointer"
               >
-                Remember in OS keychain
+                在系统钥匙串中记住密码
               </Label>
             </div>
 
@@ -112,7 +111,7 @@ export function ChangePassphraseDialog({
               {loading ? (
                 <IconSpinner className="size-4 animate-spin" />
               ) : (
-                "Set New Passphrase"
+                "设置新密码"
               )}
             </Button>
           </form>

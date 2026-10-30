@@ -44,14 +44,14 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
         key,
         localPath: "", // empty path signals a zero-byte folder marker
       });
-      toast.success(`Folder "${cleanName}" created`);
+      toast.success(`文件夹“${cleanName}”已创建`);
       // Refresh the object list
       useObjectStore.getState().loadObjects(profileId, bucket, currentPrefix);
       setName("");
       onClose();
     } catch (err: unknown) {
       toast.error(
-        `Failed to create folder: ${err instanceof Error ? err.message : "Unknown error"}`,
+        `创建文件夹失败：${err instanceof Error ? err.message : "未知错误"}`,
       );
     }
     setCreating(false);
@@ -66,13 +66,13 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Create Folder</DialogTitle>
+          <DialogTitle>新建文件夹</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={(e) => void handleCreate(e)} className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="folder-name" className="text-xs">
-              Folder Name
+              文件夹名称
             </Label>
             <Input
               id="folder-name"
@@ -90,15 +90,15 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
             />
             <p className="text-[11px] text-foreground/50">
               {currentPrefix
-                ? `Will create: ${currentPrefix}${name.trim()}/`
-                : `Will create: ${name.trim()}/`}
+                ? `将创建：${currentPrefix}${name.trim()}/`
+                : `将创建：${name.trim()}/`}
             </p>
           </div>
         </form>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={handleClose}>
-            Cancel
+            取消
           </Button>
           <Button
             size="sm"
@@ -108,7 +108,7 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
             {creating ? (
               <div className="size-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
             ) : (
-              "Create"
+              "创建"
             )}
           </Button>
         </DialogFooter>

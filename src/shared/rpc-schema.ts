@@ -114,6 +114,13 @@ export interface RPCSchema {
 
   // ── Profiles ──
   "profile:list": { req: undefined; res: ProfileInfo[] };
+  "profile:credential": {
+    req: {
+      profileId: string;
+      field: "accessKeyId" | "secretAccessKey" | "sessionToken";
+    };
+    res: { value: string };
+  };
   "profile:add": { req: ProfileInput; res: ProfileInfo };
   "profile:update": {
     req: ProfileUpdateReq;
@@ -129,6 +136,10 @@ export interface RPCSchema {
       secretAccessKey: string;
       defaultBucket?: string;
     };
+    res: { success: boolean; bucketCount: number; error?: string };
+  };
+  "profile:test-saved": {
+    req: { profileId: string };
     res: { success: boolean; bucketCount: number; error?: string };
   };
 

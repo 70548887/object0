@@ -16,22 +16,22 @@ export function useKeychainStatus() {
 
   const keychainStatusText =
     keychainAvailable === false
-      ? "OS keychain unavailable"
+      ? "系统钥匙串不可用"
       : hasStoredPassphrase === null
-        ? "Checking OS keychain..."
+        ? "正在检查系统钥匙串..."
         : hasStoredPassphrase
-          ? "Saved in OS keychain"
-          : "Not saved in OS keychain";
+          ? "已保存在系统钥匙串中"
+          : "未保存在系统钥匙串中";
 
   const keychainBadge = keychainBusy
-    ? { label: "Working" }
+    ? { label: "正在处理" }
     : keychainAvailable === false
-      ? { label: "Unavailable" }
+      ? { label: "不可用" }
       : hasStoredPassphrase === null
-        ? { label: "Checking" }
+        ? { label: "正在检查" }
         : hasStoredPassphrase
-          ? { label: "Stored" }
-          : { label: "Not Stored" };
+          ? { label: "已保存" }
+          : { label: "未保存" };
 
   const keychainBadgeClass = keychainBusy
     ? "bg-info/15 text-info"
@@ -57,7 +57,7 @@ export function useKeychainStatus() {
         if (mounted) {
           setHasStoredPassphrase(false);
           setKeychainAvailable(false);
-          setKeychainError("Unable to read OS keychain status");
+          setKeychainError("无法读取系统钥匙串状态");
         }
       }
     };
@@ -82,14 +82,14 @@ export function useKeychainStatus() {
       if (result.success) {
         setKeychainMessage(
           result.hadStoredPassphrase
-            ? "Stored passphrase removed from OS keychain"
-            : "No stored passphrase found in OS keychain",
+            ? "已从系统钥匙串中移除保存的密码"
+            : "系统钥匙串中没有保存的密码",
         );
       } else {
-        setKeychainError("Failed to clear OS keychain entry");
+        setKeychainError("清除系统钥匙串中的记录失败");
       }
     } catch {
-      setKeychainError("Failed to clear OS keychain entry");
+      setKeychainError("清除系统钥匙串中的记录失败");
     } finally {
       setKeychainBusy(false);
     }

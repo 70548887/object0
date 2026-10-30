@@ -32,9 +32,9 @@ export function RecoveryKeyDisplay({
   const handleDownload = () => {
     const blob = new Blob(
       [
-        `object0 Vault Recovery Key\n${"=".repeat(30)}\n\n${recoveryKey}\n\nStore this key somewhere safe. You will need it to recover your vault if you forget your passphrase.\nThis key cannot be retrieved later.\n`,
+        `object0 密码库恢复密钥\n${"=".repeat(30)}\n\n${recoveryKey}\n\n请妥善保存此密钥。忘记密码时需要用它恢复密码库。\n此密钥之后无法再次获取。\n`,
       ],
-      { type: "text/plain" },
+      { type: "text/plain;charset=utf-8" },
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -48,7 +48,7 @@ export function RecoveryKeyDisplay({
     <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="sr-only">Save Your Recovery Key</DialogTitle>
+          <DialogTitle className="sr-only">保存恢复密钥</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -56,10 +56,9 @@ export function RecoveryKeyDisplay({
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-warning/20">
               <IconKey className="size-6 text-warning" />
             </div>
-            <h3 className="font-bold text-lg">Save Your Recovery Key</h3>
+            <h3 className="font-bold text-lg">保存恢复密钥</h3>
             <p className="mt-1 text-muted-foreground text-sm">
-              This key is the only way to recover your vault if you forget your
-              passphrase. Store it somewhere safe — it won't be shown again.
+              忘记密码时只能使用此密钥恢复密码库。请妥善保存，它不会再次显示。
             </p>
           </div>
 
@@ -82,7 +81,7 @@ export function RecoveryKeyDisplay({
               ) : (
                 <IconCopy className="size-4 mr-1" />
               )}
-              {copied ? "Copied!" : "Copy"}
+              {copied ? "已复制！" : "复制"}
             </Button>
             <Button
               type="button"
@@ -92,7 +91,7 @@ export function RecoveryKeyDisplay({
               onClick={handleDownload}
             >
               <IconDownload className="size-4 mr-1" />
-              Download
+              下载
             </Button>
           </div>
 
@@ -106,7 +105,7 @@ export function RecoveryKeyDisplay({
               htmlFor="recovery-confirmed"
               className="text-sm font-normal cursor-pointer"
             >
-              I've saved this recovery key in a safe place
+              我已将恢复密钥保存在安全的位置
             </Label>
           </div>
         </div>
@@ -118,7 +117,7 @@ export function RecoveryKeyDisplay({
             disabled={!confirmed}
             onClick={onDone}
           >
-            I've saved my recovery key
+            我已保存恢复密钥
           </Button>
         </DialogFooter>
       </DialogContent>

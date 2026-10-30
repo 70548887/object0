@@ -41,7 +41,7 @@ export function ObjectGrid({
 
   const startRename = useCallback((key: string) => {
     if (key.endsWith("/")) {
-      toast.info("Folder rename is not available in grid view");
+      toast.info("网格视图暂不支持重命名文件夹");
       return;
     }
     setRenamingKey(key);
@@ -81,14 +81,14 @@ export function ObjectGrid({
         oldKey: renamingKey,
         newKey,
       });
-      toast.success(`Renamed to "${newName}"`);
+      toast.success(`已重命名为“${newName}”`);
       const currentPrefix = useObjectStore.getState().currentPrefix;
       await useObjectStore
         .getState()
         .loadObjects(profileId, bucket, currentPrefix);
       closeRename();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Rename failed");
+      toast.error(err instanceof Error ? err.message : "重命名失败");
       setRenaming(false);
     }
   }, [renamingKey, renameValue, profileId, bucket, closeRename]);
@@ -128,8 +128,8 @@ export function ObjectGrid({
                     size="icon-sm"
                     className="absolute top-1 right-1 opacity-80 transition-opacity group-hover/folder:opacity-100"
                     onClick={() => onNavigate(p.prefix)}
-                    title={`Open ${folderName}`}
-                    aria-label={`Open folder ${folderName}`}
+                    title={`打开 ${folderName}`}
+                    aria-label={`打开文件夹 ${folderName}`}
                   >
                     <IconArrowUpRightFromSquare />
                   </Button>
@@ -186,7 +186,7 @@ export function ObjectGrid({
       <Dialog open={!!renamingKey} onOpenChange={(o) => !o && closeRename()}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Rename Object</DialogTitle>
+            <DialogTitle>重命名文件</DialogTitle>
           </DialogHeader>
 
           <Input
@@ -209,7 +209,7 @@ export function ObjectGrid({
 
           <DialogFooter>
             <Button variant="outline" onClick={closeRename}>
-              Cancel
+              取消
             </Button>
             <Button
               onClick={() => void commitRename()}
@@ -218,7 +218,7 @@ export function ObjectGrid({
               {renaming ? (
                 <div className="size-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               ) : (
-                "Rename"
+                "重命名"
               )}
             </Button>
           </DialogFooter>

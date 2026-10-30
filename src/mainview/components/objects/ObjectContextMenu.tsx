@@ -58,9 +58,9 @@ export function ObjectContextMenu({
   const handleCopyKey = async () => {
     try {
       await navigator.clipboard.writeText(objectKey);
-      toast.success("Key copied to clipboard");
+      toast.success("对象路径已复制");
     } catch {
-      toast.error("Failed to copy");
+      toast.error("复制失败");
     }
   };
 
@@ -75,7 +75,7 @@ export function ObjectContextMenu({
         });
         if (result.jobIds.length > 0) {
           useUIStore.getState().setJobPanelOpen(true);
-          toast.info(`Downloading folder (${result.jobIds.length} files)`);
+          toast.info(`正在下载文件夹（${result.jobIds.length} 个文件）`);
         }
       } else {
         await rpcCall("transfer:download", {
@@ -85,7 +85,7 @@ export function ObjectContextMenu({
           localPath: `~/Downloads/${fileName}`,
         });
         useUIStore.getState().setJobPanelOpen(true);
-        toast.info(`Downloading ${fileName}`);
+        toast.info(`正在下载 ${fileName}`);
       }
     } catch (err: unknown) {
       if (
@@ -93,7 +93,7 @@ export function ObjectContextMenu({
         err.message === "No destination folder selected"
       )
         return;
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "未知错误");
     }
   };
 
@@ -118,11 +118,11 @@ export function ObjectContextMenu({
         bucket,
         keys: [objectKey],
       });
-      toast.success(`Deleted "${fileName}"`);
+      toast.success(`已删除“${fileName}”`);
       const prefix = useObjectStore.getState().currentPrefix;
       useObjectStore.getState().loadObjects(profileId, bucket, prefix);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "未知错误");
     }
   };
 
@@ -131,25 +131,25 @@ export function ObjectContextMenu({
       {/* Details (files only) */}
       {!isFolder && (
         <ContextMenuItem onClick={handleDetails}>
-          <IconCircleInfo className="size-4 shrink-0" /> Details
+          <IconCircleInfo className="size-4 shrink-0" /> 详细信息
         </ContextMenuItem>
       )}
 
       {/* Download */}
       <ContextMenuItem onClick={() => void handleDownload()}>
-        <IconCloudArrowDown className="size-4 shrink-0" /> Download
+        <IconCloudArrowDown className="size-4 shrink-0" /> 下载
       </ContextMenuItem>
 
       {/* Share (files only) */}
       {!isFolder && (
         <ContextMenuItem onClick={handleShare}>
-          <IconShareNodes className="size-4 shrink-0" /> Share
+          <IconShareNodes className="size-4 shrink-0" /> 分享
         </ContextMenuItem>
       )}
 
       {/* Rename */}
       <ContextMenuItem onClick={handleRename}>
-        <IconPen className="size-4 shrink-0" /> Rename
+        <IconPen className="size-4 shrink-0" /> 重命名
       </ContextMenuItem>
 
       {/* Copy to bucket */}
@@ -158,7 +158,7 @@ export function ObjectContextMenu({
           openTransferDialog({ keys: [objectKey], defaultMode: "copy" })
         }
       >
-        <IconCopy className="size-4 shrink-0" /> Copy to Bucket
+        <IconCopy className="size-4 shrink-0" /> 复制到存储桶
       </ContextMenuItem>
 
       {/* Move to bucket */}
@@ -167,12 +167,12 @@ export function ObjectContextMenu({
           openTransferDialog({ keys: [objectKey], defaultMode: "move" })
         }
       >
-        <IconArrowRightArrowLeft className="size-4 shrink-0" /> Move to Bucket
+        <IconArrowRightArrowLeft className="size-4 shrink-0" /> 移动到存储桶
       </ContextMenuItem>
 
       {/* Copy key */}
       <ContextMenuItem onClick={() => void handleCopyKey()}>
-        <IconClipboard className="size-4 shrink-0" /> Copy Key
+        <IconClipboard className="size-4 shrink-0" /> 复制对象路径
       </ContextMenuItem>
 
       <ContextMenuSeparator />
@@ -182,7 +182,7 @@ export function ObjectContextMenu({
         variant="destructive"
         onClick={() => void handleDelete()}
       >
-        <IconTrashCan className="size-4 shrink-0" /> Delete
+        <IconTrashCan className="size-4 shrink-0" /> 删除
       </ContextMenuItem>
     </ContextMenuContent>
   );

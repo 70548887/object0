@@ -23,6 +23,7 @@ import { useFavoritesStore, useVaultStore } from "@/stores";
 import { BucketList } from "../buckets/BucketList";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { toast } from "../common/Toast";
+import { ProfileDetailsDialog } from "../profiles/ProfileDetailsDialog";
 import { ProfileForm } from "../profiles/ProfileForm";
 import { ProfileList } from "../profiles/ProfileList";
 import { Button } from "../ui/button";
@@ -62,6 +63,9 @@ export function Sidebar() {
     [favorites],
   );
   const [addingProfile, setAddingProfile] = useState(false);
+  const [viewingProfile, setViewingProfile] = useState<ProfileInfo | null>(
+    null,
+  );
   const [editingProfile, setEditingProfile] = useState<ProfileInfo | null>(
     null,
   );
@@ -78,9 +82,9 @@ export function Sidebar() {
       if (activeProfile?.id === deletingProfile.id) {
         switchProfile(null as unknown as ProfileInfo);
       }
-      toast.success(`Profile "${deletingProfile.name}" deleted`);
+      toast.success(`已删除存储账号“${deletingProfile.name}”`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "未知错误");
     }
     setDeletingProfile(null);
   };
@@ -122,7 +126,7 @@ export function Sidebar() {
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-foreground/20 border-dashed">
                   <IconUser className="size-3" />
                 </div>
-                <span className="text-xs">Select a profile</span>
+                <span className="text-xs">选择存储账号</span>
               </div>
             )}
           </div>
@@ -150,7 +154,7 @@ export function Sidebar() {
             <div className="flex items-center gap-1.5">
               <IconUserGroup className="size-[11px]" />
               <span className="font-semibold text-[11px] uppercase tracking-wider">
-                Profiles
+                存储账号
               </span>
               {profiles.length > 0 && (
                 <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
@@ -163,7 +167,7 @@ export function Sidebar() {
               size="icon-sm"
               className="text-foreground/40 hover:text-primary group-data-[collapsible=icon]:hidden"
               onClick={() => setAddingProfile(true)}
-              title="Add Profile"
+              title={"添加存储账号"}
             >
               <IconPlus className="size-[11px]" />
             </Button>
@@ -176,9 +180,9 @@ export function Sidebar() {
                 <IconCloudArrowUp className="size-5 text-primary" />
               </div>
               <div className="text-center">
-                <p className="font-medium text-sm">No profiles yet</p>
+                <p className="font-medium text-sm">暂无存储账号</p>
                 <p className="mt-0.5 text-foreground/50 text-xs">
-                  Add an S3-compatible profile to get started
+                  添加一个 S3 兼容存储账号以开始使用
                 </p>
               </div>
               <Button
@@ -187,7 +191,7 @@ export function Sidebar() {
                 className="mt-1"
                 onClick={() => setAddingProfile(true)}
               >
-                <IconPlus className="size-3" /> Add Profile
+                <IconPlus className="size-3" /> 添加存储账号
               </Button>
             </div>
           ) : (
@@ -195,6 +199,7 @@ export function Sidebar() {
               profiles={profiles}
               activeId={activeProfile?.id ?? null}
               onSelect={switchProfile}
+              onView={(p) => setViewingProfile(p)}
               onEdit={(p) => setEditingProfile(p)}
               onDelete={(p) => setDeletingProfile(p)}
             />
@@ -208,7 +213,7 @@ export function Sidebar() {
               <div className="flex items-center gap-1.5">
                 <IconBucket className="size-[11px]" />
                 <span className="font-semibold text-[11px] uppercase tracking-wider">
-                  Buckets
+                  存储桶
                 </span>
                 {buckets.length > 0 && (
                   <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
@@ -221,7 +226,7 @@ export function Sidebar() {
                 size="icon-sm"
                 className="text-foreground/40 hover:text-primary group-data-[collapsible=icon]:hidden"
                 onClick={refreshBuckets}
-                title="Refresh Buckets"
+                title={"刷新存储桶列表"}
               >
                 <IconArrowsRotate className="size-[11px]" />
               </Button>
@@ -241,11 +246,11 @@ export function Sidebar() {
       <SidebarFooter className="h-8 justify-center border-border border-t px-3 py-0">
         <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
           <div className="text-[11px] text-foreground/35 group-data-[collapsible=icon]:hidden">
-            {profiles.length} profile{profiles.length !== 1 ? "s" : ""}
+            {profiles.length} 个账号{profiles.length !== 1 ? "" : ""}
             {buckets.length > 0 && (
               <>
                 {" "}
-                · {buckets.length} bucket{buckets.length !== 1 ? "s" : ""}
+                · {buckets.length} 个存储桶{buckets.length !== 1 ? "" : ""}
               </>
             )}
           </div>
@@ -254,11 +259,11 @@ export function Sidebar() {
             size="sm"
             className="text-foreground/40 hover:text-destructive"
             onClick={lock}
-            title="Lock Vault"
+            title={"锁定密码库"}
           >
             <IconLock className="size-4" />
             <span className="text-[11px] group-data-[collapsible=icon]:hidden">
-              Lock
+              锁定
             </span>
           </Button>
         </div>
@@ -273,6 +278,14 @@ export function Sidebar() {
         onClose={() => setAddingProfile(false)}
       />
 
+      {viewingProfile && (
+        <ProfileDetailsDialog
+          key={viewingProfile.id}
+          profile={viewingProfile}
+          onClose={() => setViewingProfile(null)}
+        />
+      )}
+
       {/* Mounted per-profile so the form initializes from the edited profile. */}
       {editingProfile && (
         <ProfileForm
@@ -285,9 +298,9 @@ export function Sidebar() {
 
       <ConfirmDialog
         open={!!deletingProfile}
-        title="Delete Profile"
-        message={`Are you sure you want to delete "${deletingProfile?.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={"删除存储账号"}
+        message={`确定删除存储账号“${deletingProfile?.name}”吗？此操作无法撤销。`}
+        confirmLabel={"删除"}
         destructive
         onConfirm={handleDeleteProfile}
         onClose={() => setDeletingProfile(null)}

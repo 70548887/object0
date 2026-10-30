@@ -13,7 +13,7 @@ export const PROVIDERS: { value: Provider; label: string }[] = [
   { value: "minio", label: "MinIO" },
   { value: "gcs", label: "Google Cloud Storage" },
   { value: "backblaze", label: "Backblaze B2" },
-  { value: "custom", label: "Custom S3-Compatible" },
+  { value: "custom", label: "自定义 S3 兼容存储" },
 ];
 
 export const FILE_TYPE_EXTENSIONS: Record<string, string[]> = {

@@ -58,9 +58,9 @@ export function ContentArea() {
       <div className="flex-1 overflow-auto">
         <EmptyState
           icon={<IconCloud className="size-12" />}
-          title="Welcome to object0"
-          description="Select or add a profile from the sidebar to get started."
-          hint="Profiles store your S3 credentials securely in your system keychain."
+          title={"欢迎使用 object0"}
+          description={"从侧栏选择或添加存储账号以开始使用。"}
+          hint={"存储账号的凭据保存在本机密码库中。"}
         />
       </div>
     );
@@ -71,9 +71,9 @@ export function ContentArea() {
       <div className="flex-1 overflow-auto">
         <EmptyState
           icon={<IconBoxOpen className="size-12" />}
-          title="No bucket selected"
-          description="Choose a bucket from the sidebar to browse its contents."
-          hint="Tip: Star your favorite buckets for quick access."
+          title={"尚未选择存储桶"}
+          description={"从侧栏选择存储桶以浏览其中的文件。"}
+          hint={"提示：收藏常用存储桶后可以快速访问。"}
         />
       </div>
     );

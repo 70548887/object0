@@ -61,8 +61,8 @@ export function TabBar() {
                     e.stopPropagation();
                     removeTab(tab.id);
                   }}
-                  title="Close tab"
-                  aria-label={`Close tab ${label}`}
+                  title={"关闭标签页"}
+                  aria-label={`关闭标签页 ${label}`}
                 >
                   <IconXmark className="size-[11px]" />
                 </Button>

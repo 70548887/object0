@@ -96,7 +96,7 @@ export function StatusBar() {
         {!online && (
           <span className="flex items-center gap-1 text-warning" role="status">
             <IconWifi className="size-3" />
-            Offline
+            离线
           </span>
         )}
         {profile && (
@@ -111,7 +111,7 @@ export function StatusBar() {
             {bucket}
             {prefixDepth > 0 && (
               <span className="ml-1 text-foreground/30">
-                (depth {prefixDepth})
+                （深度 {prefixDepth})
               </span>
             )}
           </span>
@@ -131,7 +131,7 @@ export function StatusBar() {
         {selectedKeys.size > 0 && (
           <span className="text-primary/70" role="status" aria-live="polite">
             <IconCheckDouble className="mr-0.5 inline size-3" />
-            {selectedKeys.size} selected ({formatBytes(selectedSize)})
+            {selectedKeys.size} 已选择（{formatBytes(selectedSize)})
           </span>
         )}
         {(objects.length > 0 || prefixes.length > 0) && (
@@ -160,8 +160,8 @@ export function StatusBar() {
             onClick={() => setJobPanelOpen(true)}
           >
             <span>
-              {activeCount} job{activeCount > 1 ? "s" : ""}{" "}
-              {runningJobs.length > 0 ? "running" : "queued"}
+              {activeCount} 个任务{activeCount > 1 ? "" : ""}{" "}
+              {runningJobs.length > 0 ? "运行中" : "排队中"}
             </span>
             {runningJobs.length > 0 && totalBytes > 0 && (
               <>
@@ -185,14 +185,14 @@ export function StatusBar() {
                   : "text-foreground/40"
             } hover:text-primary`}
             onClick={() => setFolderSyncPanelOpen(true)}
-            title="Live Folder Sync"
+            title={"实时文件夹同步"}
           >
             <IconFolderOpen
               className={`size-3 ${folderSyncSyncing > 0 ? "animate-pulse" : ""}`}
             />
             {folderSyncSyncing > 0
-              ? `Live syncing ${folderSyncSyncing} folder(s)`
-              : `${folderSyncActive} live sync active`}
+              ? `正在实时同步 ${folderSyncSyncing} 个文件夹`
+              : `${folderSyncActive} 个实时同步任务已启用`}
           </button>
         )}
         {updateReady && updateVersion && (
@@ -203,7 +203,7 @@ export function StatusBar() {
             disabled={applying}
           >
             <IconArrowUpRightFromSquare className="size-3" />
-            {applying ? "Updating…" : `Update to v${updateVersion}`}
+            {applying ? "正在更新…" : `更新到 v${updateVersion}`}
           </button>
         )}
       </div>

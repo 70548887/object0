@@ -15,16 +15,16 @@ import { useUIStore } from "@/stores";
 function optionCopy(preference: SyncEntryPreference) {
   if (preference === "object-sync") {
     return {
-      title: "Object Sync (One-time)",
-      description: "Copy a bucket/prefix to another bucket or profile once.",
-      note: "Runs once and stops.",
+      title: "对象同步（一次性）",
+      description: "将存储桶或路径一次性复制到其他存储桶或账号。",
+      note: "执行一次后停止。",
     };
   }
 
   return {
-    title: "Live Folder Sync",
-    description: "Keep a local folder and bucket path continuously in sync.",
-    note: "Runs in the background.",
+    title: "实时文件夹同步",
+    description: "持续同步本地文件夹和存储桶路径。",
+    note: "在后台持续运行。",
   };
 }
 
@@ -61,13 +61,12 @@ export function SyncTypeChooserDialog() {
     <Dialog open={open} onOpenChange={(o) => !o && closeSyncChooser()}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Which Sync Do You Need?</DialogTitle>
+          <DialogTitle>请选择同步方式</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <p className="text-foreground/60 text-xs">
-            Choose your sync type. You can keep asking every time, or remember
-            this as the default for the Sync button.
+            请选择同步方式。可以每次选择，也可以将其设为同步按钮的默认方式。
           </p>
 
           {(["object-sync", "live-folder-sync"] as const).map((preference) => {
@@ -111,14 +110,14 @@ export function SyncTypeChooserDialog() {
               htmlFor="remember-choice"
               className="cursor-pointer text-foreground/75 text-xs"
             >
-              Remember this choice for future Sync clicks
+              记住此选择，以后直接使用
             </label>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={closeSyncChooser}>
-            Cancel
+            取消
           </Button>
         </DialogFooter>
       </DialogContent>

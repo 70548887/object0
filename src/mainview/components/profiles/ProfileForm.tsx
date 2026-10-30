@@ -87,13 +87,13 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
       setTestResult({
         ok: result.success,
         msg: result.success
-          ? `Connected! Found ${result.bucketCount} bucket(s)`
-          : (result.error ?? "Connection failed"),
+          ? `连接成功，发现 ${result.bucketCount} 个存储桶`
+          : (result.error ?? "连接失败"),
       });
     } catch (err: unknown) {
       setTestResult({
         ok: false,
-        msg: err instanceof Error ? err.message : "Unknown error",
+        msg: err instanceof Error ? err.message : "未知错误",
       });
     }
     setTesting(false);
@@ -108,12 +108,12 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
     const trimmedDefaultBucket = defaultBucket.trim();
 
     if (!trimmedName) {
-      toast.error("Profile name is required");
+      toast.error("请输入存储账号名称");
       return;
     }
 
     if (!isEditing && (!trimmedAccessKeyId || !trimmedSecretAccessKey)) {
-      toast.error("Access key and secret key are required");
+      toast.error("请输入访问密钥 ID 和访问密钥");
       return;
     }
 
@@ -121,9 +121,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
       isEditing &&
       Boolean(trimmedAccessKeyId) !== Boolean(trimmedSecretAccessKey)
     ) {
-      toast.error(
-        "Provide both access key and secret key to rotate credentials",
-      );
+      toast.error("更新凭据时需要同时提供访问密钥 ID 和访问密钥");
       return;
     }
 
@@ -144,7 +142,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           defaultBucket: trimmedDefaultBucket || undefined,
         });
         await refreshProfiles();
-        toast.success(`Profile "${trimmedName}" updated`);
+        toast.success(`存储账号“${trimmedName}”已更新`);
       } else {
         await rpcCall("profile:add", {
           provider,
@@ -157,11 +155,11 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           defaultBucket: trimmedDefaultBucket || undefined,
         });
         await refreshProfiles();
-        toast.success(`Profile "${trimmedName}" added`);
+        toast.success(`存储账号“${trimmedName}”已添加`);
       }
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "未知错误");
     }
     setSaving(false);
   };
@@ -171,11 +169,10 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Edit Profile" : "Add Profile"}
+            {isEditing ? "编辑存储账号" : "添加存储账号"}
           </DialogTitle>
           <DialogDescription>
-            Connect an S3-compatible bucket by entering its provider and
-            credentials.
+            填写存储服务商和凭据，连接 S3 兼容存储。
           </DialogDescription>
         </DialogHeader>
 
@@ -183,30 +180,30 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           {/* Name */}
           <div className="space-y-1.5">
             <Label htmlFor="pf-name" className="text-xs">
-              Profile Name
+              账号名称（必填）
             </Label>
             <Input
               id="pf-name"
               className="h-8 text-sm"
-              placeholder="My AWS Account"
+              placeholder={"请填写账号名称，例如 R2-工作账号"}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
             <p className="text-xs text-muted-foreground/50">
-              A friendly name to identify this connection
+              为此连接设置一个便于识别的名称
             </p>
           </div>
 
           {/* ── Connection ── */}
           <div className="space-y-3 rounded-lg border border-border/60 p-3">
             <p className="font-semibold text-[11px] text-foreground/50 uppercase tracking-wider">
-              Connection
+              连接信息
             </p>
 
             {/* Provider */}
             <div className="space-y-1.5">
               <Label htmlFor="pf-provider" className="text-xs">
-                Provider
+                存储服务商
               </Label>
               <Select
                 value={provider}
@@ -234,7 +231,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {needsEndpoint && (
               <div className="space-y-1.5">
                 <Label htmlFor="pf-endpoint" className="text-xs">
-                  Endpoint URL
+                  接口地址（Endpoint）
                 </Label>
                 <Input
                   id="pf-endpoint"
@@ -255,7 +252,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="pf-region" className="text-xs">
-                  Region
+                  区域（Region）
                 </Label>
                 <Input
                   id="pf-region"
@@ -273,8 +270,8 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
 
               <div className="space-y-1.5">
                 <Label htmlFor="pf-default-bucket" className="text-xs">
-                  Default Bucket{" "}
-                  <span className="font-normal opacity-40">optional</span>
+                  默认存储桶{" "}
+                  <span className="font-normal opacity-40">可选</span>
                 </Label>
                 <Input
                   id="pf-default-bucket"
@@ -285,8 +282,8 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
                 />
                 <p className="text-xs text-muted-foreground/50">
                   {provider === "r2"
-                    ? "Required for R2 tokens scoped to a specific bucket"
-                    : "Bucket to select by default"}
+                    ? "当 R2 凭据仅允许访问指定存储桶时必填"
+                    : "默认选择的存储桶"}
                 </p>
               </div>
             </div>
@@ -295,18 +292,25 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           {/* ── Credentials ── */}
           <div className="space-y-3 rounded-lg border border-border/60 p-3">
             <p className="font-semibold text-[11px] text-foreground/50 uppercase tracking-wider">
-              Credentials
+              访问凭据
             </p>
+            {isEditing && (
+              <p className="text-xs text-muted-foreground">
+                已保存的密钥默认隐藏。关闭此窗口后，右键左侧账号可查看或复制。
+              </p>
+            )}
 
             {/* Access Key */}
             <div className="space-y-1.5">
               <Label htmlFor="pf-access-key" className="text-xs">
-                Access Key ID
+                访问密钥 ID（Access Key ID）
               </Label>
               <Input
                 id="pf-access-key"
                 className="h-8 font-mono text-sm"
-                placeholder={isEditing ? "Enter new key to change" : "AKIA..."}
+                placeholder={
+                  isEditing ? "输入新的访问密钥 ID 以修改" : "AKIA..."
+                }
                 value={accessKeyId}
                 onChange={(e) => setAccessKeyId(e.target.value)}
               />
@@ -317,7 +321,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
               )}
               {isEditing && (
                 <p className="text-xs text-muted-foreground/50">
-                  Leave blank to keep the current value
+                  留空则保留当前值
                 </p>
               )}
             </div>
@@ -325,15 +329,13 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {/* Secret Key */}
             <div className="space-y-1.5">
               <Label htmlFor="pf-secret-key" className="text-xs">
-                Secret Access Key
+                访问密钥（Secret Access Key）
               </Label>
               <Input
                 id="pf-secret-key"
                 type="password"
                 className="h-8 font-mono text-sm"
-                placeholder={
-                  isEditing ? "Enter new secret to change" : "••••••••"
-                }
+                placeholder={isEditing ? "输入新的访问密钥以修改" : "••••••••"}
                 value={secretAccessKey}
                 onChange={(e) => setSecretAccessKey(e.target.value)}
               />
@@ -344,7 +346,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
               )}
               {isEditing && (
                 <p className="text-xs text-muted-foreground/50">
-                  Leave blank to keep the current value
+                  留空则保留当前值
                 </p>
               )}
             </div>
@@ -375,7 +377,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {testing ? (
               <IconSpinner className="size-3.5 animate-spin" />
             ) : (
-              "Test Connection"
+              "测试连接"
             )}
           </Button>
           <Button
@@ -391,9 +393,9 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {saving ? (
               <IconSpinner className="size-3.5 animate-spin" />
             ) : isEditing ? (
-              "Update"
+              "更新"
             ) : (
-              "Save"
+              "保存"
             )}
           </Button>
         </DialogFooter>

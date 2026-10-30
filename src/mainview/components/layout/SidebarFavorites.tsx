@@ -37,7 +37,7 @@ export function SidebarFavorites({
         <div className="flex items-center gap-1.5">
           <IconStar className="size-[11px]" />
           <span className="font-semibold text-[11px] uppercase tracking-wider">
-            Favorites
+            收藏
           </span>
           <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
             {entries.length}
@@ -68,7 +68,7 @@ export function SidebarFavorites({
                 </div>
               </SidebarMenuButton>
               <SidebarGroupAction
-                title="Unpin bucket"
+                title={"取消固定存储桶"}
                 className="group/fav-star top-1/2 right-3 -translate-y-1/2 text-warning"
                 onClick={(e) => {
                   e.stopPropagation();

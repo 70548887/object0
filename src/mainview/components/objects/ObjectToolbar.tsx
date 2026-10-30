@@ -72,16 +72,16 @@ export function ObjectToolbar() {
     !singleSelectedKey.endsWith("/");
   const syncButtonLabel =
     syncEntryPreference === "object-sync"
-      ? "Object Sync"
+      ? "对象同步"
       : syncEntryPreference === "live-folder-sync"
-        ? "Live Sync"
-        : "Sync";
+        ? "实时同步"
+        : "同步";
   const SyncButtonIcon =
     syncEntryPreference === "live-folder-sync" ? IconFolderOpen : IconRotate;
   const syncButtonTitle =
     syncEntryPreference === null
-      ? "Choose Object Sync (one-time) or Live Folder Sync"
-      : "Open your default sync type (use Command Palette to change)";
+      ? "选择一次性对象同步或实时文件夹同步"
+      : "打开默认同步方式（可在命令面板中修改）";
 
   const openSearch = useCallback(() => {
     useUIStore.getState().setObjectSearchOpen(true);
@@ -99,12 +99,12 @@ export function ObjectToolbar() {
       });
       if (result.jobIds.length > 0) {
         useUIStore.getState().setJobPanelOpen(true);
-        toast.success(`Uploading ${result.jobIds.length} file(s)`);
+        toast.success(`正在上传 ${result.jobIds.length} 个文件`);
       }
     } catch (err: unknown) {
       // Tauri rejects with the raw error string, not an Error instance.
       const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Upload failed: ${msg}`);
+      toast.error(`上传失败：${msg}`);
     }
   }, [profileId, bucket]);
 
@@ -120,12 +120,12 @@ export function ObjectToolbar() {
       });
       if (result.jobIds.length > 0) {
         useUIStore.getState().setJobPanelOpen(true);
-        toast.success(`Uploading ${result.jobIds.length} file(s) from folder`);
+        toast.success(`正在上传文件夹中的 ${result.jobIds.length} 个文件`);
       }
     } catch (err: unknown) {
       // Tauri rejects with the raw error string, not an Error instance.
       const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Folder upload failed: ${msg}`);
+      toast.error(`上传文件夹失败：${msg}`);
     }
   }, [profileId, bucket]);
 
@@ -150,7 +150,7 @@ export function ObjectToolbar() {
             }
             const folderName = key.slice(0, -1).split("/").pop() || key;
             toast.info(
-              `Downloading folder ${folderName} (${result.jobIds.length} files)`,
+              `正在下载文件夹 ${folderName}（${result.jobIds.length} 个文件）`,
             );
           }
         } else {
@@ -164,7 +164,7 @@ export function ObjectToolbar() {
             useUIStore.getState().setJobPanelOpen(true);
             started = true;
           }
-          toast.info(`Downloading ${key.split("/").pop()}`);
+          toast.info(`正在下载 ${key.split("/").pop()}`);
         }
       } catch (err: unknown) {
         if (
@@ -172,7 +172,7 @@ export function ObjectToolbar() {
           err.message === "No destination folder selected"
         )
           return;
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "未知错误");
       }
     }
   }, [profileId, bucket, selectedKeys]);
@@ -192,7 +192,7 @@ export function ObjectToolbar() {
       });
 
       useUIStore.getState().setJobPanelOpen(true);
-      toast.info(`Archiving ${keys.length} object(s) as .tar.gz`);
+      toast.info(`正在将 ${keys.length} 个文件打包为 .tar.gz`);
     } catch (err: unknown) {
       if (
         err instanceof Error &&
@@ -200,7 +200,7 @@ export function ObjectToolbar() {
       )
         return;
       toast.error(
-        `Archive failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        `打包失败：${err instanceof Error ? err.message : "未知错误"}`,
       );
     }
   }, [profileId, bucket, selectedKeys]);
@@ -269,18 +269,18 @@ export function ObjectToolbar() {
         <Button
           size="sm"
           onClick={() => void handleUpload()}
-          title="Upload Files"
+          title={"上传文件"}
         >
-          <IconCloudArrowUp /> Upload
+          <IconCloudArrowUp /> 上传
         </Button>
 
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCreateFolderOpen(true)}
-          title="Create Folder"
+          title={"新建文件夹"}
         >
-          <IconFolder /> New Folder
+          <IconFolder /> 新建文件夹
         </Button>
 
         <Button
@@ -288,9 +288,9 @@ export function ObjectToolbar() {
           size="sm"
           onClick={() => void handleDownload()}
           disabled={!hasSelection}
-          title="Download selected"
+          title={"下载选中项"}
         >
-          <IconCloudArrowDown /> Download
+          <IconCloudArrowDown /> 下载
         </Button>
 
         <Button
@@ -312,37 +312,35 @@ export function ObjectToolbar() {
           }
           onClick={openDeleteConfirm}
           disabled={!hasSelection}
-          title={
-            hasSelection ? "Delete selected" : "Select object(s) to delete"
-          }
+          title={hasSelection ? "删除选中项" : "选择要删除的文件"}
         >
-          <IconTrashCan /> Delete
+          <IconTrashCan /> 删除
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button variant="ghost" size="sm">
-                More <IconChevronDown className="size-3" />
+                更多 <IconChevronDown className="size-3" />
               </Button>
             }
           />
           <DropdownMenuContent align="start" className="w-52">
             <DropdownMenuItem onClick={() => void handleUploadFolder()}>
-              <IconFolderPlus /> Upload Folder
+              <IconFolderPlus /> 上传文件夹
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => void handleDownloadArchive()}
               disabled={!hasSelection}
             >
-              <IconFileZipper /> Download as Archive
+              <IconFileZipper /> 打包下载
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleTransfer} disabled={!hasSelection}>
-              <IconArrowRightArrowLeft /> Transfer
+              <IconArrowRightArrowLeft /> 传输
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleShare} disabled={!canShare}>
-              <IconShareNodes /> Share
+              <IconShareNodes /> 分享
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -354,8 +352,8 @@ export function ObjectToolbar() {
             type="button"
             className="flex h-7 items-center gap-1.5 rounded-md bg-muted px-2 text-foreground/80 text-xs hover:bg-muted/70"
             onClick={() => setFilters({ search: "" })}
-            title="Clear filter"
-            aria-label="Clear filter"
+            title={"清除筛选"}
+            aria-label={"清除筛选"}
           >
             <span className="max-w-32 truncate font-mono">
               {filters.search}
@@ -367,8 +365,8 @@ export function ObjectToolbar() {
           variant="ghost"
           size="icon-sm"
           onClick={openSearch}
-          title="Search objects (Ctrl+F)"
-          aria-label="Search objects"
+          title={"搜索文件（Ctrl+F）"}
+          aria-label={"搜索文件"}
         >
           <IconMagnifyingGlass />
         </Button>
@@ -377,8 +375,8 @@ export function ObjectToolbar() {
           variant="ghost"
           size="icon-sm"
           onClick={refresh}
-          title="Refresh"
-          aria-label="Refresh objects"
+          title={"刷新"}
+          aria-label={"刷新文件列表"}
         >
           <IconArrowsRotate />
         </Button>
@@ -389,8 +387,8 @@ export function ObjectToolbar() {
             size="icon-sm"
             className="rounded-none border-0"
             onClick={() => setViewMode("table")}
-            title="Table view"
-            aria-label="Switch to table view"
+            title={"列表视图"}
+            aria-label={"切换到列表视图"}
           >
             <IconTableList />
           </Button>
@@ -399,8 +397,8 @@ export function ObjectToolbar() {
             size="icon-sm"
             className="rounded-none border-0 border-l border-border"
             onClick={() => setViewMode("grid")}
-            title="Grid view"
-            aria-label="Switch to grid view"
+            title={"网格视图"}
+            aria-label={"切换到网格视图"}
           >
             <IconGrip />
           </Button>
@@ -411,9 +409,9 @@ export function ObjectToolbar() {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={() => void requestDelete()}
-        title="Delete Objects"
-        message={`Are you sure you want to delete ${selectedKeys.size} object(s)? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title={"删除文件"}
+        message={`确定删除 ${selectedKeys.size} 个文件吗？此操作无法撤销。`}
+        confirmLabel={"删除"}
       />
 
       <CreateFolderDialog

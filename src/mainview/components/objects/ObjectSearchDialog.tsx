@@ -55,8 +55,8 @@ export function ObjectSearchDialog() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Search objects"
-      description="Search files and folders in the current view"
+      title={"搜索文件"}
+      description={"在当前目录中搜索文件和文件夹"}
     >
       <Command
         // cmdk filters by item value; folder/file values include their names.
@@ -65,12 +65,12 @@ export function ObjectSearchDialog() {
         }
       >
         <CommandInput
-          placeholder="Search files and folders…"
+          placeholder={"搜索文件和文件夹…"}
           value={query}
           onValueChange={setQuery}
         />
         <CommandList>
-          <CommandEmpty>No matching objects</CommandEmpty>
+          <CommandEmpty>没有匹配的文件</CommandEmpty>
 
           {trimmed && (
             <CommandGroup heading="Actions">
@@ -82,9 +82,7 @@ export function ObjectSearchDialog() {
                 }}
               >
                 <IconMagnifyingGlass className="size-4" />
-                <span className="flex-1">
-                  Filter current view by “{trimmed}”
-                </span>
+                <span className="flex-1">筛选当前列表：“{trimmed}”</span>
               </CommandItem>
             </CommandGroup>
           )}

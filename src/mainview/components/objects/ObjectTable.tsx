@@ -138,11 +138,11 @@ export function ObjectTable({
         oldKey: renamingKey,
         newKey,
       });
-      toast.success(`Renamed to "${newName}"`);
+      toast.success(`已重命名为“${newName}”`);
       const currentPrefix = useObjectStore.getState().currentPrefix;
       useObjectStore.getState().loadObjects(profileId, bucket, currentPrefix);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Rename failed");
+      toast.error(err instanceof Error ? err.message : "重命名失败");
     }
     setRenamingKey(null);
   };
@@ -161,7 +161,7 @@ export function ObjectTable({
       tabIndex={0}
       onKeyDown={handleTableKeyDown}
     >
-      <Table aria-label="Object table" className="table-fixed">
+      <Table aria-label={"文件列表"} className="table-fixed">
         <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
           <tr className="hover:bg-transparent border-b">
             <TableHead className="w-8 px-2">
@@ -170,7 +170,7 @@ export function ObjectTable({
                 onCheckedChange={() =>
                   allSelected ? onClearSelection() : onSelectAll()
                 }
-                aria-label="Select all"
+                aria-label={"全选"}
               />
             </TableHead>
             <TableHead
@@ -189,7 +189,7 @@ export function ObjectTable({
                 className="flex w-full items-center gap-1 text-left"
                 onClick={() => onSort("key")}
               >
-                Name
+                名称
                 <span aria-hidden>{getSortIndicator("key")}</span>
               </button>
             </TableHead>
@@ -209,7 +209,7 @@ export function ObjectTable({
                 className="ml-auto flex items-center gap-1 text-right"
                 onClick={() => onSort("size")}
               >
-                Size
+                大小
                 <span aria-hidden>{getSortIndicator("size")}</span>
               </button>
             </TableHead>
@@ -229,7 +229,7 @@ export function ObjectTable({
                 className="ml-auto flex items-center gap-1 text-right"
                 onClick={() => onSort("lastModified")}
               >
-                Modified
+                修改时间
                 <span aria-hidden>{getSortIndicator("lastModified")}</span>
               </button>
             </TableHead>
@@ -261,7 +261,7 @@ export function ObjectTable({
                 <Checkbox
                   checked={selectedKeys.has(p.prefix)}
                   onCheckedChange={() => onToggleSelect(p.prefix)}
-                  aria-label={`Select ${p.prefix}`}
+                  aria-label={`选择 ${p.prefix}`}
                 />
               </TableCell>
               <TableCell>
@@ -307,7 +307,7 @@ export function ObjectTable({
                   <Checkbox
                     checked={selectedKeys.has(obj.key)}
                     onCheckedChange={() => onToggleSelect(obj.key)}
-                    aria-label={`Select ${getFileName(obj.key)}`}
+                    aria-label={`选择 ${getFileName(obj.key)}`}
                   />
                 </TableCell>
                 <TableCell>
@@ -334,7 +334,7 @@ export function ObjectTable({
                         onKeyDown={(e) => {
                           if (e.key === "F2") startRename(obj.key);
                         }}
-                        aria-label={`Rename ${getFileName(obj.key)}`}
+                        aria-label={`重命名 ${getFileName(obj.key)}`}
                       >
                         {getFileName(obj.key)}
                       </button>

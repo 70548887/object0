@@ -38,15 +38,15 @@ function formatKeychainUnlockError(
   const suffix = detail ? `: ${detail}` : "";
   switch (reason) {
     case "vault_missing":
-      return "Vault not found";
+      return "未找到密码库";
     case "no_stored_passphrase":
-      return "No passphrase found in OS keychain";
+      return "系统钥匙串中没有保存的密码";
     case "stale_stored_passphrase":
-      return "Stored passphrase is outdated. Unlock manually and save again.";
+      return "保存的密码已过期，请手动解锁并重新保存。";
     case "keychain_unavailable":
-      return `OS keychain is unavailable on this device${suffix}`;
+      return `此设备的系统钥匙串不可用${suffix}`;
     default:
-      return "Failed to unlock with OS keychain";
+      return "使用系统钥匙串解锁失败";
   }
 }
 
@@ -101,7 +101,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
       });
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
     }
@@ -124,7 +124,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
       return result.success;
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
       return false;
@@ -143,12 +143,12 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
           loading: false,
         });
       } else {
-        set({ error: "Incorrect passphrase", loading: false });
+        set({ error: "密码错误", loading: false });
       }
       return result.success;
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
       return false;
@@ -175,7 +175,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
       return result.success;
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
       return false;
@@ -192,7 +192,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
         pendingRecoveryKey: null,
       });
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : "Unknown error" });
+      set({ error: err instanceof Error ? err.message : "未知错误" });
     }
   },
 
@@ -201,7 +201,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
       const profiles = await rpcCall("profile:list", undefined);
       set({ profiles });
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : "Unknown error" });
+      set({ error: err instanceof Error ? err.message : "未知错误" });
     }
   },
 
@@ -217,12 +217,12 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
           loading: false,
         });
       } else {
-        set({ error: "Invalid recovery key", loading: false });
+        set({ error: "恢复密钥无效", loading: false });
       }
       return result.success;
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
       return false;
@@ -247,7 +247,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
       return result.success;
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
       return false;
@@ -272,7 +272,7 @@ export const useVaultStore = create<VaultState>()((set, _get) => ({
       return result.success;
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         loading: false,
       });
       return false;

@@ -62,7 +62,7 @@ export function SettingsPanel() {
         <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
           <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
             <IconGear className="size-4 shrink-0 text-foreground/60" />
-            <span className="truncate">Settings</span>
+            <span className="truncate">设置</span>
           </SheetTitle>
           <div className="flex shrink-0 items-center gap-0.5">
             <Button
@@ -70,7 +70,7 @@ export function SettingsPanel() {
               size="icon-sm"
               className="text-foreground/50 hover:text-foreground"
               onClick={() => setSettingsOpen(false)}
-              title="Close"
+              title={"关闭"}
             >
               <IconXmark className="size-4" />
             </Button>
@@ -83,11 +83,11 @@ export function SettingsPanel() {
             {/* Appearance */}
             <section>
               <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">
-                Appearance
+                外观
               </h4>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Theme</span>
+                  <span className="text-sm">主题</span>
                   <Select
                     value={theme}
                     onValueChange={(v) => {
@@ -106,13 +106,13 @@ export function SettingsPanel() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">深色</SelectItem>
+                      <SelectItem value="light">浅色</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Default View</span>
+                  <span className="text-sm">默认视图</span>
                   <Select
                     value={viewMode}
                     onValueChange={(v) => {
@@ -131,8 +131,8 @@ export function SettingsPanel() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="table">Table</SelectItem>
-                      <SelectItem value="grid">Grid</SelectItem>
+                      <SelectItem value="table">列表</SelectItem>
+                      <SelectItem value="grid">网格</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -142,14 +142,14 @@ export function SettingsPanel() {
             {/* Browsing */}
             <section>
               <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">
-                Browsing
+                浏览
               </h4>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-sm">Page Size</span>
+                    <span className="text-sm">每页数量</span>
                     <p className="text-[10px] text-foreground/40">
-                      Objects loaded per page
+                      每页加载的文件数量
                     </p>
                   </div>
                   <Select
@@ -176,14 +176,14 @@ export function SettingsPanel() {
             {/* Notifications */}
             <section>
               <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">
-                Notifications
+                通知
               </h4>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-sm">Desktop Notifications</span>
+                    <span className="text-sm">桌面通知</span>
                     <p className="text-[10px] text-foreground/40">
-                      Notify when jobs complete
+                      任务完成时通知
                     </p>
                   </div>
                   <Switch
@@ -197,14 +197,14 @@ export function SettingsPanel() {
             {/* Privacy */}
             <section>
               <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">
-                Privacy
+                隐私
               </h4>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-sm">Persist Share History</span>
+                    <span className="text-sm">保存分享记录</span>
                     <p className="text-[10px] text-foreground/40">
-                      Save generated share URLs locally between app restarts
+                      在本机保存分享链接，重启后仍可查看
                     </p>
                   </div>
                   <Switch
@@ -221,14 +221,14 @@ export function SettingsPanel() {
             {/* Transfers */}
             <section>
               <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">
-                Transfers
+                传输
               </h4>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-sm">Concurrent Jobs</span>
+                    <span className="text-sm">并发任务数</span>
                     <p className="text-[10px] text-foreground/40">
-                      Max parallel transfers (default 3)
+                      最多同时进行的传输任务（默认 3 个）
                     </p>
                   </div>
                   <Select
@@ -258,13 +258,13 @@ export function SettingsPanel() {
             {/* Vault */}
             <section>
               <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">
-                Vault
+                密码库
               </h4>
               <div className="flex flex-col gap-3">
                 <div className="space-y-2 rounded-md border border-border/70 bg-card/35 p-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <span className="text-sm">Stored Passphrase</span>
+                      <span className="text-sm">已保存的密码</span>
                       <p className="text-[10px] text-foreground/40">
                         {keychainStatusText}
                       </p>
@@ -294,13 +294,13 @@ export function SettingsPanel() {
                       ) : (
                         <>
                           <IconTrashCan className="size-3.5" />
-                          Forget Stored Passphrase
+                          移除保存的密码
                         </>
                       )}
                     </Button>
                   </div>
                   <p className="text-[10px] text-foreground/35">
-                    Removes the saved passphrase from your OS keychain.
+                    从系统钥匙串中移除已保存的密码。
                   </p>
 
                   {keychainMessage && (

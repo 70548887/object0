@@ -59,7 +59,7 @@ export function DropZone({ children }: DropZoneProps) {
       const files = Array.from(e.dataTransfer.files);
 
       if (files.length === 0) {
-        toast.warning("No files detected in drop");
+        toast.warning("未检测到拖入的文件");
         return;
       }
 
@@ -72,7 +72,7 @@ export function DropZone({ children }: DropZoneProps) {
           .filter(Boolean) as string[];
 
         if (paths.length === 0) {
-          toast.warning("Could not read file paths from drop");
+          toast.warning("无法读取拖入文件的路径");
           return;
         }
 
@@ -90,18 +90,18 @@ export function DropZone({ children }: DropZoneProps) {
             totalJobs++;
           } catch (err: unknown) {
             toast.error(
-              `Failed to upload ${fileName}: ${err instanceof Error ? err.message : "Unknown error"}`,
+              `上传 ${fileName} 失败：${err instanceof Error ? err.message : "未知错误"}`,
             );
           }
         }
 
         if (totalJobs > 0) {
           useUIStore.getState().setJobPanelOpen(true);
-          toast.success(`Uploading ${totalJobs} file(s)`);
+          toast.success(`正在上传 ${totalJobs} 个文件`);
         }
       } catch (err: unknown) {
         toast.error(
-          `Drop failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+          `拖放失败：${err instanceof Error ? err.message : "未知错误"}`,
         );
       }
     },
@@ -114,7 +114,7 @@ export function DropZone({ children }: DropZoneProps) {
     // biome-ignore lint/a11y/useSemanticElements: drop zone requires div with drag handlers
     <div
       role="region"
-      aria-label="File drop zone"
+      aria-label={"文件拖放区域"}
       className="relative flex-1 overflow-auto"
       onDragEnter={active ? handleDragEnter : undefined}
       onDragLeave={active ? handleDragLeave : undefined}
@@ -129,10 +129,10 @@ export function DropZone({ children }: DropZoneProps) {
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-primary border-dashed bg-background/80 px-12 py-10">
             <IconCloudArrowUp className="size-10 text-primary" />
             <span className="font-semibold text-foreground text-sm">
-              Drop files to upload
+              将文件拖到这里上传
             </span>
             <span className="text-foreground/50 text-xs">
-              Files will be uploaded to the current folder
+              文件将上传到当前文件夹
             </span>
           </div>
         </div>

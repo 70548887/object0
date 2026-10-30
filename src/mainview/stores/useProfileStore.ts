@@ -41,7 +41,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       set({ buckets, bucketsLoading: false });
     } catch (err: unknown) {
       set({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "未知错误",
         bucketsLoading: false,
       });
     }

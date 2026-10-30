@@ -136,8 +136,8 @@ export function ObjectBreadcrumb({
           size="icon-xs"
           className="opacity-70 hover:opacity-100"
           onClick={() => void handleCopyPath()}
-          title={`Copy path: ${fullPath}`}
-          aria-label="Copy current path"
+          title={`复制路径：${fullPath}`}
+          aria-label={"复制当前路径"}
         >
           {copied ? (
             <IconCheck className="size-3 text-success" />

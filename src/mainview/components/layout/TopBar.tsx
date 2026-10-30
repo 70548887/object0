@@ -89,7 +89,7 @@ export function TopBar() {
             />
           ) : (
             <span className="text-foreground/40 text-sm">
-              {activeProfile ? "Select a bucket" : "Select a profile to begin"}
+              {activeProfile ? "选择存储桶" : "请先选择存储账号"}
             </span>
           )}
         </div>
@@ -104,8 +104,8 @@ export function TopBar() {
           size="icon-sm"
           className="no-drag"
           onClick={toggleTheme}
-          title="Toggle Theme (Ctrl+\\)"
-          aria-label="Toggle theme"
+          title={"切换主题（Ctrl+\\）"}
+          aria-label={"切换主题"}
         >
           {theme === "dark" ? (
             <IconSun className="size-4" />
@@ -119,8 +119,8 @@ export function TopBar() {
             variant="ghost"
             size="icon-sm"
             onClick={() => setShareHistoryOpen(!shareHistoryOpen)}
-            title="Share History"
-            aria-label="Toggle share history"
+            title={"分享记录"}
+            aria-label={"显示或隐藏分享记录"}
           >
             <IconClockRotateLeft className="size-4" />
           </Button>
@@ -141,8 +141,8 @@ export function TopBar() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  title="Toggle Jobs Panel (Ctrl+J)"
-                  aria-label="Toggle jobs panel"
+                  title={"显示或隐藏任务面板（Ctrl+J）"}
+                  aria-label={"显示或隐藏任务面板"}
                 >
                   <IconListCheck className="size-4" />
                 </Button>
@@ -170,8 +170,8 @@ export function TopBar() {
             variant="ghost"
             size="icon-sm"
             onClick={() => setFolderSyncPanelOpen(!folderSyncPanelOpen)}
-            title="Live Folder Sync (continuous local <-> bucket)"
-            aria-label="Toggle live folder sync panel"
+            title={"实时文件夹同步（本地与存储桶持续同步）"}
+            aria-label={"显示或隐藏实时同步面板"}
           >
             <IconFolderOpen
               className={`size-4 ${syncingCount() > 0 ? "text-info" : ""}`}
@@ -191,8 +191,8 @@ export function TopBar() {
           size="icon-sm"
           className="no-drag"
           onClick={() => setSettingsOpen(!settingsOpen)}
-          title="Settings (Ctrl+,)"
-          aria-label="Toggle settings panel"
+          title={"设置（Ctrl+,）"}
+          aria-label={"显示或隐藏设置面板"}
         >
           <IconGear className="size-4" />
         </Button>

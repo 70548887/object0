@@ -85,11 +85,11 @@ export function ObjectBrowser() {
     return (
       <EmptyState
         icon={<IconTriangleExclamation className="size-12 opacity-40" />}
-        title="Error loading objects"
+        title={"加载文件失败"}
         description={error}
         action={
           <Button size="sm" onClick={refresh}>
-            Retry
+            重试
           </Button>
         }
       />
@@ -150,16 +150,16 @@ export function ObjectBrowser() {
     return (
       <EmptyState
         icon={<IconFolderOpen className="size-12 opacity-40" />}
-        title={currentPrefix ? "Empty folder" : "Empty bucket"}
-        description="No objects found at this location."
+        title={currentPrefix ? "文件夹为空" : "存储桶为空"}
+        description={"此位置没有文件。"}
         action={
           currentPrefix ? (
             <Button variant="ghost" size="sm" onClick={goBack}>
-              <IconArrowLeft /> Go Back
+              <IconArrowLeft /> 返回
             </Button>
           ) : undefined
         }
-        hint="Drag & drop files here or use the Upload button in the toolbar."
+        hint={"将文件拖到这里，或使用工具栏上的上传按钮。"}
       />
     );
   }
@@ -173,9 +173,9 @@ export function ObjectBrowser() {
     return (
       <EmptyState
         icon={<IconMagnifyingGlass className="size-12 opacity-40" />}
-        title="No matches"
-        description={`No objects matching "${filters.search}"`}
-        hint="Try a shorter or broader search term."
+        title={"没有匹配结果"}
+        description={`未找到与“${filters.search}”匹配的文件`}
+        hint={"试试更短或范围更广的搜索词。"}
       />
     );
   }
@@ -218,7 +218,7 @@ export function ObjectBrowser() {
             {loading ? (
               <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
             ) : (
-              "Load More"
+              "加载更多"
             )}
           </Button>
         </div>

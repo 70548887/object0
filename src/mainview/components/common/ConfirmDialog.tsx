@@ -38,7 +38,7 @@ export function ConfirmDialog({
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose}>取消</AlertDialogCancel>
           <AlertDialogAction
             variant={isDestructive ? "destructive" : "default"}
             onClick={() => {
