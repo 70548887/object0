@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatBytes, getFileName } from "@/lib/formatters";
+import { localize, t, useT } from "@/lib/i18n";
 import { IconArrowUpRightFromSquare } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { useBucketStore, useObjectStore, useProfileStore } from "@/stores";
@@ -32,6 +33,7 @@ export function ObjectGrid({
   onNavigate,
   onToggleSelect,
 }: ObjectGridProps) {
+  useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
   const bucket = useBucketStore((s) => s.selectedBucket);
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
@@ -41,7 +43,12 @@ export function ObjectGrid({
 
   const startRename = useCallback((key: string) => {
     if (key.endsWith("/")) {
-      toast.info("网格视图暂不支持重命名文件夹");
+      toast.info(
+        t(
+          "网格视图暂不支持重命名文件夹",
+          "Folder renaming is not supported in grid view yet.",
+        ),
+      );
       return;
     }
     setRenamingKey(key);
@@ -81,14 +88,18 @@ export function ObjectGrid({
         oldKey: renamingKey,
         newKey,
       });
-      toast.success(`已重命名为“${newName}”`);
+      toast.success(t(`已重命名为“${newName}”`, `Renamed to “${newName}”`));
       const currentPrefix = useObjectStore.getState().currentPrefix;
       await useObjectStore
         .getState()
         .loadObjects(profileId, bucket, currentPrefix);
       closeRename();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "重命名失败");
+      toast.error(
+        err instanceof Error
+          ? localize(err.message)
+          : t("重命名失败", "Rename failed"),
+      );
       setRenaming(false);
     }
   }, [renamingKey, renameValue, profileId, bucket, closeRename]);
@@ -128,8 +139,11 @@ export function ObjectGrid({
                     size="icon-sm"
                     className="absolute top-1 right-1 opacity-80 transition-opacity group-hover/folder:opacity-100"
                     onClick={() => onNavigate(p.prefix)}
-                    title={`打开 ${folderName}`}
-                    aria-label={`打开文件夹 ${folderName}`}
+                    title={t(`打开 ${folderName}`, `Open ${folderName}`)}
+                    aria-label={t(
+                      `打开文件夹 ${folderName}`,
+                      `Open folder ${folderName}`,
+                    )}
                   >
                     <IconArrowUpRightFromSquare />
                   </Button>
@@ -186,7 +200,7 @@ export function ObjectGrid({
       <Dialog open={!!renamingKey} onOpenChange={(o) => !o && closeRename()}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>重命名文件</DialogTitle>
+            <DialogTitle>{t("重命名文件", "Rename file")}</DialogTitle>
           </DialogHeader>
 
           <Input
@@ -209,7 +223,7 @@ export function ObjectGrid({
 
           <DialogFooter>
             <Button variant="outline" onClick={closeRename}>
-              取消
+              {t("取消", "Cancel")}
             </Button>
             <Button
               onClick={() => void commitRename()}
@@ -218,7 +232,7 @@ export function ObjectGrid({
               {renaming ? (
                 <div className="size-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               ) : (
-                "重命名"
+                t("重命名", "Rename")
               )}
             </Button>
           </DialogFooter>

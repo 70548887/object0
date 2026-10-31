@@ -45,6 +45,7 @@ mod crypto;
 mod folder_sync;
 mod jobs;
 mod keychain;
+mod native_locale;
 mod persistence;
 mod rpc;
 mod rpc_method;
@@ -872,6 +873,10 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState::default())
         .setup(|app| {
+            native_locale::initialize();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(native_locale::app_name());
+            }
             hydrate_job_history_runtime(app.app_handle());
 
             // Custom window decorations: macOS keeps the native frame (traffic
@@ -890,7 +895,7 @@ pub fn run() {
             let menu = build_tray_menu(app.app_handle()).map_err(std::io::Error::other)?;
             let mut tray_builder = TrayIconBuilder::with_id("object0-tray")
                 .menu(&menu)
-                .tooltip("object0")
+                .tooltip(native_locale::app_name())
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
                     handle_tray_menu_action(app, event.id().as_ref());

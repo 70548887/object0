@@ -2,6 +2,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { t, useT } from "@/lib/i18n";
 import { IconChevronDown, IconClock, IconCopy, IconQrcode } from "@/lib/icons";
 
 interface ShareResultProps {
@@ -19,13 +20,14 @@ export function ShareResult({
   onCopy,
   onToggleQR,
 }: ShareResultProps) {
+  useT();
   const linkId = useId();
   return (
     <>
       {/* Generated URL */}
       <div className="space-y-2">
         <label htmlFor={linkId} className="font-medium text-foreground text-sm">
-          分享链接
+          {t("分享链接", "Sharing link")}
         </label>
         <div className="flex gap-2">
           <Input
@@ -42,8 +44,8 @@ export function ShareResult({
             size="icon"
             className="size-10 shrink-0"
             onClick={onCopy}
-            title={"复制到剪贴板"}
-            aria-label="复制分享链接"
+            title={t("复制到剪贴板", "Copy to clipboard")}
+            aria-label={t("复制分享链接", "Copy sharing link")}
           >
             <IconCopy className="size-3.5" />
           </Button>
@@ -54,9 +56,10 @@ export function ShareResult({
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
         <IconClock className="size-4" />
         <span>
-          {expiresLabel === "已过期" || expiresLabel === "有效期未知"
+          {expiresLabel === t("已过期", "Expired") ||
+          expiresLabel === t("有效期未知", "Expiration unknown")
             ? expiresLabel
-            : `剩余有效期 ${expiresLabel}`}
+            : t(`剩余有效期 ${expiresLabel}`, `Expires in ${expiresLabel}`)}
         </span>
       </div>
 
@@ -74,12 +77,12 @@ export function ShareResult({
           {showQR ? (
             <>
               <IconChevronDown className="size-3.5 mr-1" />
-              隐藏二维码
+              {t("隐藏二维码", "Hide QR code")}
             </>
           ) : (
             <>
               <IconQrcode className="size-3.5 mr-1" />
-              显示二维码
+              {t("显示二维码", "Show QR code")}
             </>
           )}
         </Button>
@@ -95,7 +98,7 @@ export function ShareResult({
               level="M"
               includeMargin
               className="max-w-full h-auto"
-              title="分享链接二维码"
+              title={t("分享链接二维码", "Sharing link QR code")}
             />
           </div>
         )}

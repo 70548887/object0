@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { localize, t, useT } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
 import { useBucketStore, useObjectStore, useProfileStore } from "@/stores";
 import { toast } from "../common/Toast";
@@ -20,6 +21,7 @@ interface CreateFolderDialogProps {
 }
 
 export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
+  useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
   const bucket = useBucketStore((s) => s.selectedBucket);
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
@@ -44,14 +46,19 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
         key,
         localPath: "", // empty path signals a zero-byte folder marker
       });
-      toast.success(`文件夹“${cleanName}”已创建`);
+      toast.success(
+        t(`文件夹“${cleanName}”已创建`, `Folder “${cleanName}” created`),
+      );
       // Refresh the object list
       useObjectStore.getState().loadObjects(profileId, bucket, currentPrefix);
       setName("");
       onClose();
     } catch (err: unknown) {
       toast.error(
-        `创建文件夹失败：${err instanceof Error ? err.message : "未知错误"}`,
+        t(
+          `创建文件夹失败：${err instanceof Error ? localize(err.message) : t("未知错误", "Unknown error")}`,
+          `Failed to create folder: ${err instanceof Error ? localize(err.message) : t("未知错误", "Unknown error")}`,
+        ),
       );
     }
     setCreating(false);
@@ -66,13 +73,13 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>新建文件夹</DialogTitle>
+          <DialogTitle>{t("新建文件夹", "New folder")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={(e) => void handleCreate(e)} className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="folder-name" className="text-xs">
-              文件夹名称
+              {t("文件夹名称", "Folder name")}
             </Label>
             <Input
               id="folder-name"
@@ -90,15 +97,18 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
             />
             <p className="text-[11px] text-foreground/50">
               {currentPrefix
-                ? `将创建：${currentPrefix}${name.trim()}/`
-                : `将创建：${name.trim()}/`}
+                ? t(
+                    `将创建：${currentPrefix}${name.trim()}/`,
+                    `Will create: ${currentPrefix}${name.trim()}/`,
+                  )
+                : t(`将创建：${name.trim()}/`, `Will create: ${name.trim()}/`)}
             </p>
           </div>
         </form>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={handleClose}>
-            取消
+            {t("取消", "Cancel")}
           </Button>
           <Button
             size="sm"
@@ -108,7 +118,7 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
             {creating ? (
               <div className="size-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
             ) : (
-              "创建"
+              t("创建", "Create")
             )}
           </Button>
         </DialogFooter>

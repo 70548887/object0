@@ -1531,9 +1531,19 @@ pub(crate) async fn rpc_request(
             "hash": "",
             "baseUrl": updater_local_info_base_url(),
             "channel": updater_channel(),
-            "name": "object0",
+            "name": native_locale::app_name(),
             "identifier": "dev.object0.app"
         })),
         RpcMethod::SystemPlatform => Ok(json!({ "os": std::env::consts::OS })),
+        RpcMethod::SystemSetLanguage => {
+            let locale = payload.get("locale").and_then(Value::as_str)
+                .ok_or_else(|| "Invalid language selection".to_string())?;
+            native_locale::set(locale)?;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(native_locale::app_name());
+            }
+            refresh_tray_menu(&app);
+            Ok(Value::Null)
+        }
     }
 }

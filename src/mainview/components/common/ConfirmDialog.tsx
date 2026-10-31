@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { t, useT } from "@/lib/i18n";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -25,9 +26,10 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
-  confirmLabel = "Confirm",
+  confirmLabel = t("确定", "Confirm"),
   destructive = false,
 }: ConfirmDialogProps) {
+  useT();
   const isDestructive = destructive;
 
   return (
@@ -38,7 +40,9 @@ export function ConfirmDialog({
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>取消</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose}>
+            {t("取消", "Cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={isDestructive ? "destructive" : "default"}
             onClick={() => {

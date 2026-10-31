@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { localize, useT } from "@/lib/i18n";
 import { IconFolderOpen, IconSpinner } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { useFolderSyncStore, useVaultStore } from "@/stores";
@@ -38,6 +39,7 @@ export function FolderSyncRuleEditor({
   editRule,
   onDone,
 }: FolderSyncRuleEditorProps) {
+  const t = useT();
   const profiles = useVaultStore((s) => s.profiles);
   const addRule = useFolderSyncStore((s) => s.addRule);
   const updateRule = useFolderSyncStore((s) => s.updateRule);
@@ -66,16 +68,23 @@ export function FolderSyncRuleEditor({
   const [loadingBuckets, setLoadingBuckets] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const loadBuckets = useCallback(async (pid: string) => {
-    setLoadingBuckets(true);
-    try {
-      const result = await rpcCall("buckets:list", { profileId: pid });
-      setBuckets(result.map((b) => b.name));
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "未知错误");
-    }
-    setLoadingBuckets(false);
-  }, []);
+  const loadBuckets = useCallback(
+    async (pid: string) => {
+      setLoadingBuckets(true);
+      try {
+        const result = await rpcCall("buckets:list", { profileId: pid });
+        setBuckets(result.map((b) => b.name));
+      } catch (err: unknown) {
+        toast.error(
+          err instanceof Error
+            ? localize(err.message)
+            : t("未知错误", "Unknown error"),
+        );
+      }
+      setLoadingBuckets(false);
+    },
+    [t],
+  );
 
   useEffect(() => {
     if (profileId) {
@@ -90,7 +99,7 @@ export function FolderSyncRuleEditor({
 
   const handleSave = async () => {
     if (!profileId || !bucket || !localPath) {
-      toast.error("请填写所有必填项");
+      toast.error(t("请填写所有必填项", "Please fill in all required fields"));
       return;
     }
 
@@ -112,14 +121,18 @@ export function FolderSyncRuleEditor({
 
       if (editRule) {
         await updateRule({ ...input, id: editRule.id });
-        toast.success("同步规则已更新");
+        toast.success(t("同步规则已更新", "Sync rule updated"));
       } else {
         await addRule(input);
-        toast.success("同步规则已创建");
+        toast.success(t("同步规则已创建", "Sync rule created"));
       }
       onDone();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "未知错误");
+      toast.error(
+        err instanceof Error
+          ? localize(err.message)
+          : t("未知错误", "Unknown error"),
+      );
     }
     setSaving(false);
   };
@@ -127,15 +140,20 @@ export function FolderSyncRuleEditor({
   return (
     <div className="space-y-3">
       <div className="rounded border border-success/30 bg-success/10 p-2 text-xs">
-        <p className="font-semibold text-success">实时同步规则</p>
+        <p className="font-semibold text-success">
+          {t("实时同步规则", "Live sync rule")}
+        </p>
         <p className="text-foreground/70">
-          在后台持续同步本地文件夹和 S3 路径。
+          {t(
+            "在后台持续同步本地文件夹和 S3 路径。",
+            "Continuously sync a local folder and an S3 prefix in the background.",
+          )}
         </p>
       </div>
 
       {/* Profile */}
       <div className="space-y-1.5">
-        <Label className="text-xs">存储账号</Label>
+        <Label className="text-xs">{t("存储账号", "Storage account")}</Label>
         <Select
           value={profileId}
           onValueChange={(v) => {
@@ -144,8 +162,14 @@ export function FolderSyncRuleEditor({
             setBucket("");
           }}
         >
-          <SelectTrigger size="sm" className="w-full">
-            <SelectValue placeholder={"选择存储账号..."}>
+          <SelectTrigger
+            aria-label={t("存储账号", "Storage account")}
+            size="sm"
+            className="w-full"
+          >
+            <SelectValue
+              placeholder={t("选择存储账号...", "Select a storage account...")}
+            >
               {(value) =>
                 profiles.find((p) => p.id === value)?.name ?? (value as string)
               }
@@ -163,7 +187,7 @@ export function FolderSyncRuleEditor({
 
       {/* Bucket */}
       <div className="space-y-1.5">
-        <Label className="text-xs">存储桶</Label>
+        <Label className="text-xs">{t("存储桶", "Bucket")}</Label>
         <Select
           value={bucket}
           onValueChange={(v) => {
@@ -171,9 +195,17 @@ export function FolderSyncRuleEditor({
           }}
           disabled={!profileId || loadingBuckets}
         >
-          <SelectTrigger size="sm" className="w-full">
+          <SelectTrigger
+            aria-label={t("存储桶", "Bucket")}
+            size="sm"
+            className="w-full"
+          >
             <SelectValue
-              placeholder={loadingBuckets ? "正在加载..." : "选择存储桶..."}
+              placeholder={
+                loadingBuckets
+                  ? t("正在加载...", "Loading...")
+                  : t("选择存储桶...", "Select a bucket...")
+              }
             >
               {(value) => value as string}
             </SelectValue>
@@ -190,10 +222,16 @@ export function FolderSyncRuleEditor({
 
       {/* Bucket prefix */}
       <div className="space-y-1.5">
-        <Label className="text-xs">存储桶路径前缀（可选）</Label>
+        <Label className="text-xs">
+          {t("存储桶路径前缀（可选）", "Bucket prefix (optional)")}
+        </Label>
         <Input
+          aria-label={t("存储桶路径前缀（可选）", "Bucket prefix (optional)")}
           className="h-7 text-xs w-full"
-          placeholder={"例如 photos/，留空表示整个存储桶"}
+          placeholder={t(
+            "例如 photos/，留空表示整个存储桶",
+            "For example, photos/; leave blank for the entire bucket",
+          )}
           value={bucketPrefix}
           onChange={(e) => setBucketPrefix(e.target.value)}
         />
@@ -201,9 +239,10 @@ export function FolderSyncRuleEditor({
 
       {/* Local folder */}
       <div className="space-y-1.5">
-        <Label className="text-xs">本地文件夹</Label>
+        <Label className="text-xs">{t("本地文件夹", "Local folder")}</Label>
         <div className="flex gap-2">
           <Input
+            aria-label={t("本地文件夹", "Local folder")}
             className="h-7 text-xs flex-1"
             placeholder="/path/to/folder"
             value={localPath}
@@ -211,57 +250,90 @@ export function FolderSyncRuleEditor({
           />
           <Button variant="outline" size="sm" onClick={handlePickFolder}>
             <IconFolderOpen className="size-3.5" />
-            浏览
+            {t("浏览", "Browse")}
           </Button>
         </div>
       </div>
 
       {/* Direction */}
       <div className="space-y-1.5">
-        <Label className="text-xs">同步方向（持续规则）</Label>
+        <Label className="text-xs">
+          {t("同步方向（持续规则）", "Sync direction (continuous rule)")}
+        </Label>
         <Select
           value={direction}
           onValueChange={(v) => {
             if (v != null) setDirection(v as SyncDirection);
           }}
         >
-          <SelectTrigger size="sm" className="w-full">
+          <SelectTrigger
+            aria-label={t(
+              "同步方向（持续规则）",
+              "Sync direction (continuous rule)",
+            )}
+            size="sm"
+            className="w-full"
+          >
             <SelectValue>
               {(value) => {
                 const labels: Record<string, string> = {
-                  bidirectional: "双向同步",
-                  "local-to-remote": "仅上传：本地 → 远端",
-                  "remote-to-local": "仅下载：远端 → 本地",
+                  bidirectional: t("双向同步", "Bidirectional"),
+                  "local-to-remote": t(
+                    "仅上传：本地 → 远端",
+                    "Upload only: local → remote",
+                  ),
+                  "remote-to-local": t(
+                    "仅下载：远端 → 本地",
+                    "Download only: remote → local",
+                  ),
                 };
                 return labels[value as string] ?? (value as string);
               }}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="bidirectional">双向同步</SelectItem>
-            <SelectItem value="local-to-remote">仅上传：本地 → 远端</SelectItem>
-            <SelectItem value="remote-to-local">仅下载：远端 → 本地</SelectItem>
+            <SelectItem value="bidirectional">
+              {t("双向同步", "Bidirectional")}
+            </SelectItem>
+            <SelectItem value="local-to-remote">
+              {t("仅上传：本地 → 远端", "Upload only: local → remote")}
+            </SelectItem>
+            <SelectItem value="remote-to-local">
+              {t("仅下载：远端 → 本地", "Download only: remote → local")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {/* Conflict resolution */}
       <div className="space-y-1.5">
-        <Label className="text-xs">冲突处理</Label>
+        <Label className="text-xs">
+          {t("冲突处理", "Conflict resolution")}
+        </Label>
         <Select
           value={conflictResolution}
           onValueChange={(v) => {
             if (v != null) setConflictResolution(v as ConflictResolution);
           }}
         >
-          <SelectTrigger size="sm" className="w-full">
+          <SelectTrigger
+            aria-label={t("冲突处理", "Conflict resolution")}
+            size="sm"
+            className="w-full"
+          >
             <SelectValue>
               {(value) => {
                 const labels: Record<string, string> = {
-                  "newer-wins": "保留较新的文件（比较时间）",
-                  "local-wins": "始终以本地为准",
-                  "remote-wins": "始终以远端为准",
-                  "keep-both": "两者都保留（标记冲突）",
+                  "newer-wins": t(
+                    "保留较新的文件（比较时间）",
+                    "Keep the newer file (compare timestamps)",
+                  ),
+                  "local-wins": t("始终以本地为准", "Always prefer local"),
+                  "remote-wins": t("始终以远端为准", "Always prefer remote"),
+                  "keep-both": t(
+                    "两者都保留（标记冲突）",
+                    "Keep both (mark conflicts)",
+                  ),
                 };
                 return labels[value as string] ?? (value as string);
               }}
@@ -269,54 +341,77 @@ export function FolderSyncRuleEditor({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="newer-wins">
-              保留较新的文件（比较时间）
+              {t(
+                "保留较新的文件（比较时间）",
+                "Keep the newer file (compare timestamps)",
+              )}
             </SelectItem>
-            <SelectItem value="local-wins">始终以本地为准</SelectItem>
-            <SelectItem value="remote-wins">始终以远端为准</SelectItem>
-            <SelectItem value="keep-both">两者都保留（标记冲突）</SelectItem>
+            <SelectItem value="local-wins">
+              {t("始终以本地为准", "Always prefer local")}
+            </SelectItem>
+            <SelectItem value="remote-wins">
+              {t("始终以远端为准", "Always prefer remote")}
+            </SelectItem>
+            <SelectItem value="keep-both">
+              {t("两者都保留（标记冲突）", "Keep both (mark conflicts)")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {/* Poll interval */}
       <div className="space-y-1.5">
-        <Label className="text-xs">检查远端更新的间隔</Label>
+        <Label className="text-xs">
+          {t("检查远端更新的间隔", "Check remote changes every")}
+        </Label>
         <Select
           value={String(pollIntervalMs)}
           onValueChange={(v) => {
             if (v != null) setPollIntervalMs(Number(v));
           }}
         >
-          <SelectTrigger size="sm" className="w-full">
+          <SelectTrigger
+            aria-label={t("检查远端更新的间隔", "Check remote changes every")}
+            size="sm"
+            className="w-full"
+          >
             <SelectValue>
               {(value) => {
                 const labels: Record<string, string> = {
-                  "15000": "15 seconds",
-                  "30000": "30 seconds",
-                  "60000": "1 minute",
-                  "300000": "5 minutes",
-                  "600000": "10 minutes",
-                  "1800000": "30 minutes",
+                  "15000": t("15 秒", "15 seconds"),
+                  "30000": t("30 秒", "30 seconds"),
+                  "60000": t("1 分钟", "1 minute"),
+                  "300000": t("5 分钟", "5 minutes"),
+                  "600000": t("10 分钟", "10 minutes"),
+                  "1800000": t("30 分钟", "30 minutes"),
                 };
                 return labels[value as string] ?? (value as string);
               }}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="15000">15 秒</SelectItem>
-            <SelectItem value="30000">30 秒</SelectItem>
-            <SelectItem value="60000">1 分钟</SelectItem>
-            <SelectItem value="300000">5 分钟</SelectItem>
-            <SelectItem value="600000">10 分钟</SelectItem>
-            <SelectItem value="1800000">30 分钟</SelectItem>
+            <SelectItem value="15000">{t("15 秒", "15 seconds")}</SelectItem>
+            <SelectItem value="30000">{t("30 秒", "30 seconds")}</SelectItem>
+            <SelectItem value="60000">{t("1 分钟", "1 minute")}</SelectItem>
+            <SelectItem value="300000">{t("5 分钟", "5 minutes")}</SelectItem>
+            <SelectItem value="600000">{t("10 分钟", "10 minutes")}</SelectItem>
+            <SelectItem value="1800000">
+              {t("30 分钟", "30 minutes")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {/* Exclude patterns */}
       <div className="space-y-1.5">
-        <Label className="text-xs">排除规则（每行一条）</Label>
+        <Label className="text-xs">
+          {t("排除规则（每行一条）", "Exclude patterns (one per line)")}
+        </Label>
         <Textarea
+          aria-label={t(
+            "排除规则（每行一条）",
+            "Exclude patterns (one per line)",
+          )}
           className="font-mono text-xs w-full"
           rows={4}
           placeholder={".DS_Store\nThumbs.db\n.git/**\nnode_modules/**"}
@@ -328,7 +423,7 @@ export function FolderSyncRuleEditor({
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" size="sm" onClick={onDone}>
-          取消
+          {t("取消", "Cancel")}
         </Button>
         <Button
           size="sm"
@@ -338,9 +433,9 @@ export function FolderSyncRuleEditor({
           {saving ? (
             <IconSpinner className="size-3.5 animate-spin" />
           ) : editRule ? (
-            "保存修改"
+            t("保存修改", "Save changes")
           ) : (
-            "创建规则"
+            t("创建规则", "Create rule")
           )}
         </Button>
       </div>

@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { localize, t, useT } from "@/lib/i18n";
 import { IconCheck, IconCircleInfo } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import {
@@ -29,20 +30,29 @@ interface ShareExpirationFieldsProps {
   error: string | null;
 }
 
-const PRESET_LABELS = EXPIRATION_PRESETS.map((preset) => preset.label);
 const UNIT_LABELS: Record<ExpirationUnit, string> = {
   minutes: "分钟",
   hours: "小时",
   days: "天",
 };
+const UNIT_LABELS_EN: Record<ExpirationUnit, string> = {
+  minutes: "Minutes",
+  hours: "Hours",
+  days: "Days",
+};
+const unitLabel = (unit: ExpirationUnit) =>
+  UNIT_LABELS[unit] && UNIT_LABELS_EN[unit]
+    ? t(UNIT_LABELS[unit], UNIT_LABELS_EN[unit])
+    : t("选择单位", "Select a unit");
 
 function ExpirationUnitOption({ unit }: { unit: ExpirationUnit }) {
+  useT();
   return (
     <SelectPrimitive.Item
       value={unit}
       className="relative flex min-h-9 w-full cursor-default items-center rounded-md py-2 pr-9 pl-3 text-sm text-foreground outline-none select-none data-[selected]:bg-primary/10 data-[selected]:text-primary data-[highlighted]:not-data-[selected]:bg-muted data-[highlighted]:not-data-[selected]:text-foreground data-[highlighted]:ring-1 data-[highlighted]:ring-inset data-[highlighted]:ring-primary/35 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:data-[selected]:bg-primary/15"
     >
-      <SelectPrimitive.ItemText>{UNIT_LABELS[unit]}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemText>{unitLabel(unit)}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator className="pointer-events-none absolute right-3 flex size-4 items-center justify-center">
         <IconCheck className="size-4" aria-hidden="true" />
       </SelectPrimitive.ItemIndicator>
@@ -62,6 +72,10 @@ export function ShareExpirationFields({
   disabled,
   error,
 }: ShareExpirationFieldsProps) {
+  useT();
+  const presetLabels = EXPIRATION_PRESETS.map((preset) =>
+    t(preset.label, preset.labelEn),
+  );
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -75,17 +89,17 @@ export function ShareExpirationFields({
       aria-describedby={hintId}
     >
       <legend className="mb-3 text-sm font-semibold text-foreground">
-        链接有效期
+        {t("链接有效期", "Link expiration")}
       </legend>
 
       <fieldset
-        aria-label="有效期设置方式"
+        aria-label={t("有效期设置方式", "Expiration mode")}
         className="grid grid-cols-2 gap-1 rounded-lg bg-muted/80 p-1"
       >
         {(
           [
-            ["preset", "预设时长"],
-            ["custom", "自定义"],
+            ["preset", t("预设时长", "Preset duration")],
+            ["custom", t("自定义", "Custom")],
           ] as const
         ).map(([value, label]) => (
           <Button
@@ -109,9 +123,11 @@ export function ShareExpirationFields({
 
       {mode === "preset" ? (
         <fieldset className="min-w-0">
-          <legend className="sr-only">选择分享链接有效时长</legend>
+          <legend className="sr-only">
+            {t("选择分享链接有效时长", "Choose a link duration")}
+          </legend>
           <div className="grid grid-cols-2 gap-2.5">
-            {PRESET_LABELS.map((label, index) => (
+            {presetLabels.map((label, index) => (
               <label key={label} className="min-w-0">
                 <input
                   type="radio"
@@ -148,7 +164,7 @@ export function ShareExpirationFields({
             htmlFor={customId}
             className="text-xs font-medium text-foreground"
           >
-            有效时长
+            {t("有效时长", "Duration")}
           </label>
           <div className="grid min-w-0 grid-cols-2 gap-2.5">
             <Input
@@ -178,13 +194,14 @@ export function ShareExpirationFields({
               }}
             >
               <SelectTrigger
-                aria-label="时长单位"
+                aria-label={t("时长单位", "Duration unit")}
                 aria-describedby={hintId}
                 className="w-full min-w-0 bg-background focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 aria-expanded:border-primary aria-expanded:ring-2 aria-expanded:ring-primary/15 data-[size=default]:h-10 dark:bg-card"
               >
                 <SelectValue>
                   {(value) =>
-                    UNIT_LABELS[value as ExpirationUnit] ?? "选择单位"
+                    unitLabel(value as ExpirationUnit) ??
+                    t("选择单位", "Select a unit")
                   }
                 </SelectValue>
               </SelectTrigger>
@@ -207,7 +224,7 @@ export function ShareExpirationFields({
               aria-live="polite"
               className="text-xs leading-relaxed text-destructive"
             >
-              {error}
+              {localize(error)}
             </p>
           )}
         </div>
@@ -219,8 +236,13 @@ export function ShareExpirationFields({
           aria-hidden="true"
         />
         <div className="space-y-1 text-xs leading-relaxed">
-          <p>最长有效期：7 天</p>
-          <p className="text-muted-foreground/85">到期后，分享链接将失效</p>
+          <p>{t("最长有效期：7 天", "Maximum expiration: 7 days")}</p>
+          <p className="text-muted-foreground/85">
+            {t(
+              "到期后，分享链接将失效",
+              "The sharing link stops working after it expires.",
+            )}
+          </p>
         </div>
       </div>
     </fieldset>

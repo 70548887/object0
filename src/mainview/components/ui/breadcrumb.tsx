@@ -2,12 +2,14 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 import * as React from "react";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
+  const t = useT();
   return (
     <nav
-      aria-label="路径导航"
+      aria-label={t("路径导航", "Breadcrumb")}
       data-slot="breadcrumb"
       className={cn(className)}
       {...props}
@@ -93,6 +95,7 @@ function BreadcrumbEllipsis({
   className,
   ...props
 }: React.ComponentProps<"span">) {
+  const t = useT();
   return (
     <span
       data-slot="breadcrumb-ellipsis"
@@ -105,7 +108,7 @@ function BreadcrumbEllipsis({
       {...props}
     >
       <MoreHorizontalIcon />
-      <span className="sr-only">更多</span>
+      <span className="sr-only">{t("更多", "More")}</span>
     </span>
   );
 }

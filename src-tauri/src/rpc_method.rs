@@ -64,6 +64,7 @@ pub enum RpcMethod {
     UpdaterApply,
     UpdaterLocalInfo,
     SystemPlatform,
+    SystemSetLanguage,
 }
 
 impl RpcMethod {
@@ -133,6 +134,7 @@ impl RpcMethod {
             "updater:apply" => Some(Self::UpdaterApply),
             "updater:local-info" => Some(Self::UpdaterLocalInfo),
             "system:platform" => Some(Self::SystemPlatform),
+            "system:set-language" => Some(Self::SystemSetLanguage),
             _ => None,
         }
     }

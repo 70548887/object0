@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PROVIDERS } from "@/lib/constants";
+import { localize, t, useT } from "@/lib/i18n";
 import { IconSpinner } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { useVaultStore } from "@/stores";
@@ -34,6 +35,7 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
+  useT();
   const refreshProfiles = useVaultStore((s) => s.refreshProfiles);
   const isEditing = !!editProfile;
 
@@ -104,13 +106,17 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
       setTestResult({
         ok: result.success,
         msg: result.success
-          ? `连接成功，发现 ${result.bucketCount} 个存储桶`
-          : (result.error ?? "连接失败"),
+          ? t(
+              `连接成功，发现 ${result.bucketCount} 个存储桶`,
+              `Connected. Found ${result.bucketCount} buckets`,
+            )
+          : (result.error ?? t("连接失败", "Connection failed")),
       });
     } catch (err: unknown) {
       setTestResult({
         ok: false,
-        msg: err instanceof Error ? err.message : "未知错误",
+        msg:
+          err instanceof Error ? err.message : t("未知错误", "Unknown error"),
       });
     }
     setTesting(false);
@@ -137,12 +143,17 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
         : {};
 
     if (!trimmedName) {
-      toast.error("请输入存储账号名称");
+      toast.error(t("请输入存储账号名称", "Enter an account name"));
       return;
     }
 
     if (!isEditing && (!trimmedAccessKeyId || !trimmedSecretAccessKey)) {
-      toast.error("请输入访问密钥 ID 和访问密钥");
+      toast.error(
+        t(
+          "请输入访问密钥 ID 和访问密钥",
+          "Enter an access key ID and secret access key",
+        ),
+      );
       return;
     }
 
@@ -150,7 +161,12 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
       isEditing &&
       Boolean(trimmedAccessKeyId) !== Boolean(trimmedSecretAccessKey)
     ) {
-      toast.error("更新凭据时需要同时提供访问密钥 ID 和访问密钥");
+      toast.error(
+        t(
+          "更新凭据时需要同时提供访问密钥 ID 和访问密钥",
+          "To update credentials, provide both the access key ID and secret access key",
+        ),
+      );
       return;
     }
 
@@ -172,7 +188,12 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           ...analyticsSettings,
         });
         await refreshProfiles();
-        toast.success(`存储账号“${trimmedName}”已更新`);
+        toast.success(
+          t(
+            `存储账号“${trimmedName}”已更新`,
+            `Account “${trimmedName}” updated`,
+          ),
+        );
       } else {
         await rpcCall("profile:add", {
           provider,
@@ -186,11 +207,15 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           ...analyticsSettings,
         });
         await refreshProfiles();
-        toast.success(`存储账号“${trimmedName}”已添加`);
+        toast.success(
+          t(`存储账号“${trimmedName}”已添加`, `Account “${trimmedName}” added`),
+        );
       }
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "未知错误");
+      toast.error(
+        err instanceof Error ? err.message : t("未知错误", "Unknown error"),
+      );
     }
     setSaving(false);
   };
@@ -200,10 +225,15 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "编辑存储账号" : "添加存储账号"}
+            {isEditing
+              ? t("编辑存储账号", "Edit Profile")
+              : t("添加存储账号", "Add Profile")}
           </DialogTitle>
           <DialogDescription>
-            填写存储服务商和凭据，连接 S3 兼容存储。
+            {t(
+              "填写存储服务商和凭据，连接 S3 兼容存储。",
+              "Connect an S3-compatible bucket by entering its provider and credentials.",
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -211,30 +241,36 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           {/* Name */}
           <div className="space-y-1.5">
             <Label htmlFor="pf-name" className="text-xs">
-              账号名称（必填）
+              {t("账号名称（必填）", "Profile Name")}
             </Label>
             <Input
               id="pf-name"
               className="h-8 text-sm"
-              placeholder={"请填写账号名称，例如 R2-工作账号"}
+              placeholder={t(
+                "请填写账号名称，例如 R2-工作账号",
+                "For example, R2 work account",
+              )}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
             <p className="text-xs text-muted-foreground/50">
-              为此连接设置一个便于识别的名称
+              {t(
+                "为此连接设置一个便于识别的名称",
+                "A friendly name to identify this connection",
+              )}
             </p>
           </div>
 
           {/* ── Connection ── */}
           <div className="space-y-3 rounded-lg border border-border/60 p-3">
             <p className="font-semibold text-[11px] text-foreground/50 uppercase tracking-wider">
-              连接信息
+              {t("连接信息", "Connection")}
             </p>
 
             {/* Provider */}
             <div className="space-y-1.5">
               <Label htmlFor="pf-provider" className="text-xs">
-                存储服务商
+                {t("存储服务商", "Provider")}
               </Label>
               <Select
                 value={provider}
@@ -262,7 +298,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {needsEndpoint && (
               <div className="space-y-1.5">
                 <Label htmlFor="pf-endpoint" className="text-xs">
-                  接口地址（Endpoint）
+                  {t("接口地址（Endpoint）", "Endpoint URL")}
                 </Label>
                 <Input
                   id="pf-endpoint"
@@ -283,7 +319,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="pf-region" className="text-xs">
-                  区域（Region）
+                  {t("区域（Region）", "Region")}
                 </Label>
                 <Input
                   id="pf-region"
@@ -301,8 +337,10 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
 
               <div className="space-y-1.5">
                 <Label htmlFor="pf-default-bucket" className="text-xs">
-                  默认存储桶{" "}
-                  <span className="font-normal opacity-40">可选</span>
+                  {t("默认存储桶", "Default bucket")}{" "}
+                  <span className="font-normal opacity-40">
+                    {t("可选", "optional")}
+                  </span>
                 </Label>
                 <Input
                   id="pf-default-bucket"
@@ -313,8 +351,11 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
                 />
                 <p className="text-xs text-muted-foreground/50">
                   {provider === "r2"
-                    ? "当 R2 凭据仅允许访问指定存储桶时必填"
-                    : "默认选择的存储桶"}
+                    ? t(
+                        "当 R2 凭据仅允许访问指定存储桶时必填",
+                        "Required for R2 tokens scoped to a specific bucket",
+                      )
+                    : t("默认选择的存储桶", "Bucket to select by default")}
                 </p>
               </div>
             </div>
@@ -323,24 +364,29 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
           {/* ── Credentials ── */}
           <div className="space-y-3 rounded-lg border border-border/60 p-3">
             <p className="font-semibold text-[11px] text-foreground/50 uppercase tracking-wider">
-              访问凭据
+              {t("访问凭据", "Credentials")}
             </p>
             {isEditing && (
               <p className="text-xs text-muted-foreground">
-                已保存的密钥默认隐藏。关闭此窗口后，右键左侧账号可查看或复制。
+                {t(
+                  "已保存的密钥默认隐藏。关闭此窗口后，右键左侧账号可查看或复制。",
+                  "Saved secrets are hidden by default. Close this dialog and right-click the account to view or copy them.",
+                )}
               </p>
             )}
 
             {/* Access Key */}
             <div className="space-y-1.5">
               <Label htmlFor="pf-access-key" className="text-xs">
-                访问密钥 ID（Access Key ID）
+                {t("访问密钥 ID（Access Key ID）", "Access Key ID")}
               </Label>
               <Input
                 id="pf-access-key"
                 className="h-8 font-mono text-sm"
                 placeholder={
-                  isEditing ? "输入新的访问密钥 ID 以修改" : "AKIA..."
+                  isEditing
+                    ? t("输入新的访问密钥 ID 以修改", "Enter new key to change")
+                    : "AKIA..."
                 }
                 value={accessKeyId}
                 onChange={(e) => setAccessKeyId(e.target.value)}
@@ -352,7 +398,10 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
               )}
               {isEditing && (
                 <p className="text-xs text-muted-foreground/50">
-                  留空则保留当前值
+                  {t(
+                    "留空则保留当前值",
+                    "Leave blank to keep the current value",
+                  )}
                 </p>
               )}
             </div>
@@ -360,13 +409,17 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {/* Secret Key */}
             <div className="space-y-1.5">
               <Label htmlFor="pf-secret-key" className="text-xs">
-                访问密钥（Secret Access Key）
+                {t("访问密钥（Secret Access Key）", "Secret Access Key")}
               </Label>
               <Input
                 id="pf-secret-key"
                 type="password"
                 className="h-8 font-mono text-sm"
-                placeholder={isEditing ? "输入新的访问密钥以修改" : "••••••••"}
+                placeholder={
+                  isEditing
+                    ? t("输入新的访问密钥以修改", "Enter new secret to change")
+                    : "••••••••"
+                }
                 value={secretAccessKey}
                 onChange={(e) => setSecretAccessKey(e.target.value)}
               />
@@ -377,7 +430,10 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
               )}
               {isEditing && (
                 <p className="text-xs text-muted-foreground/50">
-                  留空则保留当前值
+                  {t(
+                    "留空则保留当前值",
+                    "Leave blank to keep the current value",
+                  )}
                 </p>
               )}
             </div>
@@ -392,25 +448,27 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
               }
             >
               <summary className="cursor-pointer text-xs font-medium text-foreground/70 marker:text-foreground/40">
-                用量统计（可选）
+                {t("用量统计（可选）", "Usage analytics (optional)")}
                 {editProfile?.hasR2AnalyticsToken && (
                   <span className="ml-2 text-foreground/45">
                     {clearR2AnalyticsToken
-                      ? "待移除"
+                      ? t("待移除", "Will be removed")
                       : r2AnalyticsToken.trim()
-                        ? "待更新"
-                        : "已配置"}
+                        ? t("待更新", "Will be updated")
+                        : t("已配置", "Configured")}
                   </span>
                 )}
               </summary>
               <div className="mt-3 space-y-3">
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  现有密钥可扫描文件统计用量。填写 Cloudflare API Token
-                  后，可读取 R2 官方统计。
+                  {t(
+                    "现有密钥可扫描文件统计用量。填写 Cloudflare API Token 后，可读取 R2 官方统计。",
+                    "Existing S3 credentials can scan objects to calculate usage. Add a Cloudflare API token to read official R2 analytics.",
+                  )}
                 </p>
                 <div className="space-y-1.5">
                   <Label htmlFor="pf-r2-analytics-token" className="text-xs">
-                    统计 API Token
+                    {t("统计 API Token", "Analytics API token")}
                   </Label>
                   <Input
                     id="pf-r2-analytics-token"
@@ -420,8 +478,14 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
                     spellCheck={false}
                     placeholder={
                       editProfile?.hasR2AnalyticsToken
-                        ? "留空保留已保存的 Token"
-                        : "填写有统计读取权限的 API Token"
+                        ? t(
+                            "留空保留已保存的 Token",
+                            "Leave blank to keep the saved token",
+                          )
+                        : t(
+                            "填写有统计读取权限的 API Token",
+                            "Enter an API token with analytics read permissions",
+                          )
                     }
                     value={r2AnalyticsToken}
                     onChange={(e) => {
@@ -431,7 +495,10 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
                     }}
                   />
                   <p className="text-xs text-muted-foreground/70">
-                    与账号凭据一同加密保存在本机密码库中。
+                    {t(
+                      "与账号凭据一同加密保存在本机密码库中。",
+                      "Encrypted with the account credentials in your local vault.",
+                    )}
                   </p>
                 </div>
                 {isEditing && editProfile?.hasR2AnalyticsToken && (
@@ -448,7 +515,10 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
                       htmlFor="pf-clear-r2-analytics-token"
                       className="cursor-pointer text-xs font-normal"
                     >
-                      保存时移除已配置的统计 Token
+                      {t(
+                        "保存时移除已配置的统计 Token",
+                        "Remove the saved analytics token on save",
+                      )}
                     </Label>
                   </div>
                 )}
@@ -465,7 +535,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
                   : "border-destructive/30 bg-destructive/10 text-destructive"
               }`}
             >
-              {testResult.msg}
+              {localize(testResult.msg)}
             </div>
           )}
         </div>
@@ -481,7 +551,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {testing ? (
               <IconSpinner className="size-3.5 animate-spin" />
             ) : (
-              "测试连接"
+              t("测试连接", "Test connection")
             )}
           </Button>
           <Button
@@ -497,9 +567,9 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             {saving ? (
               <IconSpinner className="size-3.5 animate-spin" />
             ) : isEditing ? (
-              "更新"
+              t("更新", "Update")
             ) : (
-              "保存"
+              t("保存", "Save")
             )}
           </Button>
         </DialogFooter>

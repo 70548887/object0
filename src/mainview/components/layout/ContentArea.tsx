@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { t, useT } from "@/lib/i18n";
 import { IconBoxOpen, IconCloud } from "@/lib/icons";
 import {
   useBucketStore,
@@ -12,6 +13,7 @@ import { DropZone } from "../objects/DropZone";
 import { ObjectBrowser } from "../objects/ObjectBrowser";
 
 export function ContentArea() {
+  useT();
   const activeProfile = useProfileStore((s) => s.activeProfile);
   const setActiveProfile = useProfileStore((s) => s.setActiveProfile);
   const bucket = useBucketStore((s) => s.selectedBucket);
@@ -58,9 +60,15 @@ export function ContentArea() {
       <div className="flex-1 overflow-auto">
         <EmptyState
           icon={<IconCloud className="size-12" />}
-          title={"欢迎使用 object0"}
-          description={"从侧栏选择或添加存储账号以开始使用。"}
-          hint={"存储账号的凭据保存在本机密码库中。"}
+          title={t("欢迎使用 云仓", "Welcome to Yuncang")}
+          description={t(
+            "从侧栏选择或添加存储账号以开始使用。",
+            "Select or add a profile from the sidebar to get started.",
+          )}
+          hint={t(
+            "存储账号的凭据保存在本机密码库中。",
+            "Account credentials are stored in your local encrypted vault.",
+          )}
         />
       </div>
     );
@@ -71,9 +79,15 @@ export function ContentArea() {
       <div className="flex-1 overflow-auto">
         <EmptyState
           icon={<IconBoxOpen className="size-12" />}
-          title={"尚未选择存储桶"}
-          description={"从侧栏选择存储桶以浏览其中的文件。"}
-          hint={"提示：收藏常用存储桶后可以快速访问。"}
+          title={t("尚未选择存储桶", "No bucket selected")}
+          description={t(
+            "从侧栏选择存储桶以浏览其中的文件。",
+            "Choose a bucket from the sidebar to browse its contents.",
+          )}
+          hint={t(
+            "提示：收藏常用存储桶后可以快速访问。",
+            "Tip: Star your favorite buckets for quick access.",
+          )}
         />
       </div>
     );

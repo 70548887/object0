@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { localize, t, useT } from "@/lib/i18n";
 import { IconFile, IconLink, IconSpinner, IconXmark } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { useShareHistoryStore, useUIStore } from "@/stores";
@@ -23,6 +24,7 @@ import {
 } from "./share-expiration";
 
 export function ShareDialog() {
+  useT();
   const open = useUIStore((s) => s.shareDialogOpen);
   const target = useUIStore((s) => s.shareTarget);
   const closeDialog = useUIStore((s) => s.closeShareDialog);
@@ -101,17 +103,26 @@ export function ShareDialog() {
       // Clipboard failure is separate from successful link generation.
       try {
         await navigator.clipboard.writeText(result.url);
-        if (isCurrent()) toast.success("链接已复制到剪贴板！");
+        if (isCurrent())
+          toast.success(t("链接已复制到剪贴板！", "Link copied to clipboard!"));
       } catch {
         if (isCurrent())
           setCopyNotice(
-            "链接已生成，自动复制未成功，可点击复制按钮或选中链接手动复制。",
+            t(
+              "链接已生成，自动复制未成功，可点击复制按钮或选中链接手动复制。",
+              "The link was generated, but automatic copying failed. Use the copy button or select and copy the link manually.",
+            ),
           );
       }
     } catch (error: unknown) {
       if (isCurrent())
         setRequestError(
-          error instanceof Error ? error.message : "生成分享链接失败，请重试",
+          error instanceof Error
+            ? localize(error.message)
+            : t(
+                "生成分享链接失败，请重试",
+                "Failed to generate a sharing link. Please try again.",
+              ),
         );
     } finally {
       if (isCurrent()) {
@@ -127,10 +138,15 @@ export function ShareDialog() {
       await navigator.clipboard.writeText(shareResult.url);
       if (latestSession.current !== session) return;
       setCopyNotice(null);
-      toast.success("链接已复制到剪贴板！");
+      toast.success(t("链接已复制到剪贴板！", "Link copied to clipboard!"));
     } catch {
       if (latestSession.current === session)
-        setCopyNotice("复制未成功，请选中链接后使用系统复制功能。");
+        setCopyNotice(
+          t(
+            "复制未成功，请选中链接后使用系统复制功能。",
+            "Copying failed. Select the link and use the system copy command.",
+          ),
+        );
     }
   };
 
@@ -144,16 +160,21 @@ export function ShareDialog() {
         className="flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-0 sm:max-w-lg"
       >
         <DialogHeader className="flex-row items-center justify-between gap-3 px-5 pt-5 pb-4">
-          <DialogTitle className="text-lg font-semibold">分享文件</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">
+            {t("分享文件", "Share file")}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            选择链接有效期并生成文件分享链接，最长支持 7 天。
+            {t(
+              "选择链接有效期并生成文件分享链接，最长支持 7 天。",
+              "Choose an expiration and generate a file sharing link, valid for up to 7 days.",
+            )}
           </DialogDescription>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            aria-label="关闭分享弹窗"
+            aria-label={t("关闭分享弹窗", "Close sharing dialog")}
             className="shrink-0 text-muted-foreground hover:text-foreground"
           >
             <IconXmark className="size-4" aria-hidden="true" />
@@ -205,7 +226,7 @@ export function ShareDialog() {
               role="alert"
               className="break-words rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-relaxed text-destructive"
             >
-              {requestError}
+              {localize(requestError)}
             </p>
           )}
           {copyNotice && (
@@ -213,7 +234,7 @@ export function ShareDialog() {
               role="status"
               className="break-words text-xs leading-relaxed text-muted-foreground"
             >
-              {copyNotice}
+              {localize(copyNotice)}
             </p>
           )}
         </div>
@@ -224,7 +245,7 @@ export function ShareDialog() {
             className="h-10 min-w-20"
             onClick={handleClose}
           >
-            关闭
+            {t("关闭", "Close")}
           </Button>
           {!shareResult && (
             <Button
@@ -242,7 +263,9 @@ export function ShareDialog() {
               ) : (
                 <IconLink className="size-4" aria-hidden="true" />
               )}
-              {generating ? "正在生成…" : "生成链接"}
+              {generating
+                ? t("正在生成…", "Generating…")
+                : t("生成链接", "Generate link")}
             </Button>
           )}
         </DialogFooter>

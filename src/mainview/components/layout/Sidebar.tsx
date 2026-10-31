@@ -2,6 +2,7 @@ import type { ProfileInfo } from "@shared/profile.types";
 import { PROVIDER_LABELS } from "@shared/profile.types";
 import { useMemo, useState } from "react";
 import { useS3Buckets } from "@/hooks";
+import { t, useT } from "@/lib/i18n";
 import {
   IconArrowsRotate,
   IconAws,
@@ -40,6 +41,7 @@ import {
 import { SidebarFavorites } from "./SidebarFavorites";
 
 export function Sidebar() {
+  useT();
   const profiles = useVaultStore((s) => s.profiles);
   const lock = useVaultStore((s) => s.lock);
   const {
@@ -82,9 +84,16 @@ export function Sidebar() {
       if (activeProfile?.id === deletingProfile.id) {
         switchProfile(null as unknown as ProfileInfo);
       }
-      toast.success(`已删除存储账号“${deletingProfile.name}”`);
+      toast.success(
+        t(
+          `已删除存储账号“${deletingProfile.name}”`,
+          `Deleted account “${deletingProfile.name}”`,
+        ),
+      );
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "未知错误");
+      toast.error(
+        err instanceof Error ? err.message : t("未知错误", "Unknown error"),
+      );
     }
     setDeletingProfile(null);
   };
@@ -126,7 +135,9 @@ export function Sidebar() {
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-foreground/20 border-dashed">
                   <IconUser className="size-3" />
                 </div>
-                <span className="text-xs">选择存储账号</span>
+                <span className="text-xs">
+                  {t("选择存储账号", "Select a profile")}
+                </span>
               </div>
             )}
           </div>
@@ -154,7 +165,7 @@ export function Sidebar() {
             <div className="flex items-center gap-1.5">
               <IconUserGroup className="size-[11px]" />
               <span className="font-semibold text-[11px] uppercase tracking-wider">
-                存储账号
+                {t("存储账号", "Profiles")}
               </span>
               {profiles.length > 0 && (
                 <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
@@ -167,7 +178,7 @@ export function Sidebar() {
               size="icon-sm"
               className="text-foreground/40 hover:text-primary group-data-[collapsible=icon]:hidden"
               onClick={() => setAddingProfile(true)}
-              title={"添加存储账号"}
+              title={t("添加存储账号", "Add Profile")}
             >
               <IconPlus className="size-[11px]" />
             </Button>
@@ -180,9 +191,14 @@ export function Sidebar() {
                 <IconCloudArrowUp className="size-5 text-primary" />
               </div>
               <div className="text-center">
-                <p className="font-medium text-sm">暂无存储账号</p>
+                <p className="font-medium text-sm">
+                  {t("暂无存储账号", "No profiles yet")}
+                </p>
                 <p className="mt-0.5 text-foreground/50 text-xs">
-                  添加一个 S3 兼容存储账号以开始使用
+                  {t(
+                    "添加一个 S3 兼容存储账号以开始使用",
+                    "Add an S3-compatible profile to get started",
+                  )}
                 </p>
               </div>
               <Button
@@ -191,7 +207,8 @@ export function Sidebar() {
                 className="mt-1"
                 onClick={() => setAddingProfile(true)}
               >
-                <IconPlus className="size-3" /> 添加存储账号
+                <IconPlus className="size-3" />{" "}
+                {t("添加存储账号", "Add Profile")}
               </Button>
             </div>
           ) : (
@@ -213,7 +230,7 @@ export function Sidebar() {
               <div className="flex items-center gap-1.5">
                 <IconBucket className="size-[11px]" />
                 <span className="font-semibold text-[11px] uppercase tracking-wider">
-                  存储桶
+                  {t("存储桶", "Buckets")}
                 </span>
                 {buckets.length > 0 && (
                   <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
@@ -226,7 +243,7 @@ export function Sidebar() {
                 size="icon-sm"
                 className="text-foreground/40 hover:text-primary group-data-[collapsible=icon]:hidden"
                 onClick={refreshBuckets}
-                title={"刷新存储桶列表"}
+                title={t("刷新存储桶列表", "Refresh Buckets")}
               >
                 <IconArrowsRotate className="size-[11px]" />
               </Button>
@@ -246,11 +263,13 @@ export function Sidebar() {
       <SidebarFooter className="h-8 justify-center border-border border-t px-3 py-0">
         <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
           <div className="text-[11px] text-foreground/35 group-data-[collapsible=icon]:hidden">
-            {profiles.length} 个账号{profiles.length !== 1 ? "" : ""}
+            {profiles.length} {t("个账号", "accounts")}
+            {profiles.length !== 1 ? "" : ""}
             {buckets.length > 0 && (
               <>
                 {" "}
-                · {buckets.length} 个存储桶{buckets.length !== 1 ? "" : ""}
+                · {buckets.length} {t("个存储桶", "buckets")}
+                {buckets.length !== 1 ? "" : ""}
               </>
             )}
           </div>
@@ -259,11 +278,11 @@ export function Sidebar() {
             size="sm"
             className="text-foreground/40 hover:text-destructive"
             onClick={lock}
-            title={"锁定密码库"}
+            title={t("锁定密码库", "Lock Vault")}
           >
             <IconLock className="size-4" />
             <span className="text-[11px] group-data-[collapsible=icon]:hidden">
-              锁定
+              {t("锁定", "Lock")}
             </span>
           </Button>
         </div>
@@ -298,9 +317,12 @@ export function Sidebar() {
 
       <ConfirmDialog
         open={!!deletingProfile}
-        title={"删除存储账号"}
-        message={`确定删除存储账号“${deletingProfile?.name}”吗？此操作无法撤销。`}
-        confirmLabel={"删除"}
+        title={t("删除存储账号", "Delete Profile")}
+        message={t(
+          `确定删除存储账号“${deletingProfile?.name}”吗？此操作无法撤销。`,
+          `Delete account “${deletingProfile?.name}”? This cannot be undone.`,
+        )}
+        confirmLabel={t("删除", "Delete")}
         destructive
         onConfirm={handleDeleteProfile}
         onClose={() => setDeletingProfile(null)}

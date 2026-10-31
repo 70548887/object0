@@ -10,6 +10,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
+import { t, useT } from "@/lib/i18n";
 import {
   IconArrowRightArrowLeft,
   IconArrowsRotate,
@@ -56,6 +57,7 @@ interface PaletteCommand {
 }
 
 export function CommandPalette() {
+  useT();
   const [open, setOpen] = useState(false);
 
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -80,81 +82,90 @@ export function CommandPalette() {
   const shareableSelection =
     selectedCount === 1 && !Array.from(selectedKeys)[0]?.endsWith("/");
 
-  const commands: PaletteCommand[] = useMemo(() => {
+  const commands: PaletteCommand[] = (() => {
     const baseCommands: PaletteCommand[] = [
       {
         id: "toggle-sidebar",
-        label: "显示或隐藏侧栏",
+        label: t("显示或隐藏侧栏", "Toggle Sidebar"),
         Icon: IconSidebar,
-        section: "View",
+        section: t("视图", "View"),
         shortcut: "Ctrl+B",
         action: toggleSidebar,
       },
       {
         id: "toggle-theme",
-        label: `切换到${theme === "dark" ? "浅色" : "深色"}主题`,
+        label: t(
+          `切换到${theme === "dark" ? "浅色" : "深色"}主题`,
+          `Switch to ${theme === "dark" ? t("浅色", "Light") : t("深色", "Dark")} theme`,
+        ),
         Icon: theme === "dark" ? IconSun : IconMoon,
-        section: "View",
+        section: t("视图", "View"),
         shortcut: "Ctrl+\\",
         action: toggleTheme,
       },
       {
         id: "toggle-jobs",
-        label: jobPanelOpen ? "隐藏任务面板" : "显示任务面板",
+        label: jobPanelOpen
+          ? t("隐藏任务面板", "Hide Job Panel")
+          : t("显示任务面板", "Show Job Panel"),
         Icon: IconBarsProgress,
-        section: "View",
+        section: t("视图", "View"),
         shortcut: "Ctrl+J",
         action: () => setJobPanelOpen(!jobPanelOpen),
       },
       {
         id: "toggle-share-history",
-        label: shareHistoryOpen ? "隐藏分享记录" : "显示分享记录",
+        label: shareHistoryOpen
+          ? t("隐藏分享记录", "Hide Share History")
+          : t("显示分享记录", "Show Share History"),
         Icon: IconClockRotateLeft,
-        section: "View",
+        section: t("视图", "View"),
         action: () => setShareHistoryOpen(!shareHistoryOpen),
       },
       {
         id: "view-table",
-        label: "切换为列表视图",
+        label: t("切换为列表视图", "Switch to Table View"),
         Icon: IconTableList,
-        section: "View",
+        section: t("视图", "View"),
         action: () => setViewMode("table"),
       },
       {
         id: "view-grid",
-        label: "切换为网格视图",
+        label: t("切换为网格视图", "Switch to Grid View"),
         Icon: IconGrip,
-        section: "View",
+        section: t("视图", "View"),
         action: () => setViewMode("grid"),
       },
       {
         id: "open-settings",
-        label: settingsOpen ? "关闭设置" : "打开设置",
+        label: settingsOpen
+          ? t("关闭设置", "Close Settings")
+          : t("打开设置", "Open Settings"),
         Icon: IconGear,
-        section: "App",
+        section: t("应用", "App"),
         action: () => setSettingsOpen(!settingsOpen),
       },
       {
         id: "lock-vault",
-        label: "锁定密码库",
+        label: t("锁定密码库", "Lock Vault"),
         Icon: IconLock,
-        section: "App",
+        section: t("应用", "App"),
         action: lock,
       },
       {
         id: "toggle-live-folder-sync",
         label: folderSyncPanelOpen
-          ? "隐藏实时文件夹同步"
-          : "显示实时文件夹同步",
+          ? t("隐藏实时文件夹同步", "Hide Live Folder Sync")
+          : t("显示实时文件夹同步", "Show Live Folder Sync"),
         Icon: IconFolderOpen,
-        section: "Sync",
+        section: t("同步", "Sync"),
         action: () => setFolderSyncPanelOpen(!folderSyncPanelOpen),
       },
       {
         id: "choose-sync-type",
-        label: "选择同步方式",
+        label: t("选择同步方式", "Choose Sync Type"),
         Icon: IconCodeCompare,
-        section: "Sync",
+        section: t("同步", "Sync"),
         action: openSyncChooser,
       },
     ];
@@ -166,50 +177,50 @@ export function CommandPalette() {
     const objectCommands: PaletteCommand[] = [
       {
         id: "obj-search",
-        label: "搜索文件",
+        label: t("搜索文件", "Search Objects"),
         Icon: IconMagnifyingGlass,
-        section: "Objects",
+        section: t("文件", "Objects"),
         shortcut: "Ctrl+F",
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.OPEN_SEARCH),
       },
       {
         id: "obj-refresh",
-        label: "刷新文件列表",
+        label: t("刷新文件列表", "Refresh Objects"),
         Icon: IconArrowsRotate,
-        section: "Objects",
+        section: t("文件", "Objects"),
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.REFRESH_OBJECTS),
       },
       {
         id: "obj-upload-files",
-        label: "上传文件",
+        label: t("上传文件", "Upload Files"),
         Icon: IconCloudArrowUp,
-        section: "Objects",
+        section: t("文件", "Objects"),
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.UPLOAD_FILES),
       },
       {
         id: "obj-upload-folder",
-        label: "上传文件夹",
+        label: t("上传文件夹", "Upload Folder"),
         Icon: IconFolderPlus,
-        section: "Objects",
+        section: t("文件", "Objects"),
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.UPLOAD_FOLDER),
       },
       {
         id: "obj-new-folder",
-        label: "新建文件夹",
+        label: t("新建文件夹", "Create Folder"),
         Icon: IconFolder,
-        section: "Objects",
+        section: t("文件", "Objects"),
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.NEW_FOLDER),
       },
       {
         id: "obj-sync",
-        label: "打开同步（默认）",
+        label: t("打开同步（默认）", "Open Sync (Default)"),
         Icon: IconRotate,
-        section: "Objects",
+        section: t("文件", "Objects"),
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.OPEN_SYNC),
       },
@@ -219,9 +230,12 @@ export function CommandPalette() {
       objectCommands.push(
         {
           id: "obj-download-selection",
-          label: `下载选中项（${selectedCount}）`,
+          label: t(
+            `下载选中项（${selectedCount}）`,
+            `Download selected (${selectedCount})`,
+          ),
           Icon: IconCloudArrowDown,
-          section: "Objects",
+          section: t("文件", "Objects"),
           action: () =>
             dispatchObjectToolbarEvent(
               OBJECT_TOOLBAR_EVENTS.DOWNLOAD_SELECTION,
@@ -229,17 +243,23 @@ export function CommandPalette() {
         },
         {
           id: "obj-transfer-selection",
-          label: `传输选中项（${selectedCount}）`,
+          label: t(
+            `传输选中项（${selectedCount}）`,
+            `Transfer selected (${selectedCount})`,
+          ),
           Icon: IconArrowRightArrowLeft,
-          section: "Objects",
+          section: t("文件", "Objects"),
           action: () =>
             dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.OPEN_TRANSFER),
         },
         {
           id: "obj-delete-selection",
-          label: `删除选中项（${selectedCount}）`,
+          label: t(
+            `删除选中项（${selectedCount}）`,
+            `Delete selected (${selectedCount})`,
+          ),
           Icon: IconTrashCan,
-          section: "Objects",
+          section: t("文件", "Objects"),
           action: () =>
             dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.DELETE_SELECTION),
         },
@@ -249,35 +269,16 @@ export function CommandPalette() {
     if (shareableSelection) {
       objectCommands.push({
         id: "obj-share-selection",
-        label: "分享选中文件",
+        label: t("分享选中文件", "Share Selected File"),
         Icon: IconShareNodes,
-        section: "Objects",
+        section: t("文件", "Objects"),
         action: () =>
           dispatchObjectToolbarEvent(OBJECT_TOOLBAR_EVENTS.SHARE_SELECTION),
       });
     }
 
     return [...baseCommands, ...objectCommands];
-  }, [
-    toggleSidebar,
-    toggleTheme,
-    theme,
-    jobPanelOpen,
-    setJobPanelOpen,
-    shareHistoryOpen,
-    setShareHistoryOpen,
-    setViewMode,
-    lock,
-    settingsOpen,
-    setSettingsOpen,
-    openSyncChooser,
-    setFolderSyncPanelOpen,
-    folderSyncPanelOpen,
-    activeProfileId,
-    bucket,
-    selectedCount,
-    shareableSelection,
-  ]);
+  })();
 
   const execute = useCallback((cmd: PaletteCommand) => {
     setOpen(false);
@@ -311,9 +312,11 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <Command>
-        <CommandInput placeholder={"输入命令…"} />
+        <CommandInput placeholder={t("输入命令…", "Type a command…")} />
         <CommandList>
-          <CommandEmpty>没有匹配的命令</CommandEmpty>
+          <CommandEmpty>
+            {t("没有匹配的命令", "No matching commands")}
+          </CommandEmpty>
           {Array.from(sections.entries()).map(([section, cmds]) => (
             <CommandGroup key={section} heading={section}>
               {cmds.map((cmd) => (

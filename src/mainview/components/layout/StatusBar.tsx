@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useOnlineStatus } from "@/hooks";
 import { useBucketUsage } from "@/hooks/useBucketUsage";
 import { formatBytes, formatSpeed } from "@/lib/formatters";
+import { t, useT } from "@/lib/i18n";
 import {
   IconArrowUpRightFromSquare,
   IconBucket,
@@ -24,6 +25,7 @@ import { Progress } from "../ui/progress";
 import { BucketUsageStatus } from "./BucketUsageStatus";
 
 export function StatusBar() {
+  useT();
   const activeProfile = useProfileStore((s) => s.activeProfile);
   const profiles = useVaultStore((s) => s.profiles);
   const profile =
@@ -100,7 +102,7 @@ export function StatusBar() {
             role="status"
           >
             <IconWifi className="size-3" />
-            离线
+            {t("离线", "Offline")}
           </span>
         )}
         {profile && (
@@ -115,7 +117,7 @@ export function StatusBar() {
         {bucket && (
           <span
             className="hidden min-w-0 max-w-28 shrink items-center gap-1 @[760px]/statusbar:inline-flex"
-            title={`${bucket}${prefixDepth > 0 ? ` · 当前目录深度 ${prefixDepth}` : ""}`}
+            title={`${bucket}${prefixDepth > 0 ? t(` · 当前目录深度 ${prefixDepth}`, ` · Current folder depth ${prefixDepth}`) : ""}`}
           >
             <IconBucket className="size-3 shrink-0" />
             <span className="truncate">{bucket}</span>
@@ -132,7 +134,7 @@ export function StatusBar() {
         )}
         {!bucket && (
           <span className="truncate text-foreground/40">
-            选择存储桶后显示用量
+            {t("选择存储桶后显示用量", "Select a bucket to view usage")}
           </span>
         )}
       </div>
@@ -143,13 +145,18 @@ export function StatusBar() {
             className="whitespace-nowrap text-primary/70"
             role="status"
             aria-live="polite"
-            title={`${selectedKeys.size} 个选中对象，当前列表大小合计 ${formatBytes(selectedSize)}`}
+            title={t(
+              `${selectedKeys.size} 个选中对象，当前列表大小合计 ${formatBytes(selectedSize)}`,
+              `${selectedKeys.size} selected objects, total listed size ${formatBytes(selectedSize)}`,
+            )}
           >
             <IconCheckDouble className="mr-0.5 inline size-3" />
             {selectedKeys.size}
             <span className="hidden @[1100px]/statusbar:inline">
               {" "}
-              已选择（{formatBytes(selectedSize)}）
+              {t("已选择（", "selected (")}
+              {formatBytes(selectedSize)}
+              {t("）", ")")}
             </span>
           </span>
         )}
@@ -158,13 +165,18 @@ export function StatusBar() {
             type="button"
             className="flex items-center gap-2 whitespace-nowrap text-info transition-colors hover:text-info/80"
             onClick={() => setJobPanelOpen(true)}
-            title={`${activeCount} 个任务${runningJobs.length > 0 ? "运行中" : "排队中"}，点击查看任务`}
+            title={t(
+              `${activeCount} 个任务${runningJobs.length > 0 ? "运行中" : "排队中"}，点击查看任务`,
+              `${activeCount} jobs ${runningJobs.length > 0 ? t("运行中", "running") : t("排队中", "queued")}. Click to view jobs`,
+            )}
           >
             <span>
-              {activeCount} 个任务
+              {activeCount} {t("个任务", "jobs")}
               <span className="hidden @[1100px]/statusbar:inline">
                 {" "}
-                {runningJobs.length > 0 ? "运行中" : "排队中"}
+                {runningJobs.length > 0
+                  ? t("运行中", "running")
+                  : t("排队中", "queued")}
               </span>
             </span>
             {runningJobs.length > 0 && totalBytes > 0 && (
@@ -189,15 +201,24 @@ export function StatusBar() {
                   : "text-foreground/40"
             } hover:text-primary`}
             onClick={() => setFolderSyncPanelOpen(true)}
-            title={`实时文件夹同步：${folderSyncActive} 条已启用`}
+            title={t(
+              `实时文件夹同步：${folderSyncActive} 条已启用`,
+              `Live folder sync: ${folderSyncActive} enabled rules`,
+            )}
           >
             <IconFolderOpen
               className={`size-3 ${folderSyncSyncing > 0 ? "animate-pulse" : ""}`}
             />
             <span className="hidden whitespace-nowrap @[1150px]/statusbar:inline">
               {folderSyncSyncing > 0
-                ? `正在同步 ${folderSyncSyncing} 个文件夹`
-                : `${folderSyncActive} 个实时同步`}
+                ? t(
+                    `正在同步 ${folderSyncSyncing} 个文件夹`,
+                    `Syncing ${folderSyncSyncing} folders`,
+                  )
+                : t(
+                    `${folderSyncActive} 个实时同步`,
+                    `${folderSyncActive} live sync rules`,
+                  )}
             </span>
           </button>
         )}
@@ -207,11 +228,13 @@ export function StatusBar() {
             className="flex items-center gap-1 text-success transition-colors hover:text-success/80"
             onClick={handleApplyUpdate}
             disabled={applying}
-            title={`更新到 v${updateVersion}`}
+            title={t(`更新到 v${updateVersion}`, `Update to v${updateVersion}`)}
           >
             <IconArrowUpRightFromSquare className="size-3" />
             <span className="hidden whitespace-nowrap @[1150px]/statusbar:inline">
-              {applying ? "正在更新…" : `更新到 v${updateVersion}`}
+              {applying
+                ? t("正在更新…", "Updating…")
+                : t(`更新到 v${updateVersion}`, `Update to v${updateVersion}`)}
             </span>
           </button>
         )}

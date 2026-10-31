@@ -1,6 +1,7 @@
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
 import { Button } from "@/components/ui/button";
+import { localize, t, useT } from "@/lib/i18n";
 import { IconArrowsRotate, IconBug } from "@/lib/icons";
 
 interface Props {
@@ -13,7 +14,7 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryImpl extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -38,13 +39,18 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-foreground">
           <IconBug className="size-12 text-destructive/60" />
-          <h2 className="font-bold text-lg">出现错误</h2>
+          <h2 className="font-bold text-lg">
+            {t("出现错误", "Something went wrong")}
+          </h2>
           <p className="max-w-md text-center text-foreground/60 text-sm">
-            {this.state.error?.message || "发生未知错误。"}
+            {localize(
+              this.state.error?.message ||
+                t("发生未知错误。", "An unexpected error occurred."),
+            )}
           </p>
           <Button variant="default" size="sm" onClick={this.handleReset}>
             <IconArrowsRotate className="size-4" />
-            重试
+            {t("重试", "Try Again")}
           </Button>
         </div>
       );
@@ -52,4 +58,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
+}
+
+export function ErrorBoundary(props: Props) {
+  useT();
+  return <ErrorBoundaryImpl {...props} />;
 }

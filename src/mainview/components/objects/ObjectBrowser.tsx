@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useS3Objects } from "@/hooks";
 import { getFileName } from "@/lib/formatters";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconArrowLeft,
   IconFolderOpen,
@@ -19,6 +20,7 @@ import { ObjectGrid } from "./ObjectGrid";
 import { ObjectTable } from "./ObjectTable";
 
 export function ObjectBrowser() {
+  useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
   const bucket = useBucketStore((s) => s.selectedBucket);
   const viewMode = useUIStore((s) => s.viewMode);
@@ -85,11 +87,11 @@ export function ObjectBrowser() {
     return (
       <EmptyState
         icon={<IconTriangleExclamation className="size-12 opacity-40" />}
-        title={"加载文件失败"}
-        description={error}
+        title={t("加载文件失败", "Failed to load files")}
+        description={localize(error)}
         action={
           <Button size="sm" onClick={refresh}>
-            重试
+            {t("重试", "Retry")}
           </Button>
         }
       />
@@ -150,16 +152,23 @@ export function ObjectBrowser() {
     return (
       <EmptyState
         icon={<IconFolderOpen className="size-12 opacity-40" />}
-        title={currentPrefix ? "文件夹为空" : "存储桶为空"}
-        description={"此位置没有文件。"}
+        title={
+          currentPrefix
+            ? t("文件夹为空", "Folder is empty")
+            : t("存储桶为空", "Bucket is empty")
+        }
+        description={t("此位置没有文件。", "There are no files here.")}
         action={
           currentPrefix ? (
             <Button variant="ghost" size="sm" onClick={goBack}>
-              <IconArrowLeft /> 返回
+              <IconArrowLeft /> {t("返回", "Back")}
             </Button>
           ) : undefined
         }
-        hint={"将文件拖到这里，或使用工具栏上的上传按钮。"}
+        hint={t(
+          "将文件拖到这里，或使用工具栏上的上传按钮。",
+          "Drop files here, or use Upload in the toolbar.",
+        )}
       />
     );
   }
@@ -173,9 +182,15 @@ export function ObjectBrowser() {
     return (
       <EmptyState
         icon={<IconMagnifyingGlass className="size-12 opacity-40" />}
-        title={"没有匹配结果"}
-        description={`未找到与“${filters.search}”匹配的文件`}
-        hint={"试试更短或范围更广的搜索词。"}
+        title={t("没有匹配结果", "No matching results")}
+        description={t(
+          `未找到与“${filters.search}”匹配的文件`,
+          `No files match “${filters.search}”`,
+        )}
+        hint={t(
+          "试试更短或范围更广的搜索词。",
+          "Try a shorter or broader search term.",
+        )}
       />
     );
   }
@@ -218,7 +233,7 @@ export function ObjectBrowser() {
             {loading ? (
               <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
             ) : (
-              "加载更多"
+              t("加载更多", "Load more")
             )}
           </Button>
         </div>

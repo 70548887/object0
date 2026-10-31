@@ -2,6 +2,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatSpeed } from "@/lib/formatters";
+import { useT } from "@/lib/i18n";
 import {
   IconArrowsRotate,
   IconBroom,
@@ -20,6 +21,7 @@ const VIRTUAL_SECTION_HEIGHT = 26;
 const VIRTUAL_JOB_HEIGHT = 56;
 
 export function JobPanel() {
+  const t = useT();
   const { jobs, refreshJobs, clearCompleted } = useJobStore();
   const setJobPanelOpen = useUIStore((s) => s.setJobPanelOpen);
   const listRef = useRef<HTMLDivElement>(null);
@@ -71,10 +73,11 @@ export function JobPanel() {
       <div className="flex flex-row items-center justify-between gap-2 border-border border-b px-4 py-3">
         <div className="flex min-w-0 items-center gap-2 font-semibold text-sm">
           <IconListCheck className="size-4 shrink-0 text-foreground/60" />
-          <span className="truncate">任务</span>
+          <span className="truncate">{t("任务", "Jobs")}</span>
           {activeJobs.length > 0 && (
             <span className="rounded-full bg-info/15 px-1.5 py-px text-[9px] text-info tabular-nums">
-              {activeJobs.length} 进行中
+              {activeJobs.length}
+              {t(" 进行中", " Active")}
             </span>
           )}
           {succeededCount > 0 && (
@@ -98,7 +101,7 @@ export function JobPanel() {
               size="xs"
               className="text-foreground/40 hover:text-foreground/70"
               onClick={clearCompleted}
-              title={"清除已完成任务"}
+              title={t("清除已完成任务", "Clear finished jobs")}
             >
               <IconBroom className="size-[10px]" />
             </Button>
@@ -109,7 +112,7 @@ export function JobPanel() {
             size="xs"
             className="text-foreground/40 hover:text-foreground/70"
             onClick={refreshJobs}
-            title={"刷新"}
+            title={t("刷新", "Refresh")}
           >
             <IconArrowsRotate className="size-[10px]" />
           </Button>
@@ -119,7 +122,7 @@ export function JobPanel() {
             size="icon-sm"
             className="text-foreground/50 hover:text-foreground"
             onClick={() => setJobPanelOpen(false)}
-            title={"关闭"}
+            title={t("关闭", "Close")}
           >
             <IconXmark className="size-4" />
           </Button>
@@ -163,7 +166,7 @@ export function JobPanel() {
         {jobs.length === 0 ? (
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-1.5 text-foreground/30">
             <IconFolderOpen className="size-8" />
-            <span className="text-xs">暂无任务</span>
+            <span className="text-xs">{t("暂无任务", "No jobs yet")}</span>
           </div>
         ) : shouldVirtualize ? (
           <div
@@ -190,10 +193,13 @@ export function JobPanel() {
                       ) : (
                         <IconCheck className="mr-1 inline size-[8px] text-success/50" />
                       )}
-                      {isActive ? "进行中" : "已完成"}
+                      {isActive
+                        ? t("进行中", "Active")
+                        : t("已完成", "Completed")}
                       {isActive && row.queuedCount && row.queuedCount > 0 && (
                         <span className="ml-1 font-normal text-foreground/20">
-                          ({row.queuedCount} 个排队中）
+                          ({row.queuedCount}
+                          {t(" 个排队中）", " queued)")}
                         </span>
                       )}
                     </span>
@@ -227,10 +233,11 @@ export function JobPanel() {
                   <div className="sticky top-0 z-10 border-border/40 border-b bg-card/95 px-3 py-1">
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       <IconPlay className="mr-1 inline size-[8px] text-info/50" />
-                      进行中
+                      {t("进行中", "Active")}
                       {queuedJobs.length > 0 && (
                         <span className="ml-1 font-normal text-foreground/20">
-                          ({queuedJobs.length} 个排队中）
+                          ({queuedJobs.length}
+                          {t(" 个排队中）", " queued)")}
                         </span>
                       )}
                     </span>
@@ -251,7 +258,7 @@ export function JobPanel() {
                   <div className="sticky top-0 z-10 border-border/40 border-b bg-card/95 px-3 py-1">
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       <IconCheck className="mr-1 inline size-[8px] text-success/50" />
-                      已完成
+                      {t("已完成", "Completed")}
                     </span>
                   </div>
                 )}

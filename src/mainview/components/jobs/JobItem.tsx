@@ -10,6 +10,7 @@ import {
   formatRelativeDate,
   formatSpeed,
 } from "@/lib/formatters";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconArrowsRotate,
   IconBan,
@@ -37,23 +38,29 @@ interface JobItemProps {
   job: JobInfo;
 }
 
-const jobTypeLabels: Record<string, string> = {
-  upload: "上传",
-  download: "下载",
-  copy: "复制",
-  move: "移动",
-  delete: "删除",
-  sync: "同步",
-  archive: "打包",
-};
+function jobTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    upload: t("上传", "Upload"),
+    download: t("下载", "Download"),
+    copy: t("复制", "Copy"),
+    move: t("移动", "Move"),
+    delete: t("删除", "Delete"),
+    sync: t("同步", "Sync"),
+    archive: t("打包", "Archive"),
+  };
+  return labels[type] ?? type;
+}
 
-const jobStatusLabels: Record<string, string> = {
-  queued: "排队中",
-  running: "进行中",
-  completed: "已完成",
-  failed: "失败",
-  cancelled: "已取消",
-};
+function jobStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    queued: t("排队中", "Queued"),
+    running: t("进行中", "Active"),
+    completed: t("已完成", "Completed"),
+    failed: t("失败", "Failed"),
+    cancelled: t("已取消", "Cancelled"),
+  };
+  return labels[status] ?? status;
+}
 
 function TypeIcon({ type }: { type: string }) {
   const cls = "size-3.5";
@@ -96,6 +103,7 @@ function StatusIcon({ status }: { status: string }) {
 }
 
 const JobItemInner = function JobItemInner({ job }: JobItemProps) {
+  const t = useT();
   const cancelJob = useJobStore((s) => s.cancelJob);
   const [open, setOpen] = useState(false);
 
@@ -142,25 +150,32 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
 
   /* ── detail rows ── */
   const details: [string, string][] = [];
-  details.push(["任务 ID", job.id]);
-  details.push(["类型", jobTypeLabels[job.type] ?? job.type]);
-  details.push(["状态", jobStatusLabels[job.status] ?? job.status]);
-  if (job.description) details.push(["描述", job.description]);
-  if (job.createdAt) details.push(["入队时间", formatDate(job.createdAt)]);
-  if (job.startedAt) details.push(["开始时间", formatDate(job.startedAt)]);
-  if (job.completedAt) details.push(["完成时间", formatDate(job.completedAt)]);
+  details.push([t("任务 ID", "Job ID"), job.id]);
+  details.push([t("类型", "Type"), jobTypeLabel(job.type)]);
+  details.push([t("状态", "Status"), jobStatusLabel(job.status)]);
+  if (job.description)
+    details.push([t("描述", "Description"), localize(job.description)]);
+  if (job.createdAt)
+    details.push([t("入队时间", "Queued at"), formatDate(job.createdAt)]);
+  if (job.startedAt)
+    details.push([t("开始时间", "Started at"), formatDate(job.startedAt)]);
+  if (job.completedAt)
+    details.push([t("完成时间", "Completed at"), formatDate(job.completedAt)]);
   if (job.startedAt) {
     details.push([
-      isDone ? "耗时" : "已用时间",
+      isDone ? t("耗时", "Duration") : t("已用时间", "Elapsed"),
       formatDuration(job.startedAt, job.completedAt),
     ]);
   }
   if (job.bytesTotal && job.bytesTotal > 0) {
-    details.push(["总大小", formatBytes(job.bytesTotal)]);
-    details.push(["已传输", formatBytes(job.bytesTransferred ?? 0)]);
+    details.push([t("总大小", "Total size"), formatBytes(job.bytesTotal)]);
+    details.push([
+      t("已传输", "Transferred"),
+      formatBytes(job.bytesTransferred ?? 0),
+    ]);
   }
   if (job.speed && job.speed > 0) {
-    details.push(["速度", formatSpeed(job.speed)]);
+    details.push([t("速度", "Speed"), formatSpeed(job.speed)]);
   }
   if (isDone && job.startedAt && job.completedAt && job.bytesTotal) {
     const elapsed =
@@ -168,10 +183,13 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
         new Date(job.startedAt).getTime()) /
       1000;
     if (elapsed > 0) {
-      details.push(["平均速度", formatSpeed(job.bytesTotal / elapsed)]);
+      details.push([
+        t("平均速度", "Average speed"),
+        formatSpeed(job.bytesTotal / elapsed),
+      ]);
     }
   }
-  if (job.error) details.push(["错误", job.error]);
+  if (job.error) details.push([t("错误", "Error"), localize(job.error)]);
 
   return (
     <div className="group">
@@ -201,14 +219,14 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
         <div className="min-w-0 flex-1">
           {/* Row 1: filename */}
           <span className="block truncate font-medium text-xs leading-tight">
-            {job.fileName || job.description}
+            {job.fileName || (job.description ? localize(job.description) : "")}
           </span>
 
           {/* Row 2: status + inline metadata */}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-foreground/40">
             <span className="flex items-center gap-1">
               <StatusIcon status={job.status} />
-              {jobStatusLabels[job.status] ?? job.status}
+              {jobStatusLabel(job.status)}
             </span>
             {inlineChips.map((chip) => (
               <span
@@ -259,7 +277,8 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
               {job.eta ? (
                 <span>
                   <IconClock className="mr-0.5 inline size-[8px] text-foreground/30" />
-                  {formatETA(job.eta)} 剩余
+                  {formatETA(job.eta)}
+                  {t(" 剩余", " remaining")}
                 </span>
               ) : null}
             </div>
@@ -269,7 +288,7 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
           {job.status === "queued" && (
             <div className="mt-1 text-[10px] text-foreground/40">
               <IconHourglassStart className="mr-1 inline size-[8px]" />
-              正在排队等待...
+              {t("正在排队等待...", "Waiting in the queue...")}
             </div>
           )}
 
@@ -277,7 +296,7 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
           {!open && job.error && (
             <div className="mt-1 truncate text-[10px] text-destructive/80">
               <IconTriangleExclamation className="mr-1 inline size-[8px]" />
-              {job.error}
+              {localize(job.error)}
             </div>
           )}
         </div>
@@ -310,7 +329,7 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
               e.stopPropagation();
               cancelJob(job.id);
             }}
-            title={"取消"}
+            title={t("取消", "Cancel")}
           >
             <IconXmark className="size-3.5" />
           </Button>
@@ -330,7 +349,9 @@ const JobItemInner = function JobItemInner({ job }: JobItemProps) {
                     </td>
                     <td
                       className={`break-all py-0.5 font-mono text-foreground/70 ${
-                        label === "Error" ? "text-destructive/80" : ""
+                        label === t("错误", "Error")
+                          ? "text-destructive/80"
+                          : ""
                       }`}
                     >
                       {value}

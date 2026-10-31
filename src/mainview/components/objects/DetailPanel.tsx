@@ -14,6 +14,7 @@ import {
   getExtension,
   getFileName,
 } from "@/lib/formatters";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconCircleInfo,
   IconClipboard,
@@ -37,6 +38,7 @@ const PREVIEWABLE_IMAGES = new Set([
 ]);
 
 export function DetailPanel() {
+  useT();
   const detailKey = useUIStore((s) => s.detailKey);
   const setDetailKey = useUIStore((s) => s.setDetailKey);
   const profileId = useProfileStore((s) => s.activeProfileId);
@@ -65,7 +67,11 @@ export function DetailPanel() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "未知错误");
+          setError(
+            err instanceof Error
+              ? localize(err.message)
+              : t("未知错误", "Unknown error"),
+          );
           setLoading(false);
         }
       });
@@ -92,7 +98,7 @@ export function DetailPanel() {
         <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
           <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
             <IconCircleInfo className="size-4 shrink-0 text-foreground/60" />
-            <span className="truncate">详细信息</span>
+            <span className="truncate">{t("详细信息", "Details")}</span>
           </SheetTitle>
           <div className="flex shrink-0 items-center gap-0.5">
             <Button
@@ -100,7 +106,7 @@ export function DetailPanel() {
               size="icon-sm"
               className="text-foreground/50 hover:text-foreground"
               onClick={() => setDetailKey(null)}
-              title={"关闭"}
+              title={t("关闭", "Close")}
             >
               <IconXmark className="size-4" />
             </Button>
@@ -125,7 +131,7 @@ export function DetailPanel() {
             </div>
           ) : error ? (
             <div className="py-4 text-center text-destructive text-xs">
-              {error}
+              {localize(error)}
             </div>
           ) : stat && detailKey ? (
             <div className="space-y-4">
@@ -141,8 +147,11 @@ export function DetailPanel() {
               {isImage && profileId && bucket && (
                 <div className="overflow-hidden rounded-lg bg-muted">
                   <div className="flex items-center justify-center p-2 text-foreground/30 text-xs">
-                    <IconImage className="mr-1 size-3" />此 S3
-                    对象暂不支持直接预览图片
+                    <IconImage className="mr-1 size-3" />
+                    {t(
+                      "此 S3 对象暂不支持直接预览图片",
+                      "Image previews are not available for this S3 object",
+                    )}
                   </div>
                 </div>
               )}
@@ -150,15 +159,28 @@ export function DetailPanel() {
               {/* Metadata table */}
               <table className="w-full text-xs">
                 <tbody>
-                  <DetailRow label={"完整对象路径"} value={detailKey} mono />
-                  <DetailRow label={"大小"} value={formatBytes(stat.size)} />
                   <DetailRow
-                    label={"最后修改时间"}
+                    label={t("完整对象路径", "Full object key")}
+                    value={detailKey}
+                    mono
+                  />
+                  <DetailRow
+                    label={t("大小", "Size")}
+                    value={formatBytes(stat.size)}
+                  />
+                  <DetailRow
+                    label={t("最后修改时间", "Last modified")}
                     value={formatDate(stat.lastModified)}
                   />
                   <DetailRow label="ETag" value={stat.etag} mono />
-                  <DetailRow label={"内容类型"} value={stat.type || "—"} />
-                  <DetailRow label={"扩展名"} value={ext || "—"} />
+                  <DetailRow
+                    label={t("内容类型", "Content type")}
+                    value={stat.type || "—"}
+                  />
+                  <DetailRow
+                    label={t("扩展名", "Extension")}
+                    value={ext || "—"}
+                  />
                 </tbody>
               </table>
 
@@ -176,7 +198,7 @@ export function DetailPanel() {
                     }
                   }}
                 >
-                  <IconClipboard /> 复制对象路径
+                  <IconClipboard /> {t("复制对象路径", "Copy object key")}
                 </Button>
               </div>
             </div>

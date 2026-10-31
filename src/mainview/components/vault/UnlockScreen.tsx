@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconCircleQuestion,
   IconFingerprint,
@@ -25,6 +26,7 @@ interface UnlockScreenProps {
 }
 
 export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
+  useT();
   const [passphrase, setPassphrase] = useState("");
   const [remember, setRemember] = useState(false);
   const { unlock, unlockWithKeychain, loading, error, clearError } =
@@ -47,20 +49,25 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
           <div className="mb-4 text-center">
             <img
               src="/logo.png"
-              alt="object0"
+              alt={t("云仓", "Yuncang")}
               className="mx-auto mb-3 h-16 w-16"
             />
-            <h1 className="font-bold text-3xl text-primary">object0</h1>
+            <h1 className="font-bold text-3xl text-primary">
+              {t("云仓", "Yuncang")}
+            </h1>
             <p className="mt-2 text-muted-foreground text-sm">
-              S3 存储桶管理器
+              {t("S3 存储桶管理器", "S3 Bucket Manager")}
             </p>
           </div>
           <CardTitle className="flex items-center gap-2">
             <IconLock className="size-4" />
-            密码库已锁定
+            {t("密码库已锁定", "Vault Locked")}
           </CardTitle>
           <CardDescription>
-            通过系统钥匙串或输入密码来解锁存储账号。
+            {t(
+              "通过系统钥匙串或输入密码来解锁存储账号。",
+              "Unlock with OS keychain or enter your passphrase to access profiles.",
+            )}
           </CardDescription>
         </CardHeader>
 
@@ -74,21 +81,25 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
               onClick={handleKeychainUnlock}
             >
               <IconFingerprint className="size-4 mr-2" />
-              使用系统钥匙串解锁
+              {t("使用系统钥匙串解锁", "Unlock with OS Keychain")}
             </Button>
 
             <div className="flex items-center gap-3">
               <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground">或</span>
+              <span className="text-xs text-muted-foreground">
+                {t("或", "OR")}
+              </span>
               <Separator className="flex-1" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="unlock-passphrase">密码</Label>
+              <Label htmlFor="unlock-passphrase">
+                {t("密码", "Passphrase")}
+              </Label>
               <Input
                 id="unlock-passphrase"
                 type="password"
-                placeholder={"输入密码库密码"}
+                placeholder={t("输入密码库密码", "Enter vault passphrase")}
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
               />
@@ -104,11 +115,13 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
                 htmlFor="unlock-remember"
                 className="text-sm font-normal cursor-pointer"
               >
-                在系统钥匙串中记住密码
+                {t("在系统钥匙串中记住密码", "Remember in OS keychain")}
               </Label>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <p className="text-sm text-destructive">{localize(error)}</p>
+            )}
 
             <Button
               type="submit"
@@ -118,7 +131,7 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
               {loading ? (
                 <IconSpinner className="size-4 animate-spin" />
               ) : (
-                "解锁"
+                t("解锁", "Unlock")
               )}
             </Button>
 
@@ -134,7 +147,7 @@ export function UnlockScreen({ onForgotPassphrase }: UnlockScreenProps) {
                 }}
               >
                 <IconCircleQuestion className="size-4 mr-1.5" />
-                忘记密码？
+                {t("忘记密码？", "Forgot passphrase?")}
               </Button>
             </div>
           </form>

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { localize, useT } from "@/lib/i18n";
 import { onEvent } from "@/lib/rpc-client";
 import {
   useBucketStore,
@@ -15,6 +16,7 @@ import {
  * on completion when enabled.
  */
 export function useJobProgress() {
+  const t = useT();
   const updateFromProgress = useJobStore((s) => s.updateFromProgress);
   const updateFromComplete = useJobStore((s) => s.updateFromComplete);
 
@@ -29,12 +31,16 @@ export function useJobProgress() {
       // Desktop notification
       const notificationsEnabled = useUIStore.getState().desktopNotifications;
       if (notificationsEnabled && Notification.permission === "granted") {
-        const title = data.success ? "传输完成" : "传输失败";
+        const title = data.success
+          ? t("传输完成", "Transfer complete")
+          : t("传输失败", "Transfer failed");
         const body = data.fileName
-          ? `${data.fileName} — ${data.success ? "已完成" : data.error || "失败"}`
+          ? `${data.fileName} — ${data.success ? t("已完成", "Completed") : data.error ? localize(data.error) : t("失败", "Failed")}`
           : data.success
-            ? "任务已成功完成"
-            : data.error || "任务失败";
+            ? t("任务已成功完成", "Job completed successfully")
+            : data.error
+              ? localize(data.error)
+              : t("任务失败", "Job failed");
         new Notification(title, { body, silent: true });
       }
 
@@ -63,5 +69,5 @@ export function useJobProgress() {
       unsubProgress();
       unsubComplete();
     };
-  }, [updateFromProgress, updateFromComplete]);
+  }, [updateFromProgress, updateFromComplete, t]);
 }

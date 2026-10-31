@@ -1,4 +1,5 @@
 import type { Provider } from "@shared/profile.types";
+import { t } from "./i18n";
 
 export const PAGE_SIZES = [25, 50, 100, 250] as const;
 export const DEFAULT_PAGE_SIZE = 100;
@@ -13,7 +14,12 @@ export const PROVIDERS: { value: Provider; label: string }[] = [
   { value: "minio", label: "MinIO" },
   { value: "gcs", label: "Google Cloud Storage" },
   { value: "backblaze", label: "Backblaze B2" },
-  { value: "custom", label: "自定义 S3 兼容存储" },
+  {
+    value: "custom",
+    get label() {
+      return t("自定义 S3 兼容存储", "Custom S3-compatible storage");
+    },
+  },
 ];
 
 export const FILE_TYPE_EXTENSIONS: Record<string, string[]> = {

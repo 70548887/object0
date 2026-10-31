@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { localize, useT } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
 
 // Tracks whether the vault passphrase is stored in the OS keychain, exposes
 // display-ready status text/badge, and a handler to forget the stored entry.
 export function useKeychainStatus() {
+  const t = useT();
   const [hasStoredPassphrase, setHasStoredPassphrase] = useState<
     boolean | null
   >(null);
@@ -16,22 +18,22 @@ export function useKeychainStatus() {
 
   const keychainStatusText =
     keychainAvailable === false
-      ? "系统钥匙串不可用"
+      ? t("系统钥匙串不可用", "System keychain unavailable")
       : hasStoredPassphrase === null
-        ? "正在检查系统钥匙串..."
+        ? t("正在检查系统钥匙串...", "Checking the system keychain...")
         : hasStoredPassphrase
-          ? "已保存在系统钥匙串中"
-          : "未保存在系统钥匙串中";
+          ? t("已保存在系统钥匙串中", "Saved in the system keychain")
+          : t("未保存在系统钥匙串中", "Not saved in the system keychain");
 
   const keychainBadge = keychainBusy
-    ? { label: "正在处理" }
+    ? { label: t("正在处理", "Working") }
     : keychainAvailable === false
-      ? { label: "不可用" }
+      ? { label: t("不可用", "Unavailable") }
       : hasStoredPassphrase === null
-        ? { label: "正在检查" }
+        ? { label: t("正在检查", "Checking") }
         : hasStoredPassphrase
-          ? { label: "已保存" }
-          : { label: "未保存" };
+          ? { label: t("已保存", "Saved") }
+          : { label: t("未保存", "Not saved") };
 
   const keychainBadgeClass = keychainBusy
     ? "bg-info/15 text-info"
@@ -57,7 +59,12 @@ export function useKeychainStatus() {
         if (mounted) {
           setHasStoredPassphrase(false);
           setKeychainAvailable(false);
-          setKeychainError("无法读取系统钥匙串状态");
+          setKeychainError(
+            t(
+              "无法读取系统钥匙串状态",
+              "Unable to read system keychain status",
+            ),
+          );
         }
       }
     };
@@ -66,7 +73,7 @@ export function useKeychainStatus() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [t]);
 
   const forgetStoredPassphrase = async () => {
     try {
@@ -82,14 +89,30 @@ export function useKeychainStatus() {
       if (result.success) {
         setKeychainMessage(
           result.hadStoredPassphrase
-            ? "已从系统钥匙串中移除保存的密码"
-            : "系统钥匙串中没有保存的密码",
+            ? t(
+                "已从系统钥匙串中移除保存的密码",
+                "Saved passphrase removed from the system keychain",
+              )
+            : t(
+                "系统钥匙串中没有保存的密码",
+                "No passphrase saved in the system keychain",
+              ),
         );
       } else {
-        setKeychainError("清除系统钥匙串中的记录失败");
+        setKeychainError(
+          t(
+            "清除系统钥匙串中的记录失败",
+            "Failed to clear the system keychain entry",
+          ),
+        );
       }
     } catch {
-      setKeychainError("清除系统钥匙串中的记录失败");
+      setKeychainError(
+        t(
+          "清除系统钥匙串中的记录失败",
+          "Failed to clear the system keychain entry",
+        ),
+      );
     } finally {
       setKeychainBusy(false);
     }
@@ -99,8 +122,8 @@ export function useKeychainStatus() {
     hasStoredPassphrase,
     keychainAvailable,
     keychainBusy,
-    keychainMessage,
-    keychainError,
+    keychainMessage: keychainMessage ? localize(keychainMessage) : null,
+    keychainError: keychainError ? localize(keychainError) : null,
     keychainStatusText,
     keychainBadge,
     keychainBadgeClass,

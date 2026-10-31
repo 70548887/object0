@@ -1,3 +1,5 @@
+import { intlLocale, t } from "@/lib/i18n";
+
 const BYTES_PER_KIB = 1024;
 
 // ── Human-readable byte sizes ──
@@ -53,12 +55,24 @@ export function formatRelativeDate(isoDate: string): string {
   const diffHrs = Math.floor(diffMin / 60);
   const diffDays = Math.floor(diffHrs / 24);
 
-  if (diffSec < 60) return "刚刚";
-  if (diffMin < 60) return `${diffMin} 分钟前`;
-  if (diffHrs < 24) return `${diffHrs} 小时前`;
-  if (diffDays < 7) return `${diffDays} 天前`;
+  if (diffSec < 60) return t("刚刚", "Just now");
+  if (diffMin < 60)
+    return t(
+      `${diffMin} 分钟前`,
+      `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`,
+    );
+  if (diffHrs < 24)
+    return t(
+      `${diffHrs} 小时前`,
+      `${diffHrs} hour${diffHrs === 1 ? "" : "s"} ago`,
+    );
+  if (diffDays < 7)
+    return t(
+      `${diffDays} 天前`,
+      `${diffDays} day${diffDays === 1 ? "" : "s"} ago`,
+    );
 
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(intlLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -69,7 +83,7 @@ export function formatRelativeDate(isoDate: string): string {
 export function formatDate(isoDate: string): string {
   if (!isoDate) return "—";
   const date = new Date(isoDate);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(intlLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",

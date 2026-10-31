@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { formatRelativeDate, getFileName } from "@/lib/formatters";
+import { t, useT } from "@/lib/i18n";
 import {
   IconBroom,
   IconClockRotateLeft,
@@ -23,6 +24,7 @@ import { toast } from "../common/Toast";
 type FilterMode = "all" | "active" | "expired";
 
 export function ShareHistory() {
+  useT();
   const shareHistoryOpen = useUIStore((s) => s.shareHistoryOpen);
   const setShareHistoryOpen = useUIStore((s) => s.setShareHistoryOpen);
   const entries = useShareHistoryStore((s) => s.entries);
@@ -56,26 +58,26 @@ export function ShareHistory() {
   const handleCopy = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("链接已复制！");
+      toast.success(t("链接已复制！", "Link copied!"));
     } catch {
-      toast.error("复制失败");
+      toast.error(t("复制失败", "Copy failed"));
     }
   };
 
   const formatExpiry = (expiresAt: string): string => {
     const date = new Date(expiresAt);
-    if (date <= now) return "已过期";
+    if (date <= now) return t("已过期", "Expired");
     const diff = date.getTime() - now.getTime();
     if (diff < 3600000) {
       const mins = Math.round(diff / 60000);
-      return `剩余 ${mins} 分钟`;
+      return t(`剩余 ${mins} 分钟`, `${mins} minutes left`);
     }
     if (diff < 86400000) {
       const hours = Math.round(diff / 3600000);
-      return `剩余 ${hours} 小时`;
+      return t(`剩余 ${hours} 小时`, `${hours} hours left`);
     }
     const days = Math.round(diff / 86400000);
-    return `剩余 ${days} 天`;
+    return t(`剩余 ${days} 天`, `${days} days left`);
   };
 
   return (
@@ -93,7 +95,7 @@ export function ShareHistory() {
         <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
           <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
             <IconClockRotateLeft className="size-4 shrink-0 text-foreground/60" />
-            <span className="truncate">分享记录</span>
+            <span className="truncate">{t("分享记录", "Sharing history")}</span>
             {entries.length > 0 && (
               <span className="rounded-full bg-muted px-1.5 py-px text-[9px] text-foreground/55">
                 {entries.length}
@@ -106,7 +108,7 @@ export function ShareHistory() {
               size="icon-sm"
               className="text-foreground/50 hover:text-foreground"
               onClick={() => setShareHistoryOpen(false)}
-              title={"关闭"}
+              title={t("关闭", "Close")}
             >
               <IconXmark className="size-4" />
             </Button>
@@ -121,21 +123,24 @@ export function ShareHistory() {
               size="xs"
               onClick={() => setFilter("all")}
             >
-              全部（{entries.length})
+              {t("全部（", "All (")}
+              {entries.length})
             </Button>
             <Button
               variant={filter === "active" ? "default" : "ghost"}
               size="xs"
               onClick={() => setFilter("active")}
             >
-              有效（{activeCount})
+              {t("有效（", "Active (")}
+              {activeCount})
             </Button>
             <Button
               variant={filter === "expired" ? "default" : "ghost"}
               size="xs"
               onClick={() => setFilter("expired")}
             >
-              已过期（{expiredCount})
+              {t("已过期（", "Expired (")}
+              {expiredCount})
             </Button>
           </div>
         )}
@@ -146,7 +151,9 @@ export function ShareHistory() {
             <div className="flex flex-col items-center gap-2 py-12 text-foreground/40">
               <IconLinkSlash className="size-8" />
               <span className="text-sm">
-                {entries.length === 0 ? "暂无分享记录" : "没有匹配记录"}
+                {entries.length === 0
+                  ? t("暂无分享记录", "No sharing history yet")
+                  : t("没有匹配记录", "No matching entries")}
               </span>
             </div>
           ) : (
@@ -186,7 +193,8 @@ export function ShareHistory() {
                           {entry.bucket}/{entry.key}
                         </div>
                         <div className="mt-0.5 text-[10px] text-foreground/40">
-                          分享时间 {formatRelativeDate(entry.createdAt)}
+                          {t("分享时间 ", "Shared ")}
+                          {formatRelativeDate(entry.createdAt)}
                         </div>
                       </TableCell>
 
@@ -197,7 +205,7 @@ export function ShareHistory() {
                               variant="ghost"
                               size="icon-xs"
                               onClick={() => handleCopy(entry.url)}
-                              title={"复制链接"}
+                              title={t("复制链接", "Copy link")}
                             >
                               <IconCopy className="size-3" />
                             </Button>
@@ -207,7 +215,7 @@ export function ShareHistory() {
                             size="icon-xs"
                             className="text-destructive"
                             onClick={() => removeEntry(entry.id)}
-                            title={"移除"}
+                            title={t("移除", "Remove")}
                           >
                             <IconTrash className="size-3" />
                           </Button>
@@ -232,7 +240,8 @@ export function ShareHistory() {
                 onClick={clearExpired}
               >
                 <IconBroom className="size-3" />
-                清除已过期（{expiredCount})
+                {t("清除已过期（", "Clear expired (")}
+                {expiredCount})
               </Button>
             )}
             <Button
@@ -242,7 +251,7 @@ export function ShareHistory() {
               onClick={clearAll}
             >
               <IconTrash className="size-3" />
-              全部清除
+              {t("全部清除", "Clear all")}
             </Button>
           </div>
         )}

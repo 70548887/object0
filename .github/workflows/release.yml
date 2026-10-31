@@ -101,7 +101,7 @@ jobs:
 
       - name: Run local-only regression tests
         run: |
-          bun test tests/share-expiration.test.ts
+          bun test tests/share-expiration.test.ts tests/share-expiration-i18n.test.ts tests/i18n.test.ts
           if ($LASTEXITCODE -ne 0) { throw 'Share expiration tests failed.' }
           bun tests/bucket-usage-rpc.regression.ts
           if ($LASTEXITCODE -ne 0) { throw 'Usage event regression failed.' }
@@ -109,6 +109,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Profile switch regression failed.' }
           bun tests/rpc-errors.regression.ts
           if ($LASTEXITCODE -ne 0) { throw 'RPC error regression failed.' }
+          bun tests/toast-i18n.regression.tsx
+          if ($LASTEXITCODE -ne 0) { throw 'Toast language regression failed.' }
           git diff --exit-code
           if ($LASTEXITCODE -ne 0) { throw 'Tests changed tracked release source.' }
 

@@ -1,9 +1,11 @@
+import { t, useT } from "@/lib/i18n";
 import { IconBucket, IconXmark } from "@/lib/icons";
 import { useTabStore } from "@/stores";
 import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 
 export function TabBar() {
+  useT();
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const setActiveTab = useTabStore((s) => s.setActiveTab);
@@ -61,8 +63,8 @@ export function TabBar() {
                     e.stopPropagation();
                     removeTab(tab.id);
                   }}
-                  title={"关闭标签页"}
-                  aria-label={`关闭标签页 ${label}`}
+                  title={t("关闭标签页", "Close tab")}
+                  aria-label={t(`关闭标签页 ${label}`, `Close tab ${label}`)}
                 >
                   <IconXmark className="size-[11px]" />
                 </Button>

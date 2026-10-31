@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 function Command({
@@ -30,8 +31,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title,
+  description,
   children,
   className,
   showCloseButton = false,
@@ -43,11 +44,15 @@ function CommandDialog({
   showCloseButton?: boolean;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <Dialog {...props}>
       <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        <DialogTitle>{title ?? t("命令面板", "Command Palette")}</DialogTitle>
+        <DialogDescription>
+          {description ??
+            t("搜索要执行的命令…", "Search for a command to run...")}
+        </DialogDescription>
       </DialogHeader>
       <DialogContent
         className={cn(

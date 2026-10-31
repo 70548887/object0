@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
+import { localize, t, useT } from "@/lib/i18n";
 import { IconCloudArrowUp } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import {
@@ -15,6 +16,7 @@ interface DropZoneProps {
 }
 
 export function DropZone({ children }: DropZoneProps) {
+  useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
   const bucket = useBucketStore((s) => s.selectedBucket);
   const [dragging, setDragging] = useState(false);
@@ -59,7 +61,9 @@ export function DropZone({ children }: DropZoneProps) {
       const files = Array.from(e.dataTransfer.files);
 
       if (files.length === 0) {
-        toast.warning("未检测到拖入的文件");
+        toast.warning(
+          t("未检测到拖入的文件", "No dropped files were detected"),
+        );
         return;
       }
 
@@ -72,7 +76,12 @@ export function DropZone({ children }: DropZoneProps) {
           .filter(Boolean) as string[];
 
         if (paths.length === 0) {
-          toast.warning("无法读取拖入文件的路径");
+          toast.warning(
+            t(
+              "无法读取拖入文件的路径",
+              "Could not read the dropped file paths",
+            ),
+          );
           return;
         }
 
@@ -90,18 +99,26 @@ export function DropZone({ children }: DropZoneProps) {
             totalJobs++;
           } catch (err: unknown) {
             toast.error(
-              `上传 ${fileName} 失败：${err instanceof Error ? err.message : "未知错误"}`,
+              t(
+                `上传 ${fileName} 失败：${err instanceof Error ? localize(err.message) : t("未知错误", "Unknown error")}`,
+                `Failed to upload ${fileName}: ${err instanceof Error ? localize(err.message) : t("未知错误", "Unknown error")}`,
+              ),
             );
           }
         }
 
         if (totalJobs > 0) {
           useUIStore.getState().setJobPanelOpen(true);
-          toast.success(`正在上传 ${totalJobs} 个文件`);
+          toast.success(
+            t(`正在上传 ${totalJobs} 个文件`, `Uploading ${totalJobs} files`),
+          );
         }
       } catch (err: unknown) {
         toast.error(
-          `拖放失败：${err instanceof Error ? err.message : "未知错误"}`,
+          t(
+            `拖放失败：${err instanceof Error ? localize(err.message) : t("未知错误", "Unknown error")}`,
+            `Drag and drop failed: ${err instanceof Error ? localize(err.message) : t("未知错误", "Unknown error")}`,
+          ),
         );
       }
     },
@@ -114,7 +131,7 @@ export function DropZone({ children }: DropZoneProps) {
     // biome-ignore lint/a11y/useSemanticElements: drop zone requires div with drag handlers
     <div
       role="region"
-      aria-label={"文件拖放区域"}
+      aria-label={t("文件拖放区域", "File drop area")}
       className="relative flex-1 overflow-auto"
       onDragEnter={active ? handleDragEnter : undefined}
       onDragLeave={active ? handleDragLeave : undefined}
@@ -129,10 +146,13 @@ export function DropZone({ children }: DropZoneProps) {
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-primary border-dashed bg-background/80 px-12 py-10">
             <IconCloudArrowUp className="size-10 text-primary" />
             <span className="font-semibold text-foreground text-sm">
-              将文件拖到这里上传
+              {t("将文件拖到这里上传", "Drop files here to upload")}
             </span>
             <span className="text-foreground/50 text-xs">
-              文件将上传到当前文件夹
+              {t(
+                "文件将上传到当前文件夹",
+                "Files will be uploaded to the current folder",
+              )}
             </span>
           </div>
         </div>

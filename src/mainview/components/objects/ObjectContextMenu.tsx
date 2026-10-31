@@ -6,6 +6,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconArrowRightArrowLeft,
   IconCircleInfo,
@@ -47,6 +48,7 @@ export function ObjectContextMenu({
   children,
   triggerRender,
 }: ObjectContextMenuProps) {
+  useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
   const bucket = useBucketStore((s) => s.selectedBucket);
   const openShareDialog = useUIStore((s) => s.openShareDialog);
@@ -58,9 +60,9 @@ export function ObjectContextMenu({
   const handleCopyKey = async () => {
     try {
       await navigator.clipboard.writeText(objectKey);
-      toast.success("对象路径已复制");
+      toast.success(t("对象路径已复制", "Object key copied"));
     } catch {
-      toast.error("复制失败");
+      toast.error(t("复制失败", "Copy failed"));
     }
   };
 
@@ -75,7 +77,12 @@ export function ObjectContextMenu({
         });
         if (result.jobIds.length > 0) {
           useUIStore.getState().setJobPanelOpen(true);
-          toast.info(`正在下载文件夹（${result.jobIds.length} 个文件）`);
+          toast.info(
+            t(
+              `正在下载文件夹（${result.jobIds.length} 个文件）`,
+              `Downloading folder (${result.jobIds.length} files)`,
+            ),
+          );
         }
       } else {
         await rpcCall("transfer:download", {
@@ -85,7 +92,7 @@ export function ObjectContextMenu({
           localPath: `~/Downloads/${fileName}`,
         });
         useUIStore.getState().setJobPanelOpen(true);
-        toast.info(`正在下载 ${fileName}`);
+        toast.info(t(`正在下载 ${fileName}`, `Downloading ${fileName}`));
       }
     } catch (err: unknown) {
       if (
@@ -93,7 +100,11 @@ export function ObjectContextMenu({
         err.message === "No destination folder selected"
       )
         return;
-      toast.error(err instanceof Error ? err.message : "未知错误");
+      toast.error(
+        err instanceof Error
+          ? localize(err.message)
+          : t("未知错误", "Unknown error"),
+      );
     }
   };
 
@@ -118,11 +129,15 @@ export function ObjectContextMenu({
         bucket,
         keys: [objectKey],
       });
-      toast.success(`已删除“${fileName}”`);
+      toast.success(t(`已删除“${fileName}”`, `Deleted “${fileName}”`));
       const prefix = useObjectStore.getState().currentPrefix;
       useObjectStore.getState().loadObjects(profileId, bucket, prefix);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "未知错误");
+      toast.error(
+        err instanceof Error
+          ? localize(err.message)
+          : t("未知错误", "Unknown error"),
+      );
     }
   };
 
@@ -131,25 +146,27 @@ export function ObjectContextMenu({
       {/* Details (files only) */}
       {!isFolder && (
         <ContextMenuItem onClick={handleDetails}>
-          <IconCircleInfo className="size-4 shrink-0" /> 详细信息
+          <IconCircleInfo className="size-4 shrink-0" />{" "}
+          {t("详细信息", "Details")}
         </ContextMenuItem>
       )}
 
       {/* Download */}
       <ContextMenuItem onClick={() => void handleDownload()}>
-        <IconCloudArrowDown className="size-4 shrink-0" /> 下载
+        <IconCloudArrowDown className="size-4 shrink-0" />{" "}
+        {t("下载", "Download")}
       </ContextMenuItem>
 
       {/* Share (files only) */}
       {!isFolder && (
         <ContextMenuItem onClick={handleShare}>
-          <IconShareNodes className="size-4 shrink-0" /> 分享
+          <IconShareNodes className="size-4 shrink-0" /> {t("分享", "Share")}
         </ContextMenuItem>
       )}
 
       {/* Rename */}
       <ContextMenuItem onClick={handleRename}>
-        <IconPen className="size-4 shrink-0" /> 重命名
+        <IconPen className="size-4 shrink-0" /> {t("重命名", "Rename")}
       </ContextMenuItem>
 
       {/* Copy to bucket */}
@@ -158,7 +175,8 @@ export function ObjectContextMenu({
           openTransferDialog({ keys: [objectKey], defaultMode: "copy" })
         }
       >
-        <IconCopy className="size-4 shrink-0" /> 复制到存储桶
+        <IconCopy className="size-4 shrink-0" />{" "}
+        {t("复制到存储桶", "Copy to bucket")}
       </ContextMenuItem>
 
       {/* Move to bucket */}
@@ -167,12 +185,14 @@ export function ObjectContextMenu({
           openTransferDialog({ keys: [objectKey], defaultMode: "move" })
         }
       >
-        <IconArrowRightArrowLeft className="size-4 shrink-0" /> 移动到存储桶
+        <IconArrowRightArrowLeft className="size-4 shrink-0" />{" "}
+        {t("移动到存储桶", "Move to bucket")}
       </ContextMenuItem>
 
       {/* Copy key */}
       <ContextMenuItem onClick={() => void handleCopyKey()}>
-        <IconClipboard className="size-4 shrink-0" /> 复制对象路径
+        <IconClipboard className="size-4 shrink-0" />{" "}
+        {t("复制对象路径", "Copy object key")}
       </ContextMenuItem>
 
       <ContextMenuSeparator />
@@ -182,7 +202,7 @@ export function ObjectContextMenu({
         variant="destructive"
         onClick={() => void handleDelete()}
       >
-        <IconTrashCan className="size-4 shrink-0" /> 删除
+        <IconTrashCan className="size-4 shrink-0" /> {t("删除", "Delete")}
       </ContextMenuItem>
     </ContextMenuContent>
   );

@@ -1,6 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useJobProgress, useKeyboardShortcuts } from "@/hooks";
+import { clearMessageTranslations } from "@/lib/i18n";
 import {
   dispatchObjectToolbarEvent,
   OBJECT_TOOLBAR_EVENTS,
@@ -14,7 +15,9 @@ import {
   useUIStore,
   useVaultStore,
 } from "@/stores";
+import { useLocaleStore } from "@/stores/useLocaleStore";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { LanguageSwitcher } from "../components/common/LanguageSwitcher";
 import { ParticleBackground } from "../components/common/ParticleBackground";
 import { Toast } from "../components/common/Toast";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -27,7 +30,20 @@ import { SetupScreen } from "../components/vault/SetupScreen";
 import { UnlockScreen } from "../components/vault/UnlockScreen";
 import { ThemeProvider } from "./ThemeProvider";
 
+let nativeLanguageQueue: Promise<unknown> = Promise.resolve();
+
 export default function App() {
+  const locale = useLocaleStore((state) => state.locale);
+  useEffect(() => {
+    document.documentElement.lang = locale === "en" ? "en" : "zh-CN";
+    document.title = locale === "en" ? "Yuncang" : "云仓";
+    // Native window title and tray follow the UI; saved account identifiers and
+    // vault paths do not change when switching language or application name.
+    nativeLanguageQueue = nativeLanguageQueue
+      .catch(() => {})
+      .then(() => rpcCall("system:set-language", { locale }))
+      .catch(() => {});
+  }, [locale]);
   const {
     exists,
     unlocked,
@@ -39,6 +55,9 @@ export default function App() {
   } = useVaultStore();
 
   const [showRecovery, setShowRecovery] = useState(false);
+  useEffect(() => {
+    if (!unlocked) clearMessageTranslations();
+  }, [unlocked]);
 
   useJobProgress();
 
@@ -152,6 +171,11 @@ export default function App() {
               controls; every other screen gets this lightweight title bar so
               the window stays draggable/closable on Windows & Linux. */}
           {screenKey !== "main" && <WindowChrome />}
+          {screenKey !== "main" && (
+            <div className="absolute right-4 top-12 z-50">
+              <LanguageSwitcher />
+            </div>
+          )}
         </div>
 
         {/* Linux-only invisible resize grips — global so resizing works on the

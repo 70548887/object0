@@ -43,3 +43,4 @@ docs/superpowers/
 src-tauri/WebView2Runtime/
 release-output/
 packaging/downloads/
+.preview/

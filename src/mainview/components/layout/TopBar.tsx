@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense } from "react";
+import { t, useT } from "@/lib/i18n";
 import {
   IconClockRotateLeft,
   IconFolderOpen,
@@ -31,6 +32,7 @@ const JobPanel = lazy(() =>
 );
 
 export function TopBar() {
+  useT();
   const activeProfile = useProfileStore((s) => s.activeProfile);
   const bucket = useBucketStore((s) => s.selectedBucket);
   const toggleTheme = useThemeStore((s) => s.toggle);
@@ -89,7 +91,9 @@ export function TopBar() {
             />
           ) : (
             <span className="text-foreground/40 text-sm">
-              {activeProfile ? "选择存储桶" : "请先选择存储账号"}
+              {activeProfile
+                ? t("选择存储桶", "Select a bucket")
+                : t("请先选择存储账号", "Select a profile to begin")}
             </span>
           )}
         </div>
@@ -104,8 +108,8 @@ export function TopBar() {
           size="icon-sm"
           className="no-drag"
           onClick={toggleTheme}
-          title={"切换主题（Ctrl+\\）"}
-          aria-label={"切换主题"}
+          title={t("切换主题（Ctrl+\\）", "Toggle Theme (Ctrl+\\)")}
+          aria-label={t("切换主题", "Toggle theme")}
         >
           {theme === "dark" ? (
             <IconSun className="size-4" />
@@ -119,8 +123,8 @@ export function TopBar() {
             variant="ghost"
             size="icon-sm"
             onClick={() => setShareHistoryOpen(!shareHistoryOpen)}
-            title={"分享记录"}
-            aria-label={"显示或隐藏分享记录"}
+            title={t("分享记录", "Share History")}
+            aria-label={t("显示或隐藏分享记录", "Toggle share history")}
           >
             <IconClockRotateLeft className="size-4" />
           </Button>
@@ -141,8 +145,11 @@ export function TopBar() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  title={"显示或隐藏任务面板（Ctrl+J）"}
-                  aria-label={"显示或隐藏任务面板"}
+                  title={t(
+                    "显示或隐藏任务面板（Ctrl+J）",
+                    "Toggle Jobs Panel (Ctrl+J)",
+                  )}
+                  aria-label={t("显示或隐藏任务面板", "Toggle jobs panel")}
                 >
                   <IconListCheck className="size-4" />
                 </Button>
@@ -170,8 +177,14 @@ export function TopBar() {
             variant="ghost"
             size="icon-sm"
             onClick={() => setFolderSyncPanelOpen(!folderSyncPanelOpen)}
-            title={"实时文件夹同步（本地与存储桶持续同步）"}
-            aria-label={"显示或隐藏实时同步面板"}
+            title={t(
+              "实时文件夹同步（本地与存储桶持续同步）",
+              "Live Folder Sync (continuous local <-> bucket)",
+            )}
+            aria-label={t(
+              "显示或隐藏实时同步面板",
+              "Toggle live folder sync panel",
+            )}
           >
             <IconFolderOpen
               className={`size-4 ${syncingCount() > 0 ? "text-info" : ""}`}
@@ -191,8 +204,8 @@ export function TopBar() {
           size="icon-sm"
           className="no-drag"
           onClick={() => setSettingsOpen(!settingsOpen)}
-          title={"设置（Ctrl+,）"}
-          aria-label={"显示或隐藏设置面板"}
+          title={t("设置（Ctrl+,）", "Settings (Ctrl+,)")}
+          aria-label={t("显示或隐藏设置面板", "Toggle settings panel")}
         >
           <IconGear className="size-4" />
         </Button>

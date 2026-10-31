@@ -9,6 +9,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { t, useT } from "@/lib/i18n";
 import { IconBucket, IconCheck, IconCloud, IconCopy } from "@/lib/icons";
 import { useObjectStore, useProfileStore } from "@/stores";
 
@@ -21,6 +22,7 @@ export function ObjectBreadcrumb({
   profileName,
   bucket,
 }: ObjectBreadcrumbProps) {
+  useT();
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
   const navigateToPrefix = useObjectStore((s) => s.navigateToPrefix);
   const loadObjects = useObjectStore((s) => s.loadObjects);
@@ -136,8 +138,8 @@ export function ObjectBreadcrumb({
           size="icon-xs"
           className="opacity-70 hover:opacity-100"
           onClick={() => void handleCopyPath()}
-          title={`复制路径：${fullPath}`}
-          aria-label={"复制当前路径"}
+          title={t(`复制路径：${fullPath}`, `Copy path: ${fullPath}`)}
+          aria-label={t("复制当前路径", "Copy current path")}
         >
           {copied ? (
             <IconCheck className="size-3 text-success" />

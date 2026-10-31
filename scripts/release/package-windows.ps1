@@ -9,6 +9,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $package = Get-Content -LiteralPath (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json
+$tauriConfig = Get-Content -LiteralPath (Join-Path $projectRoot 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
+$productName = [string]$tauriConfig.productName
 $version = [string]$package.version
 if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
     throw 'The package version is not a supported release version.'
@@ -36,7 +38,7 @@ if ($compiledVersion -notmatch ('^' + [regex]::Escape($version) + '(?:\.0)?(?:\+
 }
 $installerDirectory = Join-Path $releaseRoot 'bundle/nsis'
 $installers = @(Get-ChildItem -LiteralPath $installerDirectory -File -Filter '*.exe' |
-    Where-Object { $_.Name -like ('object0_' + $version + '_*-setup.exe') })
+    Where-Object { $_.Name -like ($productName + '_' + $version + '_*-setup.exe') })
 if ($installers.Count -ne 1) {
     throw "Expected exactly one NSIS setup for version $version; found $($installers.Count)."
 }

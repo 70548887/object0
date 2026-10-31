@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { localize, t, useT } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
 import { toast } from "../common/Toast";
 
@@ -27,6 +28,7 @@ export function usePendingDelete({
   clearSelection,
   refresh,
 }: UsePendingDeleteParams) {
+  useT();
   const pendingDeleteRef = useRef<PendingDelete | null>(null);
 
   // Cancel any in-flight undo timer on unmount.
@@ -43,10 +45,16 @@ export function usePendingDelete({
       if (!profileId || !bucket) return;
       try {
         await rpcCall("objects:delete", { profileId, bucket, keys });
-        toast.success(`已删除 ${keys.length} 个文件`);
+        toast.success(
+          t(`已删除 ${keys.length} 个文件`, `Deleted ${keys.length} files`),
+        );
         refresh();
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "未知错误");
+        toast.error(
+          err instanceof Error
+            ? localize(err.message)
+            : t("未知错误", "Unknown error"),
+        );
       }
     },
     [profileId, bucket, refresh],
@@ -76,20 +84,23 @@ export function usePendingDelete({
 
     pendingDeleteRef.current = { keys: keysToDelete, timerId };
 
-    toast.warning(`正在删除 ${count} 个文件...`, {
-      duration: UNDO_WINDOW_MS,
-      action: {
-        label: "撤销",
-        onClick: () => {
-          if (pendingDeleteRef.current?.timerId === timerId) {
-            clearTimeout(timerId);
-            pendingDeleteRef.current = null;
-            toast.info("已取消删除");
-            refresh();
-          }
+    toast.warning(
+      t(`正在删除 ${count} 个文件...`, `Deleting ${count} files...`),
+      {
+        duration: UNDO_WINDOW_MS,
+        action: {
+          label: t("撤销", "Undo"),
+          onClick: () => {
+            if (pendingDeleteRef.current?.timerId === timerId) {
+              clearTimeout(timerId);
+              pendingDeleteRef.current = null;
+              toast.info(t("已取消删除", "Deletion cancelled"));
+              refresh();
+            }
+          },
         },
       },
-    });
+    );
   }, [
     profileId,
     bucket,

@@ -1,6 +1,7 @@
 import type { BucketInfo } from "@shared/s3.types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { t, useT } from "@/lib/i18n";
 import { IconBucket, IconStar } from "@/lib/icons";
 import { useFavoritesStore } from "@/stores";
 
@@ -19,6 +20,7 @@ export function BucketList({
   profileId,
   onSelect,
 }: BucketListProps) {
+  useT();
   const favorites = useFavoritesStore((s) => s.favorites);
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
 
@@ -42,7 +44,7 @@ export function BucketList({
   if (buckets.length === 0) {
     return (
       <div className="px-3 py-4 text-center text-muted-foreground/60 text-xs">
-        未找到存储桶
+        {t("未找到存储桶", "No buckets found")}
       </div>
     );
   }
@@ -83,7 +85,11 @@ export function BucketList({
               e.stopPropagation();
               toggleFavorite(profileId, b.name);
             }}
-            title={showStar ? "取消固定存储桶" : "固定存储桶"}
+            title={
+              showStar
+                ? t("取消固定存储桶", "Unpin bucket")
+                : t("固定存储桶", "Pin bucket")
+            }
           >
             <IconStar className={`size-3 ${showStar ? "fill-current" : ""}`} />
           </Button>
@@ -99,12 +105,12 @@ export function BucketList({
         <>
           <li className="flex items-center gap-1 px-3 py-1 text-[10px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
             <IconStar className="size-2.5" />
-            已固定
+            {t("已固定", "Pinned")}
           </li>
           {pinned.map((b) => renderBucket(b, true))}
           {unpinned.length > 0 && (
             <li className="px-3 py-1 text-[10px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
-              所有存储桶
+              {t("所有存储桶", "All Buckets")}
             </li>
           )}
         </>

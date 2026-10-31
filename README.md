@@ -1,233 +1,78 @@
-## 中文 Windows 定制版
+# 云仓
 
-本仓库基于 [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0) 开发，保留原项目 MIT 许可与版权声明。
+**简体中文** | [English](README.en.md)
 
-下载本仓库的 [正式发布版本](https://github.com/70548887/object0/releases)：
+**一个桌面管理端，统一管理多个云存储账号。**
 
-- `windows_x64_setup.exe`：简体中文安装包，安装与卸载入口。
-- `windows_x64_portable.zip`：完整解压到本地磁盘后双击 `object0.exe`，无需安装应用或另外安装 WebView2。
-- 两种格式均内置固定版本 WebView2。账号密码库保存在当前用户的 C 盘配置目录，安装包不包含开发者账号或密钥。
-- 下载后可用同页的 `SHA256SUMS.txt` 校验完整性。安装包未配置商业代码签名；自动更新默认停用，请从本仓库手动更新。
+云仓（Yuncang）支持 Cloudflare R2、AWS S3 以及其他 S3 兼容存储，集中完成文件浏览、上传、下载、同步和分享。本项目基于 [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0) 开发，保留上游 MIT 许可证和版权声明。
 
-详细说明见 [Windows 安装与便携版说明](docs/PORTABLE_ZH.md)。以下保留上游功能与开发文档；本仓库当前正式分发 Windows x64。
+[![最新发布](https://img.shields.io/github/v/release/70548887/object0)](https://github.com/70548887/object0/releases) [![许可证](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-<div align="center">
+## 下载与安装
 
-# object0
+前往 [GitHub 发布页](https://github.com/70548887/object0/releases) 下载 Windows x64 版本：
 
-<img src="public/logo.png" alt="object0 logo" width="192" />
+- **安装包**：按 Windows 安装向导操作，提供卸载入口。
+- **便携 ZIP**：完整解压到本地可写目录，双击其中的 `object0.exe`。保留旁边的 `WebView2Runtime` 文件夹，不需要另行安装 WebView2。
+- **完整性校验**：使用同一发布页中的 `SHA256SUMS.txt` 核对下载文件。
 
-**A free and open-source desktop S3 bucket manager.**
+已发布的 v1.6.0 安装包仍显示历史名称 **object0**，界面仅中文。本次更名和中英切换已在最新源码中开发；已有发布文件不会被静默覆盖。仓库地址、内部程序文件名和数据标识暂时沿用原名以保持兼容。
 
-Manage objects across AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Backblaze B2, Google Cloud Storage, and any S3-compatible provider from a single, fast, cross-platform desktop app.
+## 中文与英文
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/github/v/release/70548887/object0)](https://github.com/70548887/object0/releases)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#installation)
+软件默认使用 **简体中文**。在 **设置 → 语言 → English** 中切换，界面立即生效并保存选择，下次启动自动恢复。尚未解锁密码库时，也可以通过界面右上角切换语言。
 
-Built with [Tauri](https://tauri.app) · [Rust](https://www.rust-lang.org) · [Bun](https://bun.sh) · [React](https://react.dev) · [Tailwind CSS](https://tailwindcss.com) · [shadcn/ui](https://ui.shadcn.com) · [Zustand](https://zustand.docs.pmnd.rs)
+切换语言不会翻译账号名、桶名、文件名、对象路径、URL 或访问凭据，也不会重置正在编辑的表单或传输任务。
 
-</div>
+本 README 默认中文，点击顶部 **English** 即可查看英文文档。
 
----
+## 主要功能
 
-> **📖 Just want to use the app?** Read the **[User Guide](docs/USER_GUIDE.md)** — a complete, screenshot-free walkthrough of connecting providers, browsing, transferring, syncing, sharing, and shortcuts. The rest of this README is aimed at developers and contributors.
+- **多账号管理**：连接 Cloudflare R2、AWS S3、MinIO 等 S3 兼容服务。
+- **文件管理**：浏览、上传、下载、复制、移动和文件夹操作。
+- **本地密码库**：加密保存访问凭据，支持账号详情与连接测试。
+- **传输与同步**：任务队列、文件夹同步及冲突处理。
+- **分享文件**：生成有效期不超过 7 天的分享链接和二维码。
+- **用量统计**：显示当前存储桶内容大小和对象数，支持有界 S3 扫描及可选 R2 官方统计。
+- **桌面体验**：深浅主题、中英切换、键盘操作和窄窗口适配。
 
-## Highlights
+## 快速开始
 
-- **Multi-provider**: One app for all your S3-compatible storage
-- **Encrypted vault**: AES-256-GCM encryption; API keys never leave the native backend
-- **Folder sync**: Bidirectional, Google Drive-style sync with conflict resolution
-- **Cross-platform**: Native builds for macOS, Linux, and Windows via Tauri
-- **Fast transfers**: Multipart uploads, concurrent job queue, live progress events
+1. 启动程序，创建或解锁本地密码库。
+2. 添加存储账号，填写服务商、接口地址与访问凭据。
+3. 对于 R2，接口地址通常为 `https://<账号ID>.r2.cloudflarestorage.com`，区域为 `auto`；桶级凭据需要填写默认存储桶。
+4. 测试连接并保存，选择存储桶后管理文件。
 
-## Table of Contents
+实际可用操作取决于凭据权限。读取失败会显示错误，而不是将用量显示为零。
 
-- [Features](#features)
-- [Installation](#installation)
-- [Development](#development)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Scripts](#scripts)
-- [License](#license)
+## 数据保存与升级兼容
 
-## Features
+- 现有账号及加密密码库继续保存在 Windows 的 `%USERPROFILE%\.config\object0`。
+- 程序标识、系统钥匙串服务和浏览器偏好存储键保持原值，避免更名后丢失已有数据。
+- “便携”表示应用无需安装，不表示账号跟随 U 盘移动；发布包不包含账号或密钥。
+- 安装版与便携版共享本地数据，请一次只运行一个版本，更新前等待传输完成并正常退出。
+- 上游自动更新默认停用，请从本仓库手动下载定制版本。
+- 当前安装包未使用商业代码签名证书，Windows 可能显示未知发布者；请核对来源和 SHA256，不要关闭系统安全保护。
 
-<details>
-<summary><strong>Storage & Profiles</strong></summary>
+R2 的 **10 GB·月** 是标准存储的账号级免费计费额度，不是每个桶的容量上限。扫描对象可能产生列表请求费用，官方统计也可能有延迟。
 
-- Multi-provider profile support for AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Backblaze B2, GCS, and generic S3-compatible endpoints
-- Encrypted vault persistence with passphrase-based unlock
-- OS keychain integration for optional remembered unlock
-- Profile test/validation and default bucket support
+## 开发
 
-</details>
+技术栈：**Tauri 2、Rust、React、TypeScript、Tailwind CSS**。项目使用 **Bun**，不使用 npm、pnpm 或 yarn。
 
-<details>
-<summary><strong>Object Browser</strong></summary>
-
-- Table and grid views
-- Breadcrumb navigation and folder traversal
-- Multi-select, object metadata, rename, delete, create-folder
-- Favorites and bucket tabs with state restoration
-
-</details>
-
-<details>
-<summary><strong>Transfers & Jobs</strong></summary>
-
-- Upload/download (single and folder)
-- Copy/move/cross-bucket transfers
-- Archive download support
-- Concurrent queue with progress, speed, ETA, cancel, and persisted history
-
-</details>
-
-<details>
-<summary><strong>Sync</strong></summary>
-
-- Bucket-to-bucket sync preview + execute
-- Folder sync rules with status/conflict/error events
-- Tray-aware background lifecycle for long-running sync work
-
-</details>
-
-<details>
-<summary><strong>Sharing & UX</strong></summary>
-
-- Presigned share links with expiration options
-- QR code generation and share history
-- Theme toggle, command palette, keyboard shortcuts, and toast notifications
-
-</details>
-
-## Installation
-
-Download this fork's Windows builds from the [Releases](https://github.com/70548887/object0/releases) page. See the Windows packaging notes above; other platform documentation below describes the upstream project.
-
-| Platform | Architecture | Format |
-|----------|-------------|--------|
-| macOS | Apple Silicon, Intel | `.dmg` |
-| Linux | x64 | `.AppImage` / `.deb` / `.rpm` |
-| Windows | x64 | `.msi` / `NSIS .exe` |
-
-### Arch Linux (AUR)
-
-`object0` is also available on AUR as [`object0-bin`](https://aur.archlinux.org/packages/object0-bin).
-
-Install with your AUR helper:
-
-```bash
-yay -S object0-bin
-# or
-paru -S object0-bin
-```
-
-Or build/install manually:
-
-```bash
-git clone https://aur.archlinux.org/object0-bin.git
-cd object0-bin
-makepkg -si
-```
-
-## Development
-
-### Prerequisites
-
-- [Bun](https://bun.sh)
-- [Rust toolchain](https://www.rust-lang.org/tools/install)
-- Tauri platform dependencies: https://v2.tauri.app/start/prerequisites/
-- Linux only: a Secret Service provider (for example KWallet or GNOME Keyring) for OS keychain unlock
-
-### Setup
-
-```bash
-git clone https://github.com/sayedhfatimi/object0.git
-cd object0
-bun install
-```
-
-### Run (Web only)
-
-```bash
-bun run dev
-```
-
-### Run (Desktop app)
-
-```bash
-bun run dev:app
-```
-
-### Build
-
-```bash
-# Frontend typecheck + production bundle
+```sh
+bun install --frozen-lockfile
 bun run build
-
-# Native desktop bundles (Tauri)
-bun run build:app
+bun run tauri dev
+bun test tests/share-expiration.test.ts tests/share-expiration-i18n.test.ts tests/i18n.test.ts
 ```
 
-## Architecture
+Windows 打包需要按 `packaging/windows-runtime.json` 准备固定 WebView2 运行时。参见 [Windows 分发说明](docs/PORTABLE_ZH.md) 和 [开发约定](CLAUDE.md)。
 
-```
-┌──────────────────────────────────────────────┐
-│                 Tauri Runtime                │
-│                                              │
-│  ┌──────────────┐     ┌──────────────────┐   │
-│  │ Rust Backend │◄───►│  React Webview   │   │
-│  │ (src-tauri)  │ IPC │  (src/mainview)  │   │
-│  │              │     │                  │   │
-│  │ • Vault      │     │ • Zustand stores │   │
-│  │ • S3 ops     │     │ • UI components  │   │
-│  │ • Job queue  │     │ • Tailwind/shadcn│   │
-│  │ • Sync logic │     │                  │   │
-│  └──────────────┘     └──────────────────┘   │
-└──────────────────────────────────────────────┘
-```
+## 验证范围
 
-- **Rust backend (`src-tauri`)**: vault, profiles, S3 operations, queueing, folder sync, tray lifecycle, updater hooks
-- **React frontend (`src/mainview`)**: application shell, stores, and typed RPC calls/events
-- **Shared contracts (`src/shared`)**: RPC schema and shared types
+中英界面使用本地示例数据测试。真实 S3/R2 操作需要你自己的有效凭据；仓库和发布压缩包不含用户密钥。每个发布版本的具体测试范围、系统覆盖和已知限制以对应发行说明为准。
 
-## Project Structure
+## 许可证与致谢
 
-```
-src/
-├── main.tsx                # Vite entry
-├── mainview/               # React UI
-│   ├── app/
-│   ├── components/
-│   ├── hooks/
-│   ├── lib/
-│   └── stores/
-└── shared/                 # RPC/types shared with backend
-
-src-tauri/
-├── src/
-│   ├── main.rs             # native entry
-│   └── lib.rs              # RPC router + backend runtime
-├── capabilities/
-└── tauri.conf.json
-```
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `bun run dev` | Start Vite dev server |
-| `bun run dev:app` | Start Tauri desktop app in dev mode |
-| `bun run build` | Type-check and build frontend |
-| `bun run build:app` | Build desktop bundles with Tauri |
-| `bun run check` | Run Biome checks |
-| `bun run check:all` | Biome + frontend build + `cargo check` |
-| `bun run lint` | Run Biome linter |
-| `bun run format` | Format code with Biome |
-| `bun run updater:manifest -- ...` | Build/merge static updater manifest |
-| `bun run updater:verify -- ...` | Verify hosted updater manifest + artifact URL |
-
-## License
-
-[MIT](LICENSE)
+本项目采用 [MIT 许可证](LICENSE)，基于 **object0** 及其原作者、贡献者的工作。Microsoft WebView2 按其独立条款分发，许可文件随 Windows 包提供。本分支不将上游代码声明为原创。

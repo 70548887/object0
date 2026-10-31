@@ -1,4 +1,5 @@
 import type { ExpirationUnit } from "@shared/share.types";
+import { t } from "@/lib/i18n";
 
 const MINUTE_SECONDS = 60;
 const HOUR_SECONDS = 60 * MINUTE_SECONDS;
@@ -8,10 +9,10 @@ const MS_PER_HOUR = HOUR_SECONDS * 1000;
 const MS_PER_DAY = DAY_SECONDS * 1000;
 
 export const EXPIRATION_PRESETS = [
-  { label: "1 小时", seconds: HOUR_SECONDS },
-  { label: "6 小时", seconds: 6 * HOUR_SECONDS },
-  { label: "24 小时", seconds: DAY_SECONDS },
-  { label: "7 天", seconds: 7 * DAY_SECONDS },
+  { label: "1 小时", labelEn: "1 hour", seconds: HOUR_SECONDS },
+  { label: "6 小时", labelEn: "6 hours", seconds: 6 * HOUR_SECONDS },
+  { label: "24 小时", labelEn: "24 hours", seconds: DAY_SECONDS },
+  { label: "7 天", labelEn: "7 days", seconds: 7 * DAY_SECONDS },
 ];
 
 export const CUSTOM_EXPIRATION_MAX: Record<ExpirationUnit, number> = {
@@ -30,6 +31,11 @@ const UNIT_LABELS: Record<ExpirationUnit, string> = {
   minutes: "分钟",
   hours: "小时",
   days: "天",
+};
+const UNIT_LABELS_EN: Record<ExpirationUnit, string> = {
+  minutes: "minutes",
+  hours: "hours",
+  days: "days",
 };
 
 export interface CustomExpirationResult {
@@ -52,7 +58,10 @@ export function parseCustomExpiration(
   ) {
     return {
       seconds: null,
-      error: `请输入 1 至 ${maximum} 的整数（${UNIT_LABELS[unit]}），最长有效期为 7 天。`,
+      error: t(
+        `请输入 1 至 ${maximum} 的整数（${UNIT_LABELS[unit]}），最长有效期为 7 天。`,
+        `Enter a whole number from 1 to ${maximum} (${UNIT_LABELS_EN[unit]}), up to 7 days.`,
+      ),
     };
   }
   return { seconds: amount * UNIT_SECONDS[unit], error: null };
@@ -64,16 +73,19 @@ export function formatShareExpiration(
 ): string {
   const expiresMs = Date.parse(isoDate);
   if (!Number.isFinite(expiresMs) || !Number.isFinite(nowMs)) {
-    return "有效期未知";
+    return t("有效期未知", "Expiration unknown");
   }
   const remainingMs = expiresMs - nowMs;
-  if (remainingMs <= 0) return "已过期";
-  if (remainingMs < MS_PER_MINUTE) return "不足1分钟";
+  if (remainingMs <= 0) return t("已过期", "Expired");
+  if (remainingMs < MS_PER_MINUTE) return t("不足1分钟", "Less than 1 minute");
   if (remainingMs < MS_PER_HOUR) {
-    return `${Math.ceil(remainingMs / MS_PER_MINUTE)} 分钟`;
+    const minutes = Math.ceil(remainingMs / MS_PER_MINUTE);
+    return t(`${minutes} 分钟`, `${minutes} minute${minutes === 1 ? "" : "s"}`);
   }
   if (remainingMs < MS_PER_DAY) {
-    return `${Math.ceil(remainingMs / MS_PER_HOUR)} 小时`;
+    const hours = Math.ceil(remainingMs / MS_PER_HOUR);
+    return t(`${hours} 小时`, `${hours} hour${hours === 1 ? "" : "s"}`);
   }
-  return `${Math.ceil(remainingMs / MS_PER_DAY)} 天`;
+  const days = Math.ceil(remainingMs / MS_PER_DAY);
+  return t(`${days} 天`, `${days} day${days === 1 ? "" : "s"}`);
 }

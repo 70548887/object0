@@ -15,6 +15,7 @@ import {
   TableHeader,
 } from "@/components/ui/table";
 import { formatBytes, formatRelativeDate, getFileName } from "@/lib/formatters";
+import { localize, t, useT } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
 import { useBucketStore, useObjectStore, useProfileStore } from "@/stores";
 import { FileIcon } from "../common/FileIcon";
@@ -49,6 +50,7 @@ export function ObjectTable({
   onSelectAll,
   onClearSelection,
 }: ObjectTableProps) {
+  useT();
   const totalItems = objects.length + prefixes.length;
   const allSelected = totalItems > 0 && selectedKeys.size === totalItems;
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
@@ -138,11 +140,15 @@ export function ObjectTable({
         oldKey: renamingKey,
         newKey,
       });
-      toast.success(`已重命名为“${newName}”`);
+      toast.success(t(`已重命名为“${newName}”`, `Renamed to “${newName}”`));
       const currentPrefix = useObjectStore.getState().currentPrefix;
       useObjectStore.getState().loadObjects(profileId, bucket, currentPrefix);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "重命名失败");
+      toast.error(
+        err instanceof Error
+          ? localize(err.message)
+          : t("重命名失败", "Rename failed"),
+      );
     }
     setRenamingKey(null);
   };
@@ -161,7 +167,7 @@ export function ObjectTable({
       tabIndex={0}
       onKeyDown={handleTableKeyDown}
     >
-      <Table aria-label={"文件列表"} className="table-fixed">
+      <Table aria-label={t("文件列表", "File list")} className="table-fixed">
         <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
           <tr className="hover:bg-transparent border-b">
             <TableHead className="w-8 px-2">
@@ -170,7 +176,7 @@ export function ObjectTable({
                 onCheckedChange={() =>
                   allSelected ? onClearSelection() : onSelectAll()
                 }
-                aria-label={"全选"}
+                aria-label={t("全选", "Select all")}
               />
             </TableHead>
             <TableHead
@@ -189,7 +195,7 @@ export function ObjectTable({
                 className="flex w-full items-center gap-1 text-left"
                 onClick={() => onSort("key")}
               >
-                名称
+                {t("名称", "Name")}
                 <span aria-hidden>{getSortIndicator("key")}</span>
               </button>
             </TableHead>
@@ -209,7 +215,7 @@ export function ObjectTable({
                 className="ml-auto flex items-center gap-1 text-right"
                 onClick={() => onSort("size")}
               >
-                大小
+                {t("大小", "Size")}
                 <span aria-hidden>{getSortIndicator("size")}</span>
               </button>
             </TableHead>
@@ -229,7 +235,7 @@ export function ObjectTable({
                 className="ml-auto flex items-center gap-1 text-right"
                 onClick={() => onSort("lastModified")}
               >
-                修改时间
+                {t("修改时间", "Modified")}
                 <span aria-hidden>{getSortIndicator("lastModified")}</span>
               </button>
             </TableHead>
@@ -261,7 +267,7 @@ export function ObjectTable({
                 <Checkbox
                   checked={selectedKeys.has(p.prefix)}
                   onCheckedChange={() => onToggleSelect(p.prefix)}
-                  aria-label={`选择 ${p.prefix}`}
+                  aria-label={t(`选择 ${p.prefix}`, `Select ${p.prefix}`)}
                 />
               </TableCell>
               <TableCell>
@@ -307,7 +313,10 @@ export function ObjectTable({
                   <Checkbox
                     checked={selectedKeys.has(obj.key)}
                     onCheckedChange={() => onToggleSelect(obj.key)}
-                    aria-label={`选择 ${getFileName(obj.key)}`}
+                    aria-label={t(
+                      `选择 ${getFileName(obj.key)}`,
+                      `Select ${getFileName(obj.key)}`,
+                    )}
                   />
                 </TableCell>
                 <TableCell>
@@ -334,7 +343,10 @@ export function ObjectTable({
                         onKeyDown={(e) => {
                           if (e.key === "F2") startRename(obj.key);
                         }}
-                        aria-label={`重命名 ${getFileName(obj.key)}`}
+                        aria-label={t(
+                          `重命名 ${getFileName(obj.key)}`,
+                          `Rename ${getFileName(obj.key)}`,
+                        )}
                       >
                         {getFileName(obj.key)}
                       </button>

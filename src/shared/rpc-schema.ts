@@ -46,6 +46,7 @@ export type KeychainUnlockFailureReason =
 
 // ── RPC Schema: maps method names → request/response types ──
 export interface RPCSchema {
+  "system:set-language": { req: { locale: "zh-CN" | "en" }; res: undefined };
   // ── Vault ──
   "vault:status": {
     req: undefined;

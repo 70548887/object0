@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/command";
 import { useS3Objects } from "@/hooks";
 import { getFileName } from "@/lib/formatters";
+import { t, useT } from "@/lib/i18n";
 import { IconFile, IconFolder, IconMagnifyingGlass } from "@/lib/icons";
 import { useBucketStore, useProfileStore, useUIStore } from "@/stores";
 
@@ -19,6 +20,7 @@ import { useBucketStore, useProfileStore, useUIStore } from "@/stores";
  * typed term to the live table filter.
  */
 export function ObjectSearchDialog() {
+  useT();
   const open = useUIStore((s) => s.objectSearchOpen);
   const setOpen = useUIStore((s) => s.setObjectSearchOpen);
   const setDetailKey = useUIStore((s) => s.setDetailKey);
@@ -55,8 +57,11 @@ export function ObjectSearchDialog() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title={"搜索文件"}
-      description={"在当前目录中搜索文件和文件夹"}
+      title={t("搜索文件", "Search files")}
+      description={t(
+        "在当前目录中搜索文件和文件夹",
+        "Search files and folders in the current directory",
+      )}
     >
       <Command
         // cmdk filters by item value; folder/file values include their names.
@@ -65,15 +70,17 @@ export function ObjectSearchDialog() {
         }
       >
         <CommandInput
-          placeholder={"搜索文件和文件夹…"}
+          placeholder={t("搜索文件和文件夹…", "Search files and folders…")}
           value={query}
           onValueChange={setQuery}
         />
         <CommandList>
-          <CommandEmpty>没有匹配的文件</CommandEmpty>
+          <CommandEmpty>
+            {t("没有匹配的文件", "No matching files")}
+          </CommandEmpty>
 
           {trimmed && (
-            <CommandGroup heading="Actions">
+            <CommandGroup heading={t("操作", "Actions")}>
               <CommandItem
                 value={`__filter__ ${trimmed}`}
                 onSelect={() => {
@@ -82,13 +89,16 @@ export function ObjectSearchDialog() {
                 }}
               >
                 <IconMagnifyingGlass className="size-4" />
-                <span className="flex-1">筛选当前列表：“{trimmed}”</span>
+                <span className="flex-1">
+                  {t("筛选当前列表：“", "Filter current list: “")}
+                  {trimmed}”
+                </span>
               </CommandItem>
             </CommandGroup>
           )}
 
           {prefixes.length > 0 && (
-            <CommandGroup heading="Folders">
+            <CommandGroup heading={t("文件夹", "Folders")}>
               {prefixes.map((p) => (
                 <CommandItem
                   key={p.prefix}
@@ -108,7 +118,7 @@ export function ObjectSearchDialog() {
           )}
 
           {objects.length > 0 && (
-            <CommandGroup heading="Files">
+            <CommandGroup heading={t("文件", "Files")}>
               {objects.map((o) => (
                 <CommandItem
                   key={o.key}

@@ -11,6 +11,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconAws,
   IconCloud,
@@ -52,6 +53,7 @@ export function ProfileList({
   onEdit,
   onDelete,
 }: ProfileListProps) {
+  useT();
   const [testingProfiles, setTestingProfiles] = useState<Set<string>>(
     () => new Set(),
   );
@@ -59,21 +61,47 @@ export function ProfileList({
   const testSavedConnection = async (profile: ProfileInfo) => {
     if (testingProfiles.has(profile.id)) return;
     setTestingProfiles((current) => new Set(current).add(profile.id));
-    const toastId = toast.loading(`正在测试“${profile.name}”的连接...`);
+    const toastId = toast.loading(
+      t(
+        `正在测试“${profile.name}”的连接...`,
+        `Testing the connection for “${profile.name}”…`,
+      ),
+    );
     try {
       const result = await rpcCall("profile:test-saved", {
         profileId: profile.id,
       });
       if (result.success) {
-        toast.success(`“${profile.name}”连接成功`, { id: toastId });
+        toast.success(
+          t(
+            `“${profile.name}”连接成功`,
+            `“${profile.name}” connected successfully`,
+          ),
+          { id: toastId },
+        );
       } else {
-        toast.error(`连接失败：${result.error ?? "请检查账号配置"}`, {
-          id: toastId,
-        });
+        toast.error(
+          t(
+            `连接失败：${result.error ?? "请检查账号配置"}`,
+            `Connection failed: ${localize(result.error ?? t("请检查账号配置", "Check the account configuration"))}`,
+          ),
+          {
+            id: toastId,
+          },
+        );
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "请确认密码库已解锁";
-      toast.error(`测试连接失败：${message}`, { id: toastId });
+      const message =
+        err instanceof Error
+          ? err.message
+          : t("请确认密码库已解锁", "Make sure the vault is unlocked");
+      toast.error(
+        t(
+          `测试连接失败：${message}`,
+          `Connection test failed: ${localize(message)}`,
+        ),
+        { id: toastId },
+      );
     } finally {
       setTestingProfiles((current) => {
         const next = new Set(current);
@@ -86,7 +114,10 @@ export function ProfileList({
   if (profiles.length === 0) {
     return (
       <div className="px-3 py-4 text-center text-muted-foreground/60 text-xs">
-        暂无存储账号，点击 + 添加。
+        {t(
+          "暂无存储账号，点击 + 添加。",
+          "No profiles yet. Click + to add one.",
+        )}
       </div>
     );
   }
@@ -130,53 +161,74 @@ export function ProfileList({
           </ContextMenuPrimitive.Trigger>
           <ContextMenuContent>
             <ContextMenuItem onClick={() => onEdit(p)}>
-              <IconPenToSquare className="size-3.5 shrink-0" /> 编辑
+              <IconPenToSquare className="size-3.5 shrink-0" />{" "}
+              {t("编辑", "Edit")}
             </ContextMenuItem>
             <ContextMenuItem
               disabled={testingProfiles.has(p.id)}
               onClick={() => void testSavedConnection(p)}
             >
               <IconWifi className="size-3.5 shrink-0" />
-              {testingProfiles.has(p.id) ? "正在测试连接..." : "测试连接"}
+              {testingProfiles.has(p.id)
+                ? t("正在测试连接...", "Testing connection…")
+                : t("测试连接", "Test connection")}
             </ContextMenuItem>
             <ContextMenuItem onClick={() => void copyAllProfileInformation(p)}>
-              <IconCopy className="size-3.5 shrink-0" /> 复制信息（含密钥）
+              <IconCopy className="size-3.5 shrink-0" />{" "}
+              {t("复制信息（含密钥）", "Copy details (including secrets)")}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onClick={() => onView(p)}>
-              <IconInfo className="size-3.5 shrink-0" /> 查看账号信息
+              <IconInfo className="size-3.5 shrink-0" />{" "}
+              {t("查看账号信息", "View account details")}
             </ContextMenuItem>
             <ContextMenuSub>
               <ContextMenuSubTrigger>
-                <IconCopy className="size-3.5 shrink-0" /> 复制指定信息
+                <IconCopy className="size-3.5 shrink-0" />{" "}
+                {t("复制指定信息", "Copy a specific field")}
               </ContextMenuSubTrigger>
               <ContextMenuSubContent>
                 <ContextMenuItem
                   onClick={() =>
-                    void copyValue(profileInformation(p), "账号信息")
+                    void copyValue(
+                      profileInformation(p),
+                      t("账号信息", "Account details"),
+                    )
                   }
                 >
-                  <IconCopy className="size-3.5 shrink-0" /> 复制普通信息
+                  <IconCopy className="size-3.5 shrink-0" />{" "}
+                  {t("复制普通信息", "Copy non-secret details")}
                 </ContextMenuItem>
                 <ContextMenuItem
                   onClick={() =>
-                    void copyCredential(p, "accessKeyId", "访问密钥 ID")
+                    void copyCredential(
+                      p,
+                      "accessKeyId",
+                      t("访问密钥 ID", "Access key ID"),
+                    )
                   }
                 >
-                  <IconKey className="size-3.5 shrink-0" /> 复制访问密钥 ID
+                  <IconKey className="size-3.5 shrink-0" />{" "}
+                  {t("复制访问密钥 ID", "Copy access key ID")}
                 </ContextMenuItem>
                 <ContextMenuItem
                   onClick={() =>
-                    void copyCredential(p, "secretAccessKey", "访问密钥")
+                    void copyCredential(
+                      p,
+                      "secretAccessKey",
+                      t("访问密钥", "Secret access key"),
+                    )
                   }
                 >
-                  <IconKey className="size-3.5 shrink-0" /> 复制访问密钥
+                  <IconKey className="size-3.5 shrink-0" />{" "}
+                  {t("复制访问密钥", "Copy secret access key")}
                 </ContextMenuItem>
               </ContextMenuSubContent>
             </ContextMenuSub>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => onDelete(p)}>
-              <IconTrashCan className="size-3.5 shrink-0" /> 删除
+              <IconTrashCan className="size-3.5 shrink-0" />{" "}
+              {t("删除", "Delete")}
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
@@ -186,6 +238,7 @@ export function ProfileList({
 }
 
 function ProviderIcon({ provider }: { provider: ProfileInfo["provider"] }) {
+  useT();
   switch (provider) {
     case "aws":
       return <IconAws className="size-4 text-warning" />;

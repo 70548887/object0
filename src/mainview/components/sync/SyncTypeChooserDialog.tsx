@@ -9,26 +9,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { t, useT } from "@/lib/i18n";
 import { IconFolderOpen, IconRotate } from "@/lib/icons";
 import { useUIStore } from "@/stores";
 
 function optionCopy(preference: SyncEntryPreference) {
   if (preference === "object-sync") {
     return {
-      title: "对象同步（一次性）",
-      description: "将存储桶或路径一次性复制到其他存储桶或账号。",
-      note: "执行一次后停止。",
+      title: t("对象同步（一次性）", "Object sync (one-time)"),
+      description: t(
+        "将存储桶或路径一次性复制到其他存储桶或账号。",
+        "Copy a bucket or prefix to another bucket or account once.",
+      ),
+      note: t("执行一次后停止。", "Runs once, then stops."),
     };
   }
 
   return {
-    title: "实时文件夹同步",
-    description: "持续同步本地文件夹和存储桶路径。",
-    note: "在后台持续运行。",
+    title: t("实时文件夹同步", "Live folder sync"),
+    description: t(
+      "持续同步本地文件夹和存储桶路径。",
+      "Continuously sync a local folder and a bucket prefix.",
+    ),
+    note: t("在后台持续运行。", "Keeps running in the background."),
   };
 }
 
 export function SyncTypeChooserDialog() {
+  const t = useT();
   const open = useUIStore((s) => s.syncChooserOpen);
   const closeSyncChooser = useUIStore((s) => s.closeSyncChooser);
   const setSyncDialogOpen = useUIStore((s) => s.setSyncDialogOpen);
@@ -61,12 +69,15 @@ export function SyncTypeChooserDialog() {
     <Dialog open={open} onOpenChange={(o) => !o && closeSyncChooser()}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>请选择同步方式</DialogTitle>
+          <DialogTitle>{t("请选择同步方式", "Choose a sync type")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <p className="text-foreground/60 text-xs">
-            请选择同步方式。可以每次选择，也可以将其设为同步按钮的默认方式。
+            {t(
+              "请选择同步方式。可以每次选择，也可以将其设为同步按钮的默认方式。",
+              "Choose a sync type each time, or remember it as the default for the Sync button.",
+            )}
           </p>
 
           {(["object-sync", "live-folder-sync"] as const).map((preference) => {
@@ -110,14 +121,17 @@ export function SyncTypeChooserDialog() {
               htmlFor="remember-choice"
               className="cursor-pointer text-foreground/75 text-xs"
             >
-              记住此选择，以后直接使用
+              {t(
+                "记住此选择，以后直接使用",
+                "Remember this choice and use it next time",
+              )}
             </label>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={closeSyncChooser}>
-            取消
+            {t("取消", "Cancel")}
           </Button>
         </DialogFooter>
       </DialogContent>

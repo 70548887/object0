@@ -1,3 +1,5 @@
+import { t } from "@/lib/i18n";
+
 // ── S3 Provider types ──
 export type Provider =
   | "aws"
@@ -15,7 +17,9 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
   minio: "MinIO",
   gcs: "Google Cloud Storage",
   backblaze: "Backblaze B2",
-  custom: "Custom S3-Compatible",
+  get custom() {
+    return t("自定义 S3 兼容存储", "Custom S3-Compatible");
+  },
 };
 
 export const PROVIDER_ENDPOINTS: Partial<Record<Provider, string>> = {

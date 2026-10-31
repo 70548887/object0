@@ -1,4 +1,5 @@
 import type { ProfileInfo } from "@shared/profile.types";
+import { t, useT } from "@/lib/i18n";
 import { IconBucket, IconStar } from "@/lib/icons";
 import {
   SidebarGroup,
@@ -31,13 +32,14 @@ export function SidebarFavorites({
   onSelect,
   onToggleFavorite,
 }: SidebarFavoritesProps) {
+  useT();
   return (
     <SidebarGroup className="p-0">
       <SidebarGroupLabel className="sticky top-0 z-10 flex items-center justify-between rounded-none border-border border-b bg-card px-3 text-foreground/50 group-data-[collapsible=icon]:pointer-events-none">
         <div className="flex items-center gap-1.5">
           <IconStar className="size-[11px]" />
           <span className="font-semibold text-[11px] uppercase tracking-wider">
-            收藏
+            {t("收藏", "Favorites")}
           </span>
           <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
             {entries.length}
@@ -68,7 +70,7 @@ export function SidebarFavorites({
                 </div>
               </SidebarMenuButton>
               <SidebarGroupAction
-                title={"取消固定存储桶"}
+                title={t("取消固定存储桶", "Unpin bucket")}
                 className="group/fav-star top-1/2 right-3 -translate-y-1/2 text-warning"
                 onClick={(e) => {
                   e.stopPropagation();

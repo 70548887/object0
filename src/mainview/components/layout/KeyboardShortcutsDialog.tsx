@@ -7,24 +7,86 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { t, useT } from "@/lib/i18n";
 import { IconKeyboard } from "@/lib/icons";
 
 const SHORTCUTS: { combo: string; label: string }[] = [
-  { combo: "Ctrl+K", label: "命令面板" },
-  { combo: "Ctrl+B", label: "显示或隐藏侧栏" },
-  { combo: "Ctrl+J", label: "显示或隐藏任务面板" },
-  { combo: "Ctrl+\\", label: "切换主题" },
-  { combo: "Ctrl+,", label: "打开设置" },
-  { combo: "↑ / ↓", label: "选择上一行或下一行" },
-  { combo: "Space", label: "切换选中状态" },
-  { combo: "Enter", label: "打开文件夹" },
-  { combo: "F2", label: "重命名文件" },
-  { combo: "Ctrl+A", label: "全选" },
-  { combo: "Esc", label: "取消选择" },
-  { combo: "Backspace", label: "返回上一级" },
+  {
+    combo: "Ctrl+K",
+    get label() {
+      return t("命令面板", "Command Palette");
+    },
+  },
+  {
+    combo: "Ctrl+B",
+    get label() {
+      return t("显示或隐藏侧栏", "Toggle Sidebar");
+    },
+  },
+  {
+    combo: "Ctrl+J",
+    get label() {
+      return t("显示或隐藏任务面板", "Toggle Job Panel");
+    },
+  },
+  {
+    combo: "Ctrl+\\",
+    get label() {
+      return t("切换主题", "Toggle Theme");
+    },
+  },
+  {
+    combo: "Ctrl+,",
+    get label() {
+      return t("打开设置", "Open Settings");
+    },
+  },
+  {
+    combo: "↑ / ↓",
+    get label() {
+      return t("选择上一行或下一行", "Navigate rows");
+    },
+  },
+  {
+    combo: "Space",
+    get label() {
+      return t("切换选中状态", "Toggle selection");
+    },
+  },
+  {
+    combo: "Enter",
+    get label() {
+      return t("打开文件夹", "Open folder");
+    },
+  },
+  {
+    combo: "F2",
+    get label() {
+      return t("重命名文件", "Rename file");
+    },
+  },
+  {
+    combo: "Ctrl+A",
+    get label() {
+      return t("全选", "Select all");
+    },
+  },
+  {
+    combo: "Esc",
+    get label() {
+      return t("取消选择", "Clear selection");
+    },
+  },
+  {
+    combo: "Backspace",
+    get label() {
+      return t("返回上一级", "Go back");
+    },
+  },
 ];
 
 export function KeyboardShortcutsDialog() {
+  useT();
   return (
     <Dialog>
       <DialogTrigger
@@ -33,8 +95,8 @@ export function KeyboardShortcutsDialog() {
             variant="ghost"
             size="icon-sm"
             className="no-drag"
-            title={"键盘快捷键"}
-            aria-label={"键盘快捷键"}
+            title={t("键盘快捷键", "Keyboard Shortcuts")}
+            aria-label={t("键盘快捷键", "Keyboard Shortcuts")}
           >
             <IconKeyboard className="size-4" />
           </Button>
@@ -42,8 +104,13 @@ export function KeyboardShortcutsDialog() {
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>键盘快捷键</DialogTitle>
-          <DialogDescription>查看可用的键盘快捷键。</DialogDescription>
+          <DialogTitle>{t("键盘快捷键", "Keyboard Shortcuts")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "查看可用的键盘快捷键。",
+              "Quick reference for available keyboard shortcuts.",
+            )}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-1.5 text-sm">
           {SHORTCUTS.map((s) => (

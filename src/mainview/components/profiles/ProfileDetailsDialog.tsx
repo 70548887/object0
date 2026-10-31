@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { t, useT } from "@/lib/i18n";
 import { IconCopy, IconEye } from "@/lib/icons";
 import { toast } from "../common/Toast";
 import {
@@ -28,11 +29,17 @@ interface ProfileDetailsDialogProps {
 }
 
 function InformationRow({ label, value }: { label: string; value: string }) {
+  useT();
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <Input aria-label={label} value={value} readOnly placeholder="未设置" />
+        <Input
+          aria-label={label}
+          value={value}
+          readOnly
+          placeholder={t("未设置", "Not set")}
+        />
         <Button
           type="button"
           variant="outline"
@@ -40,7 +47,7 @@ function InformationRow({ label, value }: { label: string; value: string }) {
           disabled={!value}
           onClick={() => void copyValue(value, label)}
         >
-          <IconCopy className="size-3.5" /> 复制
+          <IconCopy className="size-3.5" /> {t("复制", "Copy")}
         </Button>
       </div>
     </div>
@@ -56,6 +63,7 @@ function HiddenCredentialRow({
   field: CredentialField;
   label: string;
 }) {
+  useT();
   const [value, setValue] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -68,9 +76,14 @@ function HiddenCredentialRow({
     try {
       const savedValue = await readCredential(profile.id, field);
       if (savedValue) setValue(savedValue);
-      else toast.info(`${label}未设置`);
+      else toast.info(t(`${label}未设置`, `${label} is not set`));
     } catch {
-      toast.error("读取凭据失败，请先解锁密码库");
+      toast.error(
+        t(
+          "读取凭据失败，请先解锁密码库",
+          "Could not read credentials. Unlock the vault first.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -84,7 +97,10 @@ function HiddenCredentialRow({
           aria-label={label}
           value={value ?? ""}
           readOnly
-          placeholder="点击显示或复制已保存的凭据"
+          placeholder={t(
+            "点击显示或复制已保存的凭据",
+            "Show or copy the saved credential",
+          )}
           autoComplete="off"
         />
         <Button
@@ -94,7 +110,8 @@ function HiddenCredentialRow({
           disabled={loading}
           onClick={() => void toggle()}
         >
-          <IconEye className="size-3.5" /> {value === null ? "显示" : "隐藏"}
+          <IconEye className="size-3.5" />{" "}
+          {value === null ? t("显示", "Show") : t("隐藏", "Hide")}
         </Button>
         <Button
           type="button"
@@ -102,7 +119,7 @@ function HiddenCredentialRow({
           size="sm"
           onClick={() => void copyCredential(profile, field, label)}
         >
-          <IconCopy className="size-3.5" /> 复制
+          <IconCopy className="size-3.5" /> {t("复制", "Copy")}
         </Button>
       </div>
     </div>
@@ -113,6 +130,7 @@ export function ProfileDetailsDialog({
   profile,
   onClose,
 }: ProfileDetailsDialogProps) {
+  useT();
   const [accessKeyId, setAccessKeyId] = useState("");
 
   useEffect(() => {
@@ -122,7 +140,13 @@ export function ProfileDetailsDialog({
         if (active) setAccessKeyId(value);
       })
       .catch(() => {
-        if (active) toast.error("读取访问密钥 ID 失败，请先解锁密码库");
+        if (active)
+          toast.error(
+            t(
+              "读取访问密钥 ID 失败，请先解锁密码库",
+              "Could not read the access key ID. Unlock the vault first.",
+            ),
+          );
       });
     return () => {
       active = false;
@@ -133,34 +157,49 @@ export function ProfileDetailsDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>账号信息</DialogTitle>
+          <DialogTitle>{t("账号信息", "Account details")}</DialogTitle>
           <DialogDescription>
-            查看已保存的连接信息；右键字段可使用系统复制菜单。
+            {t(
+              "查看已保存的连接信息；右键字段可使用系统复制菜单。",
+              "View saved connection details. Right-click a field to use the system copy menu.",
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
-          <InformationRow label="账号名称" value={profile.name} />
           <InformationRow
-            label="存储服务商"
+            label={t("账号名称", "Account name")}
+            value={profile.name}
+          />
+          <InformationRow
+            label={t("存储服务商", "Provider")}
             value={PROVIDER_LABELS[profile.provider]}
           />
-          <InformationRow label="接口地址" value={profile.endpoint ?? ""} />
-          <InformationRow label="区域" value={profile.region ?? ""} />
           <InformationRow
-            label="默认存储桶"
+            label={t("接口地址", "Endpoint")}
+            value={profile.endpoint ?? ""}
+          />
+          <InformationRow
+            label={t("区域", "Region")}
+            value={profile.region ?? ""}
+          />
+          <InformationRow
+            label={t("默认存储桶", "Default bucket")}
             value={profile.defaultBucket ?? ""}
           />
-          <InformationRow label="访问密钥 ID" value={accessKeyId} />
+          <InformationRow
+            label={t("访问密钥 ID", "Access key ID")}
+            value={accessKeyId}
+          />
           <HiddenCredentialRow
             profile={profile}
             field="secretAccessKey"
-            label="访问密钥"
+            label={t("访问密钥", "Secret access key")}
           />
           <HiddenCredentialRow
             profile={profile}
             field="sessionToken"
-            label="会话令牌（如有）"
+            label={t("会话令牌（如有）", "Session token (if any)")}
           />
         </div>
 
@@ -170,10 +209,14 @@ export function ProfileDetailsDialog({
             variant="outline"
             onClick={() => void copyAllProfileInformation(profile)}
           >
-            <IconCopy className="size-3.5" /> 复制全部信息（含密钥）
+            <IconCopy className="size-3.5" />{" "}
+            {t(
+              "复制全部信息（含密钥）",
+              "Copy all details (including secrets)",
+            )}
           </Button>
           <Button type="button" onClick={onClose}>
-            关闭
+            {t("关闭", "Close")}
           </Button>
         </DialogFooter>
       </DialogContent>

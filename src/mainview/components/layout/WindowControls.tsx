@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
+import { t, useT } from "@/lib/i18n";
 import {
   IconWindowMaximize,
   IconWindowMinimize,
@@ -12,6 +13,7 @@ import { Button } from "../ui/button";
 // macOS keeps its native traffic lights, so this component is never rendered
 // there (the parent gates on platform).
 export function WindowControls() {
+  useT();
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -33,8 +35,8 @@ export function WindowControls() {
         variant="ghost"
         size="icon-sm"
         onClick={() => win.minimize()}
-        title={"最小化"}
-        aria-label={"最小化窗口"}
+        title={t("最小化", "Minimize")}
+        aria-label={t("最小化窗口", "Minimize window")}
       >
         <IconWindowMinimize className="size-4" />
       </Button>
@@ -42,8 +44,12 @@ export function WindowControls() {
         variant="ghost"
         size="icon-sm"
         onClick={() => win.toggleMaximize()}
-        title={maximized ? "还原" : "最大化"}
-        aria-label={maximized ? "还原窗口" : "最大化窗口"}
+        title={maximized ? t("还原", "Restore") : t("最大化", "Maximize")}
+        aria-label={
+          maximized
+            ? t("还原窗口", "Restore window")
+            : t("最大化窗口", "Maximize window")
+        }
       >
         {maximized ? (
           <IconWindowRestore className="size-4" />
@@ -56,8 +62,8 @@ export function WindowControls() {
         size="icon-sm"
         className="hover:bg-destructive hover:text-destructive-foreground"
         onClick={() => win.close()}
-        title={"关闭"}
-        aria-label={"关闭窗口"}
+        title={t("关闭", "Close")}
+        aria-label={t("关闭窗口", "Close window")}
       >
         <IconXmark className="size-4" />
       </Button>

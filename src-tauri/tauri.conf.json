@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "object0",
+  "productName": "云仓",
   "version": "1.6.0",
   "identifier": "dev.object0.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "object0",
+        "title": "云仓",
         "width": 1280,
         "height": 800,
         "decorations": true,
@@ -47,7 +47,7 @@
         "displayLanguageSelector": false,
         "installMode": "currentUser",
         "compression": "lzma",
-        "startMenuFolder": "object0"
+        "startMenuFolder": "云仓"
       }
     },
     "icon": [
