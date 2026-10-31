@@ -31,6 +31,7 @@ Get-FileHash -Algorithm SHA256 .\object0_<版本>_windows_x64_setup.exe
 
 object0 使用 MIT 许可证，原作者版权声明保留在随包 `LICENSE` 中。
 Microsoft Edge WebView2 运行时版权归 Microsoft 所有，按其运行时分发条款提供。
+完整 Microsoft 固定运行时许可随包放在 `WEBVIEW2-LICENSE.html`。固定运行时不自动升级，请使用后续整包更新获得运行时安全修复。
 本地中文定制版默认停用上游自动更新，请从本 fork 的 GitHub Releases 手动下载新版本：
 <https://github.com/70548887/object0/releases>
 

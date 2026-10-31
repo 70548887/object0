@@ -32,7 +32,8 @@
     ],
     "licenseFile": "../LICENSE",
     "resources": {
-      "../LICENSE": "LICENSE"
+      "../LICENSE": "LICENSE",
+      "../packaging/WEBVIEW2-LICENSE.html": "WEBVIEW2-LICENSE.html"
     },
     "windows": {
       "webviewInstallMode": {
