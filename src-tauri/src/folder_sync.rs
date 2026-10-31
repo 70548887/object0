@@ -66,6 +66,7 @@ pub(crate) async fn run_folder_sync_once(
     let state = app.state::<AppState>();
     let profile = profile_for_id(&state, &rule.profile_id)?;
     let client = to_s3_client(&profile)?;
+    let mut usage_change = usage::UsageChangeGuard::new(app, &rule.profile_id, &rule.bucket);
 
     let known_records = load_folder_sync_file_records(&rule.id);
     let diff = generate_folder_sync_diff_for_rule(rule, &client, &known_records).await?;
@@ -153,6 +154,7 @@ pub(crate) async fn run_folder_sync_once(
 
         emit_progress(Some(current_file.clone()), completed, bytes_transferred)?;
 
+        usage_change.mark_changed();
         let upload_result = s3_upload_file(
             &client,
             &rule.bucket,
@@ -348,6 +350,7 @@ pub(crate) async fn run_folder_sync_once(
             .map(|entry| format!("{}{}", bucket_prefix, entry.relative_path))
             .collect();
 
+        usage_change.mark_changed();
         if let Err(err) = s3_delete_keys(&client, &rule.bucket, &delete_keys).await {
             errors.push(format!("Delete remote: {err}"));
         }

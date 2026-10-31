@@ -1,289 +1,248 @@
 import type { ShareRes } from "@shared/s3.types";
 import type { ExpirationUnit } from "@shared/share.types";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { IconCircleInfo, IconFile, IconLink, IconSpinner } from "@/lib/icons";
+import { IconFile, IconLink, IconSpinner, IconXmark } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { useShareHistoryStore, useUIStore } from "@/stores";
 import { toast } from "../common/Toast";
+import { ShareExpirationFields } from "./ShareExpirationFields";
 import { ShareResult } from "./ShareResult";
-
-interface ExpirationPreset {
-  label: string;
-  seconds: number;
-}
-
-const MINUTE_SECONDS = 60;
-const HOUR_SECONDS = 60 * MINUTE_SECONDS;
-const DAY_SECONDS = 24 * HOUR_SECONDS;
-const MS_PER_MINUTE = MINUTE_SECONDS * 1000;
-const MS_PER_HOUR = HOUR_SECONDS * 1000;
-const MS_PER_DAY = DAY_SECONDS * 1000;
-
-const EXPIRATION_PRESETS: ExpirationPreset[] = [
-  { label: "1 小时", seconds: HOUR_SECONDS },
-  { label: "6 小时", seconds: 6 * HOUR_SECONDS },
-  { label: "24 小时", seconds: DAY_SECONDS },
-  { label: "7 天", seconds: 7 * DAY_SECONDS },
-];
-
-const EXPIRATION_UNIT_SECONDS: Record<ExpirationUnit, number> = {
-  minutes: MINUTE_SECONDS,
-  hours: HOUR_SECONDS,
-  days: DAY_SECONDS,
-};
+import {
+  EXPIRATION_PRESETS,
+  formatShareExpiration,
+  parseCustomExpiration,
+} from "./share-expiration";
 
 export function ShareDialog() {
   const open = useUIStore((s) => s.shareDialogOpen);
   const target = useUIStore((s) => s.shareTarget);
   const closeDialog = useUIStore((s) => s.closeShareDialog);
   const addHistoryEntry = useShareHistoryStore((s) => s.addEntry);
-
   const [expirationMode, setExpirationMode] = useState<"preset" | "custom">(
     "preset",
   );
   const [selectedPreset, setSelectedPreset] = useState(0);
-  const [customValue, setCustomValue] = useState(1);
+  const [customValue, setCustomValue] = useState("1");
   const [customUnit, setCustomUnit] = useState<ExpirationUnit>("hours");
   const [generating, setGenerating] = useState(false);
   const [shareResult, setShareResult] = useState<ShareRes | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const request = useRef<symbol | null>(null);
+  const session =
+    open && target
+      ? JSON.stringify([target.profileId, target.bucket, target.key])
+      : "";
+  const latestSession = useRef(session);
+  latestSession.current = session;
 
-  // Reset state when dialog opens
   useEffect(() => {
-    if (open) {
-      setExpirationMode("preset");
-      setSelectedPreset(0);
-      setCustomValue(1);
-      setCustomUnit("hours");
-      setShareResult(null);
-      setShowQR(false);
-    }
-  }, [open]);
+    request.current = null;
+    setGenerating(false);
+    setShareResult(null);
+    setRequestError(null);
+    setCopyNotice(null);
+    if (!session) return;
+    setExpirationMode("preset");
+    setSelectedPreset(0);
+    setCustomValue("1");
+    setCustomUnit("hours");
+    setShowQR(false);
+    return () => {
+      request.current = null;
+    };
+  }, [session]);
 
-  const getExpirationSeconds = useCallback((): number => {
-    if (expirationMode === "preset") {
-      return EXPIRATION_PRESETS[selectedPreset].seconds;
-    }
-    return customValue * EXPIRATION_UNIT_SECONDS[customUnit];
-  }, [expirationMode, selectedPreset, customValue, customUnit]);
+  const customExpiration = parseCustomExpiration(customValue, customUnit);
+  const expiresIn =
+    expirationMode === "preset"
+      ? EXPIRATION_PRESETS[selectedPreset].seconds
+      : customExpiration.seconds;
+
+  const handleClose = () => {
+    // Invalidate immediately: a dismissed request must never copy an old link.
+    request.current = null;
+    closeDialog();
+  };
 
   const handleGenerate = async () => {
-    if (!target) return;
-
+    if (!target || !open || expiresIn === null || request.current) return;
+    const token = Symbol("share-request");
+    request.current = token;
+    const isCurrent = () =>
+      request.current === token && latestSession.current === session;
     setGenerating(true);
+    setRequestError(null);
+    setCopyNotice(null);
     try {
-      const expiresIn = getExpirationSeconds();
       const result = await rpcCall("share:generate", {
         profileId: target.profileId,
         bucket: target.bucket,
         key: target.key,
         expiresIn,
       });
-
+      if (!isCurrent()) return;
       setShareResult(result);
-
-      // Add to history
       addHistoryEntry({
-        profileId: target.profileId,
-        bucket: target.bucket,
-        key: target.key,
+        ...target,
         url: result.url,
         expiresAt: result.expiresAt,
       });
-
-      // Auto-copy to clipboard
-      await navigator.clipboard.writeText(result.url);
-      toast.success("链接已复制到剪贴板！");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "生成分享链接失败");
+      // Clipboard failure is separate from successful link generation.
+      try {
+        await navigator.clipboard.writeText(result.url);
+        if (isCurrent()) toast.success("链接已复制到剪贴板！");
+      } catch {
+        if (isCurrent())
+          setCopyNotice(
+            "链接已生成，自动复制未成功，可点击复制按钮或选中链接手动复制。",
+          );
+      }
+    } catch (error: unknown) {
+      if (isCurrent())
+        setRequestError(
+          error instanceof Error ? error.message : "生成分享链接失败，请重试",
+        );
+    } finally {
+      if (isCurrent()) {
+        request.current = null;
+        setGenerating(false);
+      }
     }
-    setGenerating(false);
   };
 
   const handleCopy = async () => {
     if (!shareResult) return;
     try {
       await navigator.clipboard.writeText(shareResult.url);
+      if (latestSession.current !== session) return;
+      setCopyNotice(null);
       toast.success("链接已复制到剪贴板！");
     } catch {
-      toast.error("复制到剪贴板失败");
+      if (latestSession.current === session)
+        setCopyNotice("复制未成功，请选中链接后使用系统复制功能。");
     }
-  };
-
-  const formatExpiration = (isoDate: string): string => {
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-
-    if (diff < MS_PER_HOUR) {
-      const mins = Math.round(diff / MS_PER_MINUTE);
-      return `${mins} 分钟`;
-    }
-    if (diff < MS_PER_DAY) {
-      const hours = Math.round(diff / MS_PER_HOUR);
-      return `${hours} 小时`;
-    }
-    const days = Math.round(diff / MS_PER_DAY);
-    return `${days} 天`;
   };
 
   const fileName = target?.key.split("/").pop() || target?.key || "";
+  const filePath = target ? `${target.bucket}/${target.key}` : "";
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && closeDialog()}>
-      <DialogContent showCloseButton={false} className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>分享文件</DialogTitle>
+    <Dialog open={open} onOpenChange={(value) => !value && handleClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-0 sm:max-w-lg"
+      >
+        <DialogHeader className="flex-row items-center justify-between gap-3 px-5 pt-5 pb-4">
+          <DialogTitle className="text-lg font-semibold">分享文件</DialogTitle>
+          <DialogDescription className="sr-only">
+            选择链接有效期并生成文件分享链接，最长支持 7 天。
+          </DialogDescription>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            aria-label="关闭分享弹窗"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <IconXmark className="size-4" aria-hidden="true" />
+          </Button>
         </DialogHeader>
-
-        <div className="space-y-4">
-          {/* File info */}
-          <div className="rounded bg-muted p-3">
-            <div className="flex items-center gap-2">
-              <IconFile className="size-4 text-foreground/60" />
-              <span className="truncate font-medium">{fileName}</span>
-            </div>
-            <div className="mt-1 truncate text-foreground/60 text-xs">
-              {target?.bucket}/{target?.key}
+        <div className="min-w-0 space-y-5 px-5 pb-5">
+          <div className="flex min-w-0 items-center gap-3 rounded-lg bg-muted/65 p-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <IconFile className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <p className="truncate text-sm font-medium" title={fileName}>
+                {fileName}
+              </p>
+              <p
+                className="truncate text-xs text-muted-foreground"
+                title={filePath}
+              >
+                {filePath}
+              </p>
             </div>
           </div>
-
           {!shareResult ? (
-            <>
-              {/* Expiration mode selector */}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={expirationMode === "preset" ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setExpirationMode("preset")}
-                >
-                  预设时长
-                </Button>
-                <Button
-                  type="button"
-                  variant={expirationMode === "custom" ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setExpirationMode("custom")}
-                >
-                  自定义
-                </Button>
-              </div>
-
-              {/* Preset options */}
-              {expirationMode === "preset" && (
-                <div className="grid grid-cols-2 gap-2">
-                  {EXPIRATION_PRESETS.map((preset, idx) => (
-                    <Button
-                      key={preset.label}
-                      type="button"
-                      variant={selectedPreset === idx ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedPreset(idx)}
-                    >
-                      {preset.label}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              {/* Custom expiration */}
-              {expirationMode === "custom" && (
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={
-                      customUnit === "days"
-                        ? 7
-                        : customUnit === "hours"
-                          ? 168
-                          : 10080
-                    }
-                    value={customValue}
-                    onChange={(e) =>
-                      setCustomValue(
-                        Math.max(1, Number.parseInt(e.target.value, 10) || 1),
-                      )
-                    }
-                    className="h-7 w-24 text-xs"
-                  />
-                  <Select
-                    value={customUnit}
-                    onValueChange={(v) => {
-                      if (v != null) setCustomUnit(v as ExpirationUnit);
-                    }}
-                  >
-                    <SelectTrigger size="sm" className="flex-1">
-                      <SelectValue>
-                        {(value) => {
-                          const labels: Record<string, string> = {
-                            minutes: "分钟",
-                            hours: "小时",
-                            days: "天",
-                          };
-                          return labels[value as string] ?? (value as string);
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minutes">分钟</SelectItem>
-                      <SelectItem value="hours">小时</SelectItem>
-                      <SelectItem value="days">天</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Max expiration note */}
-              <p className="text-foreground/50 text-xs">
-                <IconCircleInfo className="mr-1 inline size-3" />
-                最长有效期：7 天
-              </p>
-            </>
+            <ShareExpirationFields
+              mode={expirationMode}
+              onModeChange={setExpirationMode}
+              selectedPreset={selectedPreset}
+              onPresetChange={setSelectedPreset}
+              customValue={customValue}
+              onCustomValueChange={setCustomValue}
+              customUnit={customUnit}
+              onCustomUnitChange={setCustomUnit}
+              disabled={generating}
+              error={
+                expirationMode === "custom" ? customExpiration.error : null
+              }
+            />
           ) : (
             <ShareResult
               url={shareResult.url}
-              expiresLabel={formatExpiration(shareResult.expiresAt)}
+              expiresLabel={formatShareExpiration(shareResult.expiresAt)}
               showQR={showQR}
               onCopy={handleCopy}
-              onToggleQR={() => setShowQR(!showQR)}
+              onToggleQR={() => setShowQR((value) => !value)}
             />
           )}
+          {requestError && (
+            <p
+              role="alert"
+              className="break-words rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-relaxed text-destructive"
+            >
+              {requestError}
+            </p>
+          )}
+          {copyNotice && (
+            <p
+              role="status"
+              className="break-words text-xs leading-relaxed text-muted-foreground"
+            >
+              {copyNotice}
+            </p>
+          )}
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={closeDialog}>
+        <DialogFooter className="mx-0 mb-0 flex-row justify-end gap-2 rounded-b-xl bg-transparent px-5 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 min-w-20"
+            onClick={handleClose}
+          >
             关闭
           </Button>
           {!shareResult && (
-            <Button size="sm" onClick={handleGenerate} disabled={generating}>
+            <Button
+              type="button"
+              className="h-10 min-w-28"
+              onClick={handleGenerate}
+              disabled={generating || !target || expiresIn === null}
+              aria-busy={generating}
+            >
               {generating ? (
-                <IconSpinner className="size-3.5 animate-spin" />
+                <IconSpinner
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
               ) : (
-                <>
-                  <IconLink className="size-3.5 mr-1" />
-                  生成链接
-                </>
+                <IconLink className="size-4" aria-hidden="true" />
               )}
+              {generating ? "正在生成…" : "生成链接"}
             </Button>
           )}
         </DialogFooter>

@@ -11,6 +11,7 @@ import type { JobCompleteEvent, JobInfo, ProgressEvent } from "./job.types";
 import type { ProfileInfo, ProfileInput } from "./profile.types";
 import type {
   BucketInfo,
+  BucketUsage,
   CopyReq,
   CrossTransferReq,
   DownloadArchiveReq,
@@ -145,6 +146,16 @@ export interface RPCSchema {
 
   // ── Buckets ──
   "buckets:list": { req: { profileId: string }; res: BucketInfo[] };
+  "buckets:usage": {
+    req: {
+      profileId: string;
+      bucket: string;
+      requestId: string;
+      force?: boolean;
+    };
+    res: BucketUsage;
+  };
+  "buckets:usage-cancel": { req: { requestId: string }; res: undefined };
 
   // ── Objects ──
   "objects:list": { req: ObjectListReq; res: ObjectListRes };
@@ -277,6 +288,7 @@ export interface RPCSchema {
 
 // ── Event types (Bun → Webview push) ──
 export interface RPCEvents {
+  "bucket-usage:changed": { profileId: string; bucket: string };
   "job:progress": ProgressEvent;
   "job:complete": JobCompleteEvent;
   "update:available": {

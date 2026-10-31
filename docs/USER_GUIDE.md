@@ -35,7 +35,7 @@ or contributor, see the [README](../README.md) instead.
 ## Installing
 
 Download the build for your platform from the
-[Releases page](https://github.com/sayedhfatimi/object0/releases):
+[Releases page](https://github.com/70548887/object0/releases). This fork currently publishes Windows x64 setup and self-contained portable ZIP packages; the other platform formats below refer to upstream:
 
 | Platform | Format |
 |----------|--------|
@@ -352,7 +352,7 @@ This is handy for letting Live Folder Sync run while the window is closed.
 
 When a new version is available, the **status bar** shows an **"Update to vX.Y.Z"**
 button — click it to apply the update. You can always grab the latest build
-manually from the [Releases page](https://github.com/sayedhfatimi/object0/releases).
+manually from the [Releases page](https://github.com/70548887/object0/releases). Upstream automatic updating is disabled by default in this customized fork.
 
 ---
 

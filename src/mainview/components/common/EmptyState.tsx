@@ -20,7 +20,11 @@ export function EmptyState({
     <div className="flex flex-col items-center justify-center py-16 text-foreground/50">
       {icon && <div className="mb-4 text-4xl opacity-40">{icon}</div>}
       <h3 className="font-semibold text-lg">{title}</h3>
-      {description && <p className="mt-1 text-sm">{description}</p>}
+      {description && (
+        <p className="mx-4 mt-1 max-w-xl break-words text-center text-sm leading-relaxed">
+          {description}
+        </p>
+      )}
       {action && <div className="mt-4">{action}</div>}
       {hint && (
         <p className="mt-6 text-[10px] text-foreground/30">

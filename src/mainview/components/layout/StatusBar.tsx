@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOnlineStatus } from "@/hooks";
+import { useBucketUsage } from "@/hooks/useBucketUsage";
 import { formatBytes, formatSpeed } from "@/lib/formatters";
 import {
   IconArrowUpRightFromSquare,
   IconBucket,
   IconCheckDouble,
   IconCircleUser,
-  IconFile,
-  IconFolder,
   IconFolderOpen,
-  IconGrid2,
-  IconTableList,
   IconWifi,
 } from "@/lib/icons";
 import { onEvent, rpcCall } from "@/lib/rpc-client";
@@ -21,20 +18,24 @@ import {
   useObjectStore,
   useProfileStore,
   useUIStore,
+  useVaultStore,
 } from "@/stores";
 import { Progress } from "../ui/progress";
+import { BucketUsageStatus } from "./BucketUsageStatus";
 
 export function StatusBar() {
-  const profile = useProfileStore((s) => s.activeProfile);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const profiles = useVaultStore((s) => s.profiles);
+  const profile =
+    profiles.find((item) => item.id === activeProfile?.id) ?? activeProfile;
   const bucket = useBucketStore((s) => s.selectedBucket);
   const objects = useObjectStore((s) => s.objects);
-  const prefixes = useObjectStore((s) => s.prefixes);
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
   const selectedKeys = useObjectStore((s) => s.selectedKeys);
-  const viewMode = useUIStore((s) => s.viewMode);
   const jobs = useJobStore((s) => s.jobs);
   const setJobPanelOpen = useUIStore((s) => s.setJobPanelOpen);
   const online = useOnlineStatus();
+  const usage = useBucketUsage(profile, bucket, online);
   const folderSyncRules = useFolderSyncStore((s) => s.rules);
   const folderSyncStatuses = useFolderSyncStore((s) => s.statuses);
   const setFolderSyncPanelOpen = useUIStore((s) => s.setFolderSyncPanelOpen);
@@ -91,86 +92,89 @@ export function StatusBar() {
     : 0;
 
   return (
-    <div className="flex h-8 shrink-0 items-center justify-between border-border border-t bg-card px-3 text-[11px] text-foreground/55">
-      <div className="flex items-center gap-3">
+    <div className="@container/statusbar flex h-8 min-w-0 shrink-0 items-center justify-between gap-2 border-border border-t bg-card px-2 text-[11px] text-foreground/55">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {!online && (
-          <span className="flex items-center gap-1 text-warning" role="status">
+          <span
+            className="flex shrink-0 items-center gap-1 text-warning"
+            role="status"
+          >
             <IconWifi className="size-3" />
             离线
           </span>
         )}
         {profile && (
-          <span>
-            <IconCircleUser className="mr-0.5 inline size-3" />
-            {profile.name}
+          <span
+            className="hidden min-w-0 max-w-28 shrink items-center gap-1 @[440px]/statusbar:inline-flex"
+            title={profile.name}
+          >
+            <IconCircleUser className="size-3 shrink-0" />
+            <span className="truncate">{profile.name}</span>
           </span>
         )}
         {bucket && (
-          <span>
-            <IconBucket className="mr-0.5 inline size-3" />
-            {bucket}
-            {prefixDepth > 0 && (
-              <span className="ml-1 text-foreground/30">
-                （深度 {prefixDepth})
-              </span>
-            )}
+          <span
+            className="hidden min-w-0 max-w-28 shrink items-center gap-1 @[760px]/statusbar:inline-flex"
+            title={`${bucket}${prefixDepth > 0 ? ` · 当前目录深度 ${prefixDepth}` : ""}`}
+          >
+            <IconBucket className="size-3 shrink-0" />
+            <span className="truncate">{bucket}</span>
           </span>
         )}
-        {bucket && (
-          <span className="text-foreground/30">
-            {viewMode === "table" ? (
-              <IconTableList className="inline size-3" />
-            ) : (
-              <IconGrid2 className="inline size-3" />
-            )}
+        {bucket && profile && (
+          <BucketUsageStatus
+            key={`${profile.id}:${bucket}`}
+            bucket={bucket}
+            provider={profile.provider}
+            online={online}
+            {...usage}
+          />
+        )}
+        {!bucket && (
+          <span className="truncate text-foreground/40">
+            选择存储桶后显示用量
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 @[1000px]/statusbar:gap-3">
         {selectedKeys.size > 0 && (
-          <span className="text-primary/70" role="status" aria-live="polite">
+          <span
+            className="whitespace-nowrap text-primary/70"
+            role="status"
+            aria-live="polite"
+            title={`${selectedKeys.size} 个选中对象，当前列表大小合计 ${formatBytes(selectedSize)}`}
+          >
             <IconCheckDouble className="mr-0.5 inline size-3" />
-            {selectedKeys.size} 已选择（{formatBytes(selectedSize)})
-          </span>
-        )}
-        {(objects.length > 0 || prefixes.length > 0) && (
-          <span>
-            {prefixes.length > 0 && (
-              <>
-                <IconFolder className="mr-0.5 inline size-3" />
-                {prefixes.length}
-              </>
-            )}
-            {prefixes.length > 0 && objects.length > 0 && (
-              <span className="mx-1 text-foreground/20">|</span>
-            )}
-            {objects.length > 0 && (
-              <>
-                <IconFile className="mr-0.5 inline size-3" />
-                {objects.length}
-              </>
-            )}
+            {selectedKeys.size}
+            <span className="hidden @[1100px]/statusbar:inline">
+              {" "}
+              已选择（{formatBytes(selectedSize)}）
+            </span>
           </span>
         )}
         {activeCount > 0 && (
           <button
             type="button"
-            className="flex items-center gap-2 text-info transition-colors hover:text-info/80"
+            className="flex items-center gap-2 whitespace-nowrap text-info transition-colors hover:text-info/80"
             onClick={() => setJobPanelOpen(true)}
+            title={`${activeCount} 个任务${runningJobs.length > 0 ? "运行中" : "排队中"}，点击查看任务`}
           >
             <span>
-              {activeCount} 个任务{activeCount > 1 ? "" : ""}{" "}
-              {runningJobs.length > 0 ? "运行中" : "排队中"}
+              {activeCount} 个任务
+              <span className="hidden @[1100px]/statusbar:inline">
+                {" "}
+                {runningJobs.length > 0 ? "运行中" : "排队中"}
+              </span>
             </span>
             {runningJobs.length > 0 && totalBytes > 0 && (
-              <>
+              <span className="hidden items-center gap-2 @[1250px]/statusbar:inline-flex">
                 <Progress value={aggregatePercent} className="h-1.5 w-20" />
                 <span className="tabular-nums">{aggregatePercent}%</span>
                 {aggregateSpeed > 0 && (
                   <span>{formatSpeed(aggregateSpeed)}</span>
                 )}
-              </>
+              </span>
             )}
           </button>
         )}
@@ -185,14 +189,16 @@ export function StatusBar() {
                   : "text-foreground/40"
             } hover:text-primary`}
             onClick={() => setFolderSyncPanelOpen(true)}
-            title={"实时文件夹同步"}
+            title={`实时文件夹同步：${folderSyncActive} 条已启用`}
           >
             <IconFolderOpen
               className={`size-3 ${folderSyncSyncing > 0 ? "animate-pulse" : ""}`}
             />
-            {folderSyncSyncing > 0
-              ? `正在实时同步 ${folderSyncSyncing} 个文件夹`
-              : `${folderSyncActive} 个实时同步任务已启用`}
+            <span className="hidden whitespace-nowrap @[1150px]/statusbar:inline">
+              {folderSyncSyncing > 0
+                ? `正在同步 ${folderSyncSyncing} 个文件夹`
+                : `${folderSyncActive} 个实时同步`}
+            </span>
           </button>
         )}
         {updateReady && updateVersion && (
@@ -201,9 +207,12 @@ export function StatusBar() {
             className="flex items-center gap-1 text-success transition-colors hover:text-success/80"
             onClick={handleApplyUpdate}
             disabled={applying}
+            title={`更新到 v${updateVersion}`}
           >
             <IconArrowUpRightFromSquare className="size-3" />
-            {applying ? "正在更新…" : `更新到 v${updateVersion}`}
+            <span className="hidden whitespace-nowrap @[1150px]/statusbar:inline">
+              {applying ? "正在更新…" : `更新到 v${updateVersion}`}
+            </span>
           </button>
         )}
       </div>

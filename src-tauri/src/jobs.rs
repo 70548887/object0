@@ -41,6 +41,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
     for (task, cancel_flag) in start_now {
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
+            let mut usage_changes: HashSet<(String, String)> = HashSet::new();
             let result: Result<i64, String> = async {
                 let state = app_handle.state::<AppState>();
                 let mut speed_calc = (Instant::now(), 0i64);
@@ -76,6 +77,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                         let client = to_s3_client(&profile)?;
                         if local_path.trim().is_empty() {
                             update(0, 0, &mut speed_calc);
+                            usage_changes.insert((profile_id.clone(), bucket.clone()));
                             client
                                 .put_object()
                                 .bucket(bucket.to_string())
@@ -93,6 +95,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                                 .unwrap_or(0)
                                 .max(0);
                             update(0, total, &mut speed_calc);
+                            usage_changes.insert((profile_id.clone(), bucket.clone()));
                             s3_upload_file(&client, bucket, key, &local, &cancel_flag, |t, tot| {
                                 update(t, tot, &mut speed_calc);
                             })
@@ -128,6 +131,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                         let dst_client = to_s3_client(&dst_profile)?;
                         let same_profile = source_profile_id == dest_profile_id;
                         update(0, 0, &mut speed_calc);
+                        usage_changes.insert((dest_profile_id.clone(), dest_bucket.clone()));
                         if same_profile {
                             match s3_copy_object(
                                 &src_client,
@@ -186,6 +190,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                         let dst_client = to_s3_client(&dst_profile)?;
                         let same_profile = source_profile_id == dest_profile_id;
                         update(0, 0, &mut speed_calc);
+                        usage_changes.insert((dest_profile_id.clone(), dest_bucket.clone()));
                         let transferred = if same_profile {
                             match s3_copy_object(
                                 &src_client,
@@ -234,6 +239,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                             return Err(JOB_CANCELLED.to_string());
                         }
 
+                        usage_changes.insert((source_profile_id.clone(), source_bucket.clone()));
                         s3_delete_keys(&src_client, source_bucket, &[source_key.clone()]).await?;
                         Ok(transferred)
                     }
@@ -245,6 +251,9 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                         let profile = profile_for_id(&state, profile_id)?;
                         let client = to_s3_client(&profile)?;
                         update(0, keys.len() as i64, &mut speed_calc);
+                        if !keys.is_empty() {
+                            usage_changes.insert((profile_id.clone(), bucket.clone()));
+                        }
                         s3_delete_keys(&client, bucket, keys).await?;
                         update(keys.len() as i64, keys.len() as i64, &mut speed_calc);
                         Ok(keys.len() as i64)
@@ -287,6 +296,10 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                     finish_job(&app_handle, &task.id, JobStatus::Cancelled, Some(err), None)
                 }
                 Err(err) => finish_job(&app_handle, &task.id, JobStatus::Failed, Some(err), None),
+            }
+
+            for (profile_id, bucket) in usage_changes {
+                usage::emit_changed(&app_handle, &profile_id, &bucket);
             }
 
             try_start_queued_jobs(app_handle);

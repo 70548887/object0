@@ -1,318 +1,173 @@
-name: Release
+name: Windows Release
 
 on:
-  push:
-    tags:
-      - v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, for example v1.6.0
+        required: true
+        default: v1.6.0
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: windows-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      release_id: ${{ steps.upsert_release.outputs.release_id }}
-
+  windows:
+    if: github.repository == '70548887/object0'
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: '1'
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_DEBUG: '0'
+    defaults:
+      run:
+        shell: pwsh
     steps:
-      - name: Checkout
+      - name: Validate requested tag
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            throw 'Use a stable version tag such as v1.6.0.'
+          }
+
+      - name: Checkout exact tag
         uses: actions/checkout@v5
         with:
+          ref: refs/tags/${{ inputs.tag }}
           fetch-depth: 0
 
-      - name: Resolve tag
-        id: tag
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Tag must look like v1.2.3 or v1.2.3-rc.1 (got: $TAG)" >&2
-            exit 1
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve previous version tag
-        id: previous_tag
-        shell: bash
-        run: |
-          CURRENT="${{ steps.tag.outputs.tag }}"
-          PREVIOUS="$(git tag --sort=-v:refname | grep '^v' | grep -Fxv "$CURRENT" | head -n 1 || true)"
-          echo "tag=$PREVIOUS" >> "$GITHUB_OUTPUT"
-
-      - name: Generate changelog from Conventional Commits
-        shell: bash
-        run: |
-          if [ -n "${{ steps.previous_tag.outputs.tag }}" ]; then
-            node ./scripts/release/generate-conventional-notes.mjs \
-              --current-tag "${{ steps.tag.outputs.tag }}" \
-              --previous-tag "${{ steps.previous_tag.outputs.tag }}" \
-              --output RELEASE_NOTES.md
-          else
-            node ./scripts/release/generate-conventional-notes.mjs \
-              --current-tag "${{ steps.tag.outputs.tag }}" \
-              --output RELEASE_NOTES.md
-          fi
-
-      - name: Create or update GitHub release
-        id: upsert_release
-        uses: actions/github-script@v8
-        env:
-          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const tag = process.env.RELEASE_TAG;
-            const body = fs.readFileSync('RELEASE_NOTES.md', 'utf8').trim() || `Release ${tag}`;
-            const prerelease = /-/.test(tag);
+          bun-version: 1.4.4
 
-            let release;
-            try {
-              const existing = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag,
-              });
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-              release = await github.rest.repos.updateRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: existing.data.id,
-                tag_name: tag,
-                name: tag,
-                body,
-                draft: false,
-                prerelease,
-              });
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error;
-              }
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
 
-              release = await github.rest.repos.createRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag_name: tag,
-                name: tag,
-                body,
-                draft: false,
-                prerelease,
-              });
+      - name: Verify source release version
+        run: |
+          $expected = $env:RELEASE_TAG.Substring(1)
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $tauri = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ($package.version -ne $expected -or $tauri.version -ne $expected) {
+            throw 'Tag, package.json and Tauri versions must match before building.'
+          }
+          if ($tauri.bundle.createUpdaterArtifacts) { throw 'Unsigned local releases must not generate upstream updater artifacts.' }
+          if (@($tauri.plugins.updater.endpoints).Count -ne 0) { throw 'The fork must not inherit an upstream update feed.' }
+
+      - name: Fetch pinned Microsoft WebView2 fixed runtime
+        run: |
+          $metadata = Get-Content packaging/windows-runtime.json -Raw | ConvertFrom-Json
+          if ($metadata.sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'Missing pinned runtime SHA256.' }
+          $url = [uri]$metadata.url
+          if ($url.Scheme -ne 'https' -or $url.Host -notmatch '(^|\.)microsoft\.com$') {
+            throw 'Runtime must come from an official Microsoft HTTPS endpoint.'
+          }
+          $downloads = Join-Path $env:RUNNER_TEMP 'object0-webview2-download'
+          $expanded = Join-Path $downloads 'expanded'
+          New-Item -ItemType Directory -Path $expanded -Force | Out-Null
+          $cab = Join-Path $downloads 'WebView2Runtime.cab'
+          Invoke-WebRequest -Uri $url -OutFile $cab
+          if ((Get-FileHash -LiteralPath $cab -Algorithm SHA256).Hash -ne $metadata.sha256) { throw 'Runtime CAB checksum mismatch.' }
+          & expand.exe '-F:*' $cab $expanded
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime CAB extraction failed.' }
+          $executables = @(Get-ChildItem -LiteralPath $expanded -Recurse -File -Filter msedgewebview2.exe)
+          if ($executables.Count -ne 1) { throw 'Expected one fixed runtime executable.' }
+          $signature = Get-AuthenticodeSignature -FilePath $executables[0].FullName
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft') {
+            throw 'The fixed runtime does not have a valid Microsoft signature.'
+          }
+          if ($executables[0].VersionInfo.ProductVersion -ne $metadata.version) { throw 'Runtime version mismatch.' }
+          $runtimeRoot = Split-Path -Parent $executables[0].FullName
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'src-tauri/WebView2Runtime'
+          if (Test-Path -LiteralPath $destination) { throw 'Runtime destination must not already exist in source.' }
+          Copy-Item -LiteralPath $runtimeRoot -Destination $destination -Recurse
+
+      - name: Install locked dependencies
+        run: |
+          bun install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
+
+      - name: Run local-only regression tests
+        run: |
+          bun test tests/share-expiration.test.ts
+          if ($LASTEXITCODE -ne 0) { throw 'Share expiration tests failed.' }
+          bun tests/bucket-usage-rpc.regression.ts
+          if ($LASTEXITCODE -ne 0) { throw 'Usage event regression failed.' }
+          bun tests/profile-switch.regression.ts
+          if ($LASTEXITCODE -ne 0) { throw 'Profile switch regression failed.' }
+          bun tests/rpc-errors.regression.ts
+          if ($LASTEXITCODE -ne 0) { throw 'RPC error regression failed.' }
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'Tests changed tracked release source.' }
+
+      - name: Build Chinese NSIS installer
+        run: |
+          bun run tauri build --bundles nsis
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release build failed.' }
+          $runtime = Join-Path $env:GITHUB_WORKSPACE 'src-tauri/WebView2Runtime'
+          $runtimeOutput = Join-Path $env:GITHUB_WORKSPACE 'src-tauri/target/release/WebView2Runtime'
+          if (-not (Test-Path -LiteralPath $runtimeOutput)) {
+            Copy-Item -LiteralPath $runtime -Destination $runtimeOutput -Recurse
+          }
+
+      - name: Package portable ZIP and checksums
+        run: |
+          ./scripts/release/package-windows.ps1 -BuildDir ./src-tauri/target -OutputDir ./release-assets
+
+      - name: Preserve release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: object0-windows-${{ inputs.tag }}
+          path: |
+            release-assets/*_setup.exe
+            release-assets/*_portable.zip
+            release-assets/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload, verify and publish complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $version = $env:RELEASE_TAG.Substring(1)
+          $names = @(
+            "object0_$($version)_windows_x64_setup.exe",
+            "object0_$($version)_windows_x64_portable.zip",
+            'SHA256SUMS.txt'
+          )
+          $files = @($names | ForEach-Object { Join-Path './release-assets' $_ })
+          $existing = gh release view $env:RELEASE_TAG --repo $env:GH_REPO --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if (-not ($existing | ConvertFrom-Json).isDraft) { throw 'Refusing to overwrite an already published release.' }
+          } else {
+            gh release create $env:RELEASE_TAG --repo $env:GH_REPO --verify-tag --draft --title ($env:RELEASE_TAG + ' - Windows 中文版') --generate-notes --notes-file docs/PORTABLE_ZH.md
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to create draft release.' }
+          }
+          gh release upload $env:RELEASE_TAG @files --repo $env:GH_REPO
+          if ($LASTEXITCODE -ne 0) { throw 'Upload failed; release remains a draft. Existing assets were not overwritten.' }
+          $verification = Join-Path $env:RUNNER_TEMP ('object0-verify-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $verification | Out-Null
+          foreach ($name in $names) {
+            gh release download $env:RELEASE_TAG --repo $env:GH_REPO --pattern $name --dir $verification
+            if ($LASTEXITCODE -ne 0) { throw 'Release asset download verification failed.' }
+            $local = Join-Path './release-assets' $name
+            $downloaded = Join-Path $verification $name
+            if ((Get-FileHash -LiteralPath $local -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $downloaded -Algorithm SHA256).Hash) {
+              throw 'Uploaded release asset bytes do not match the local package.'
             }
-
-            core.setOutput('release_id', String(release.data.id));
-
-  publish-tauri:
-    needs: release
-    runs-on: ${{ matrix.platform }}
-
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - platform: macos-latest
-            args: --target aarch64-apple-darwin --bundles dmg
-            asset_os: macos
-            asset_arch: arm64
-            asset_kind: installer
-            upload_updater: true
-          - platform: macos-latest
-            args: --target x86_64-apple-darwin --bundles dmg
-            asset_os: macos
-            asset_arch: x64
-            asset_kind: installer
-            upload_updater: true
-          - platform: ubuntu-22.04
-            args: --bundles deb,rpm
-            asset_os: linux
-            asset_arch: x64
-            asset_kind: installer
-            upload_updater: false
-          - platform: ubuntu-22.04
-            args: --bundles appimage
-            asset_os: linux
-            asset_arch: x64
-            asset_kind: standalone
-            upload_updater: true
-          - platform: windows-latest
-            args: --bundles nsis
-            asset_os: windows
-            asset_arch: x64
-            asset_kind: installer
-            upload_updater: true
-          - platform: windows-latest
-            args: --bundles msi
-            asset_os: windows
-            asset_arch: x64
-            asset_kind: installer
-            upload_updater: false
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Add macOS targets
-        if: matrix.platform == 'macos-latest'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-
-      - name: Cache Rust build
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libdbus-1-dev patchelf
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Sync app version from release tag
-        run: node ./scripts/release/sync-version.mjs --version "${{ needs.release.outputs.tag }}"
-
-      - name: Build and upload bundles
-        uses: tauri-apps/tauri-action@v0.6.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ needs.release.outputs.tag }}
-          releaseId: ${{ needs.release.outputs.release_id }}
-          args: ${{ matrix.args }}
-          assetNamePattern: "object0_[version]_${{ matrix.asset_os }}_${{ matrix.asset_arch }}_${{ matrix.asset_kind }}[ext]"
-          includeUpdaterJson: ${{ matrix.upload_updater }}
-
-  publish-standalone-binaries:
-    needs:
-      - release
-      - publish-tauri
-    runs-on: ${{ matrix.platform }}
-
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - platform: macos-latest
-            args: --target aarch64-apple-darwin --no-bundle
-            asset_os: macos
-            asset_arch: arm64
-          - platform: macos-latest
-            args: --target x86_64-apple-darwin --no-bundle
-            asset_os: macos
-            asset_arch: x64
-          - platform: ubuntu-22.04
-            args: --no-bundle
-            asset_os: linux
-            asset_arch: x64
-          - platform: windows-latest
-            args: --no-bundle
-            asset_os: windows
-            asset_arch: x64
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Add macOS targets
-        if: matrix.platform == 'macos-latest'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-
-      - name: Cache Rust build
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libdbus-1-dev patchelf
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Sync app version from release tag
-        run: node ./scripts/release/sync-version.mjs --version "${{ needs.release.outputs.tag }}"
-
-      - name: Build and upload standalone binaries
-        uses: tauri-apps/tauri-action@v0.6.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ needs.release.outputs.tag }}
-          releaseId: ${{ needs.release.outputs.release_id }}
-          args: ${{ matrix.args }}
-          uploadPlainBinary: true
-          assetNamePattern: "object0_[version]_${{ matrix.asset_os }}_${{ matrix.asset_arch }}_standalone[ext]"
-          includeUpdaterJson: false
-
-  publish-aur:
-    needs:
-      - release
-      - publish-tauri
-    runs-on: ubuntu-latest
-    if: ${{ !contains(needs.release.outputs.tag, '-') }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup AUR SSH key
-        env:
-          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-        run: |
-          if [ -z "${AUR_SSH_PRIVATE_KEY}" ]; then
-            echo "AUR_SSH_PRIVATE_KEY secret is not configured" >&2
-            exit 1
-          fi
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "${AUR_SSH_PRIVATE_KEY}" > ~/.ssh/aur
-          chmod 600 ~/.ssh/aur
-          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Publish object0-bin to AUR
-        env:
-          AUR_PACKAGE: object0-bin
-          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: ./scripts/release/publish-aur.sh "${{ needs.release.outputs.tag }}"
+          }
+          gh release edit $env:RELEASE_TAG --repo $env:GH_REPO --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw 'All assets verified, but release publication failed.' }

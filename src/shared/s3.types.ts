@@ -22,6 +22,21 @@ export interface BucketInfo {
   creationDate?: string;
 }
 
+// Whole-bucket usage. An incomplete scan is a lower bound, never a total.
+export interface BucketUsage {
+  profileId: string;
+  bucket: string;
+  bytes: number;
+  objectCount: number;
+  metadataBytes?: number;
+  source: "r2" | "scan";
+  measuredAt: string;
+  fetchedAt: string;
+  complete: boolean;
+  scannedPages?: number;
+  warning?: string;
+}
+
 // ── Object list request ──
 export interface ObjectListReq {
   profileId: string;

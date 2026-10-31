@@ -47,6 +47,7 @@ export interface Profile {
   endpoint?: string;
   region?: string;
   defaultBucket?: string;
+  r2AnalyticsToken?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +60,7 @@ export interface ProfileInfo {
   endpoint?: string;
   region?: string;
   defaultBucket?: string;
+  hasR2AnalyticsToken: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +75,8 @@ export interface ProfileInput {
   endpoint?: string;
   region?: string;
   defaultBucket?: string;
+  r2AnalyticsToken?: string;
+  clearR2AnalyticsToken?: boolean;
 }
 
 // ── Strip secrets from profile for UI ──
@@ -84,6 +88,7 @@ export function toProfileInfo(profile: Profile): ProfileInfo {
     endpoint: profile.endpoint,
     region: profile.region,
     defaultBucket: profile.defaultBucket,
+    hasR2AnalyticsToken: Boolean(profile.r2AnalyticsToken),
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
   };

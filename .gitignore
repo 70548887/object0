@@ -38,3 +38,8 @@ coverage
 
 # Superpowers planning docs (spec/plan) — keep local, never commit
 docs/superpowers/
+
+# Reproducible Windows release inputs and output; never commit user data.
+src-tauri/WebView2Runtime/
+release-output/
+packaging/downloads/

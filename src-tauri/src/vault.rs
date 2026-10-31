@@ -201,6 +201,7 @@ pub(crate) fn to_profile_info(profile: &Profile) -> ProfileInfo {
         endpoint: profile.endpoint.clone(),
         region: profile.region.clone(),
         default_bucket: profile.default_bucket.clone(),
+        has_r2_analytics_token: profile.r2_analytics_token.as_ref().is_some_and(|value| !value.is_empty()),
         created_at: profile.created_at.clone(),
         updated_at: profile.updated_at.clone(),
     }

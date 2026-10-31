@@ -3,6 +3,20 @@
 
 use super::*;
 
+#[path = "updater_policy.rs"]
+mod updater_policy;
+
+fn custom_update_configuration() -> Result<(Vec<Url>, String), String> {
+    let endpoints = env_updater_endpoints()?;
+    let pubkey = env_var_non_empty("OBJECT0_UPDATER_PUBKEY");
+    updater_policy::require_custom_update_source(endpoints.is_some(), pubkey.is_some())
+        .map_err(str::to_string)?;
+    match (endpoints, pubkey) {
+        (Some(endpoints), Some(pubkey)) => Ok((endpoints, pubkey)),
+        _ => Err(updater_policy::LOCAL_UPDATES_DISABLED.to_string()),
+    }
+}
+
 pub(crate) fn env_var_non_empty(key: &str) -> Option<String> {
     std::env::var(key)
         .ok()
@@ -35,15 +49,11 @@ pub(crate) fn env_updater_endpoints() -> Result<Option<Vec<Url>>, String> {
 }
 
 pub(crate) fn updater_local_info_endpoint() -> String {
-    let Some(raw) = env_var_non_empty("OBJECT0_UPDATER_ENDPOINTS") else {
-        return DEFAULT_UPDATER_ENDPOINT.to_string();
-    };
-
-    raw.split(|ch: char| ch == ',' || ch == '\n' || ch == '\r')
-        .map(str::trim)
-        .find(|value| !value.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| DEFAULT_UPDATER_ENDPOINT.to_string())
+    custom_update_configuration()
+        .ok()
+        .and_then(|(endpoints, _)| endpoints.into_iter().next())
+        .map(|endpoint| endpoint.to_string())
+        .unwrap_or_else(|| "自动更新已停用".to_string())
 }
 
 pub(crate) fn updater_local_info_base_url() -> String {
@@ -63,26 +73,21 @@ pub(crate) fn updater_local_info_base_url() -> String {
 }
 
 pub(crate) fn updater_channel() -> String {
+    if custom_update_configuration().is_err() {
+        return "本地定制版（自动更新已停用）".to_string();
+    }
     env_var_non_empty("OBJECT0_UPDATER_CHANNEL")
         .unwrap_or_else(|| DEFAULT_UPDATER_CHANNEL.to_string())
 }
 
 pub(crate) fn configured_updater(app: &AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
-    let mut builder = app.updater_builder();
-
-    if let Some(pubkey) = env_var_non_empty("OBJECT0_UPDATER_PUBKEY") {
-        builder = builder.pubkey(pubkey);
-    }
-
-    if let Some(endpoints) = env_updater_endpoints()? {
-        builder = builder
-            .endpoints(endpoints)
-            .map_err(|err| format!("Invalid updater endpoints: {err}"))?;
-    }
-
-    builder
+    let (endpoints, pubkey) = custom_update_configuration()?;
+    app.updater_builder()
+        .pubkey(pubkey)
+        .endpoints(endpoints)
+        .map_err(|err| format!("定制版更新源无效：{err}"))?
         .build()
-        .map_err(|err| format!("Updater unavailable: {err}"))
+        .map_err(|err| format!("定制版更新不可用：{err}"))
 }
 
 pub(crate) fn updater_cached_state(app: &AppHandle) -> (Option<String>, bool) {
@@ -191,6 +196,10 @@ pub(crate) async fn apply_downloaded_update(app: &AppHandle) -> Result<(), Strin
 }
 
 pub(crate) async fn run_periodic_updater_checks(app: AppHandle) {
+    // A local customization must not silently fetch or install upstream builds.
+    if custom_update_configuration().is_err() {
+        return;
+    }
     tokio::time::sleep(StdDuration::from_secs(UPDATE_CHECK_INITIAL_DELAY_SECS)).await;
 
     loop {

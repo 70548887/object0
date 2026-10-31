@@ -26,8 +26,20 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
-    "targets": "all",
+    "createUpdaterArtifacts": false,
+    "targets": ["nsis"],
+    "licenseFile": "../LICENSE",
+    "resources": { "../LICENSE": "LICENSE" },
+    "windows": {
+      "webviewInstallMode": { "type": "fixedRuntime", "path": "WebView2Runtime" },
+      "nsis": {
+        "languages": ["SimpChinese"],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser",
+        "compression": "lzma",
+        "startMenuFolder": "object0"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -39,9 +51,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNGRjBEQ0ZEMDcyRUI0REMKUldUY3RDNEgvZHp3UHhIZU5JR1l2cDh1MUVubW03bFlXQUQxazdsQXdEQTcrbmdRNE54VFJzNVoK",
-      "endpoints": [
-        "https://github.com/sayedhfatimi/object0/releases/latest/download/latest.json"
-      ]
+      "endpoints": []
     }
   }
 }

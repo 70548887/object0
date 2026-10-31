@@ -12,22 +12,27 @@ async fn test_profile_connection(profile: &Profile) -> Value {
         }
     };
 
+    let mut bucket_error = None;
     if let Some(default_bucket) = profile.default_bucket.as_ref() {
-        if client
+        match client
             .head_bucket()
             .bucket(default_bucket.clone())
             .send()
             .await
-            .is_ok()
         {
-            return json!({ "success": true, "bucketCount": 1 });
+            Ok(_) => return json!({ "success": true, "bucketCount": 1 }),
+            Err(error) => bucket_error = Some(s3_errors::describe("读取默认存储桶", &error)),
         }
         // Some providers deny HeadBucket but allow listing buckets.
     }
 
     match client.list_buckets().send().await {
         Ok(output) => json!({ "success": true, "bucketCount": output.buckets().len() }),
-        Err(err) => json!({ "success": false, "bucketCount": 0, "error": err.to_string() }),
+        Err(err) => {
+            let list_error = s3_errors::describe("列出账号存储桶", &err);
+            let error = bucket_error.map(|error| format!("{error}；{list_error}")).unwrap_or(list_error);
+            json!({ "success": false, "bucketCount": 0, "error": error })
+        },
     }
 }
 
@@ -233,6 +238,7 @@ pub(crate) async fn rpc_request(
         RpcMethod::VaultLock => {
             let mut vault = lock_state(&state.vault)?;
             lock_vault_runtime(&mut vault);
+            usage::cancel_all(&state);
             stop_all_folder_sync_rules(&app);
             refresh_tray_menu(&app);
             Ok(Value::Null)
@@ -263,6 +269,7 @@ pub(crate) async fn rpc_request(
             match unlock_with_recovery_key(&path, input.recovery_key.trim()) {
                 Ok(unlock) => {
                     let mut vault = lock_state(&state.vault)?;
+                    usage::cancel_all(&state);
                     vault.unlocked = true;
                     vault.data = Some(unlock.data);
                     vault.key = None;
@@ -340,6 +347,7 @@ pub(crate) async fn rpc_request(
 
             let mut vault = lock_state(&state.vault)?;
             *vault = VaultRuntime::default();
+            usage::cancel_all(&state);
             stop_all_folder_sync_rules(&app);
             refresh_tray_menu(&app);
             Ok(json!({ "success": true }))
@@ -368,6 +376,7 @@ pub(crate) async fn rpc_request(
         }
         RpcMethod::ProfileAdd => {
             let input: ProfileInput = parse_payload(payload)?;
+            let analytics_token = usage::normalize_analytics_token(input.r2_analytics_token)?;
             let path = vault_path()?;
             let mut vault = lock_state(&state.vault)?;
             ensure_writable(&vault)?;
@@ -383,6 +392,7 @@ pub(crate) async fn rpc_request(
                 endpoint: input.endpoint,
                 region: input.region,
                 default_bucket: input.default_bucket,
+                r2_analytics_token: if input.provider == S3Provider::R2 { analytics_token } else { None },
                 created_at: timestamp.clone(),
                 updated_at: timestamp,
             };
@@ -398,6 +408,7 @@ pub(crate) async fn rpc_request(
         }
         RpcMethod::ProfileUpdate => {
             let input: ProfileUpdateInput = parse_payload(payload)?;
+            let analytics_token = usage::normalize_analytics_token(input.r2_analytics_token)?;
             let path = vault_path()?;
             let mut vault = lock_state(&state.vault)?;
             ensure_writable(&vault)?;
@@ -433,6 +444,11 @@ pub(crate) async fn rpc_request(
             profile.endpoint = input.endpoint;
             profile.region = input.region;
             profile.default_bucket = input.default_bucket;
+            if input.provider != S3Provider::R2 || input.clear_r2_analytics_token {
+                profile.r2_analytics_token = None;
+            } else if let Some(token) = analytics_token {
+                profile.r2_analytics_token = Some(token);
+            }
             profile.updated_at = now_iso();
 
             if profile.access_key_id.trim().is_empty()
@@ -478,6 +494,7 @@ pub(crate) async fn rpc_request(
                 endpoint: input.endpoint,
                 region: Some(input.region),
                 default_bucket: input.default_bucket.clone(),
+                r2_analytics_token: None,
                 created_at: now_iso(),
                 updated_at: now_iso(),
             };
@@ -490,6 +507,15 @@ pub(crate) async fn rpc_request(
             Ok(test_profile_connection(&profile).await)
         }
 
+        RpcMethod::BucketsUsage => {
+            let input: usage::UsageInput = parse_payload(payload)?;
+            Ok(json!(usage::get(&state, input).await?))
+        }
+        RpcMethod::BucketsUsageCancel => {
+            let input: usage::UsageCancelInput = parse_payload(payload)?;
+            usage::cancel(&state, input)?;
+            Ok(Value::Null)
+        }
         RpcMethod::BucketsList => {
             let input: ProfileIdInput = parse_payload(payload)?;
             let profile = profile_for_id(&state, &input.profile_id)?;
@@ -518,7 +544,7 @@ pub(crate) async fn rpc_request(
                         }
                     }
 
-                    Err(format!("Unable to list buckets. {}", err))
+                    Err(s3_errors::describe("列出账号存储桶", &err))
                 }
             }
         }
@@ -542,7 +568,7 @@ pub(crate) async fn rpc_request(
                 request = request.start_after(start_after);
             }
 
-            let output = request.send().await.map_err(|err| err.to_string())?;
+            let output = request.send().await.map_err(|err| s3_errors::describe("加载文件列表", &err))?;
 
             let objects: Vec<Value> = output
                 .contents()
@@ -583,11 +609,15 @@ pub(crate) async fn rpc_request(
             }
 
             let client = s3_client_for_profile(&state, &input.profile_id)?;
+            let mut usage_change = usage::UsageChangeGuard::new(
+                &app, &input.profile_id, &input.bucket,
+            );
 
             if input.keys.len() == 1 {
+                usage_change.mark_changed();
                 client
                     .delete_object()
-                    .bucket(input.bucket)
+                    .bucket(input.bucket.clone())
                     .key(input.keys[0].clone())
                     .send()
                     .await
@@ -609,9 +639,10 @@ pub(crate) async fn rpc_request(
                 .build()
                 .map_err(|err| format!("Invalid delete payload: {err}"))?;
 
+            usage_change.mark_changed();
             client
                 .delete_objects()
-                .bucket(input.bucket)
+                .bucket(input.bucket.clone())
                 .delete(delete)
                 .send()
                 .await
@@ -625,7 +656,11 @@ pub(crate) async fn rpc_request(
 
             let source_key = utf8_percent_encode(&input.old_key, COPY_SOURCE_ENCODE_SET);
             let copy_source = format!("{}/{}", input.bucket, source_key);
+            let mut usage_change = usage::UsageChangeGuard::new(
+                &app, &input.profile_id, &input.bucket,
+            );
 
+            usage_change.mark_changed();
             client
                 .copy_object()
                 .copy_source(copy_source)
@@ -637,7 +672,7 @@ pub(crate) async fn rpc_request(
 
             client
                 .delete_object()
-                .bucket(input.bucket)
+                .bucket(input.bucket.clone())
                 .key(input.old_key)
                 .send()
                 .await

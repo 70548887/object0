@@ -59,10 +59,30 @@ export async function rpcCall<M extends keyof RPCSchema>(
   method: M,
   payload: RPCSchema[M]["req"],
 ): Promise<RPCSchema[M]["res"]> {
-  return invoke<RPCSchema[M]["res"]>("rpc_request", {
-    method,
-    payload: payload ?? null,
-  });
+  try {
+    return await invoke<RPCSchema[M]["res"]>("rpc_request", {
+      method,
+      payload: payload ?? null,
+    });
+  } catch (error: unknown) {
+    // Tauri rejects Result<_, String> as a string, not a JavaScript Error.
+    // Normalize once so callers do not silently replace useful errors with
+    // "未知错误". Never serialize arbitrary objects or the request payload.
+    if (error instanceof Error) throw error;
+    if (typeof error === "string" && error.trim()) {
+      throw new Error(error);
+    }
+    if (
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof error.message === "string" &&
+      error.message.trim()
+    ) {
+      throw new Error(error.message);
+    }
+    throw new Error("请求失败，后端未返回具体原因，请重试");
+  }
 }
 
 // ── Subscribe to backend events ──

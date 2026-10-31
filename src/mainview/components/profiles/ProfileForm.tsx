@@ -1,7 +1,8 @@
 import type { ProfileInfo } from "@shared/profile.types";
 import { PROVIDER_ENDPOINTS, PROVIDER_REGIONS } from "@shared/profile.types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,9 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
   const [name, setName] = useState(editProfile?.name ?? "");
   const [accessKeyId, setAccessKeyId] = useState("");
   const [secretAccessKey, setSecretAccessKey] = useState("");
+  const [r2AnalyticsToken, setR2AnalyticsToken] = useState("");
+  const [clearR2AnalyticsToken, setClearR2AnalyticsToken] = useState(false);
+  const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
   const [endpoint, setEndpoint] = useState(editProfile?.endpoint ?? "");
   const [region, setRegion] = useState(
     editProfile?.region ?? PROVIDER_REGIONS[editProfile?.provider ?? "aws"],
@@ -65,10 +69,23 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
     provider === "backblaze" ||
     provider === "custom";
 
+  useEffect(() => {
+    if (!open) {
+      setR2AnalyticsToken("");
+      setClearR2AnalyticsToken(false);
+      setAnalyticsExpanded(false);
+    }
+  }, [open]);
+
   const handleProviderChange = (p: Provider) => {
     setProvider(p);
     setEndpoint(PROVIDER_ENDPOINTS[p] ?? "");
     setRegion(PROVIDER_REGIONS[p]);
+    if (p !== "r2") {
+      setR2AnalyticsToken("");
+      setClearR2AnalyticsToken(false);
+      setAnalyticsExpanded(false);
+    }
     setTestResult(null);
   };
 
@@ -106,6 +123,18 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
     const trimmedEndpoint = endpoint.trim();
     const trimmedRegion = region.trim();
     const trimmedDefaultBucket = defaultBucket.trim();
+    const trimmedAnalyticsToken = r2AnalyticsToken.trim();
+    const analyticsSettings =
+      provider === "r2"
+        ? {
+            ...(trimmedAnalyticsToken
+              ? { r2AnalyticsToken: trimmedAnalyticsToken }
+              : {}),
+            ...(clearR2AnalyticsToken && !trimmedAnalyticsToken
+              ? { clearR2AnalyticsToken: true }
+              : {}),
+          }
+        : {};
 
     if (!trimmedName) {
       toast.error("请输入存储账号名称");
@@ -140,6 +169,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             needsEndpoint && trimmedEndpoint ? trimmedEndpoint : undefined,
           region: trimmedRegion,
           defaultBucket: trimmedDefaultBucket || undefined,
+          ...analyticsSettings,
         });
         await refreshProfiles();
         toast.success(`存储账号“${trimmedName}”已更新`);
@@ -153,6 +183,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
             needsEndpoint && trimmedEndpoint ? trimmedEndpoint : undefined,
           region: trimmedRegion,
           defaultBucket: trimmedDefaultBucket || undefined,
+          ...analyticsSettings,
         });
         await refreshProfiles();
         toast.success(`存储账号“${trimmedName}”已添加`);
@@ -166,7 +197,7 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "编辑存储账号" : "添加存储账号"}
@@ -351,6 +382,79 @@ export function ProfileForm({ open, onClose, editProfile }: ProfileFormProps) {
               )}
             </div>
           </div>
+
+          {provider === "r2" && (
+            <details
+              className="group rounded-lg border border-border/60 p-3"
+              open={analyticsExpanded}
+              onToggle={(event) =>
+                setAnalyticsExpanded(event.currentTarget.open)
+              }
+            >
+              <summary className="cursor-pointer text-xs font-medium text-foreground/70 marker:text-foreground/40">
+                用量统计（可选）
+                {editProfile?.hasR2AnalyticsToken && (
+                  <span className="ml-2 text-foreground/45">
+                    {clearR2AnalyticsToken
+                      ? "待移除"
+                      : r2AnalyticsToken.trim()
+                        ? "待更新"
+                        : "已配置"}
+                  </span>
+                )}
+              </summary>
+              <div className="mt-3 space-y-3">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  现有密钥可扫描文件统计用量。填写 Cloudflare API Token
+                  后，可读取 R2 官方统计。
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pf-r2-analytics-token" className="text-xs">
+                    统计 API Token
+                  </Label>
+                  <Input
+                    id="pf-r2-analytics-token"
+                    type="password"
+                    className="h-8 font-mono text-sm"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={
+                      editProfile?.hasR2AnalyticsToken
+                        ? "留空保留已保存的 Token"
+                        : "填写有统计读取权限的 API Token"
+                    }
+                    value={r2AnalyticsToken}
+                    onChange={(e) => {
+                      setR2AnalyticsToken(e.target.value);
+                      if (e.target.value.trim())
+                        setClearR2AnalyticsToken(false);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground/70">
+                    与账号凭据一同加密保存在本机密码库中。
+                  </p>
+                </div>
+                {isEditing && editProfile?.hasR2AnalyticsToken && (
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="pf-clear-r2-analytics-token"
+                      checked={clearR2AnalyticsToken}
+                      onCheckedChange={(checked) => {
+                        setClearR2AnalyticsToken(checked === true);
+                        if (checked === true) setR2AnalyticsToken("");
+                      }}
+                    />
+                    <Label
+                      htmlFor="pf-clear-r2-analytics-token"
+                      className="cursor-pointer text-xs font-normal"
+                    >
+                      保存时移除已配置的统计 Token
+                    </Label>
+                  </div>
+                )}
+              </div>
+            </details>
+          )}
 
           {/* Test result */}
           {testResult && (

@@ -49,11 +49,14 @@ mod persistence;
 mod rpc;
 mod rpc_method;
 mod s3;
+mod s3_errors;
 mod sync;
 mod tray;
 mod updater;
+mod usage;
 mod util;
 mod vault;
+mod windows_runtime;
 
 use folder_sync::*;
 use jobs::*;
@@ -103,8 +106,6 @@ const MIN_SHARE_TTL_SECS: i64 = 1;
 const MAX_SHARE_TTL_SECS: i64 = 604_800;
 const UPDATE_CHECK_INITIAL_DELAY_SECS: u64 = 5;
 const UPDATE_CHECK_INTERVAL_SECS: u64 = 30 * 60;
-const DEFAULT_UPDATER_ENDPOINT: &str =
-    "https://github.com/sayedhfatimi/object0/releases/latest/download/latest.json";
 const DEFAULT_UPDATER_CHANNEL: &str = "stable";
 
 #[derive(Debug, Deserialize)]
@@ -218,6 +219,8 @@ struct Profile {
     endpoint: Option<String>,
     region: Option<String>,
     default_bucket: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    r2_analytics_token: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -236,6 +239,7 @@ struct ProfileInfo {
     endpoint: Option<String>,
     region: Option<String>,
     default_bucket: Option<String>,
+    has_r2_analytics_token: bool,
     created_at: String,
     updated_at: String,
 }
@@ -578,6 +582,7 @@ struct AppState {
     jobs: Mutex<JobRuntime>,
     folder_sync: Mutex<FolderSyncRuntime>,
     updater: Mutex<UpdaterRuntime>,
+    usage: Mutex<usage::UsageRuntime>,
     is_quitting: AtomicBool,
 }
 
@@ -588,6 +593,7 @@ impl Default for AppState {
             jobs: Mutex::new(JobRuntime::default()),
             folder_sync: Mutex::new(FolderSyncRuntime::default()),
             updater: Mutex::new(UpdaterRuntime::default()),
+            usage: Mutex::new(usage::UsageRuntime::default()),
             is_quitting: AtomicBool::new(false),
         }
     }
@@ -631,6 +637,7 @@ struct ProfileInput {
     endpoint: Option<String>,
     region: Option<String>,
     default_bucket: Option<String>,
+    r2_analytics_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -645,6 +652,9 @@ struct ProfileUpdateInput {
     endpoint: Option<String>,
     region: Option<String>,
     default_bucket: Option<String>,
+    r2_analytics_token: Option<String>,
+    #[serde(default)]
+    clear_r2_analytics_token: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -856,6 +866,9 @@ enum KeychainReadResult {
 }
 
 pub fn run() {
+    if !windows_runtime::initialize() {
+        return;
+    }
     tauri::Builder::default()
         .manage(AppState::default())
         .setup(|app| {

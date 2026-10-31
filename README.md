@@ -1,3 +1,16 @@
+## 中文 Windows 定制版
+
+本仓库基于 [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0) 开发，保留原项目 MIT 许可与版权声明。
+
+下载本仓库的 [正式发布版本](https://github.com/70548887/object0/releases)：
+
+- `windows_x64_setup.exe`：简体中文安装包，安装与卸载入口。
+- `windows_x64_portable.zip`：完整解压到本地磁盘后双击 `object0.exe`，无需安装应用或另外安装 WebView2。
+- 两种格式均内置固定版本 WebView2。账号密码库保存在当前用户的 C 盘配置目录，安装包不包含开发者账号或密钥。
+- 下载后可用同页的 `SHA256SUMS.txt` 校验完整性。安装包未配置商业代码签名；自动更新默认停用，请从本仓库手动更新。
+
+详细说明见 [Windows 安装与便携版说明](docs/PORTABLE_ZH.md)。以下保留上游功能与开发文档；本仓库当前正式分发 Windows x64。
+
 <div align="center">
 
 # object0
@@ -9,7 +22,7 @@
 Manage objects across AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Backblaze B2, Google Cloud Storage, and any S3-compatible provider from a single, fast, cross-platform desktop app.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.5.0-green.svg)](https://github.com/sayedhfatimi/object0/releases)
+[![Version](https://img.shields.io/github/v/release/70548887/object0)](https://github.com/70548887/object0/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#installation)
 
 Built with [Tauri](https://tauri.app) · [Rust](https://www.rust-lang.org) · [Bun](https://bun.sh) · [React](https://react.dev) · [Tailwind CSS](https://tailwindcss.com) · [shadcn/ui](https://ui.shadcn.com) · [Zustand](https://zustand.docs.pmnd.rs)
@@ -90,7 +103,7 @@ Built with [Tauri](https://tauri.app) · [Rust](https://www.rust-lang.org) · [B
 
 ## Installation
 
-Download the latest release for your platform from the [Releases](https://github.com/sayedhfatimi/object0/releases) page.
+Download this fork's Windows builds from the [Releases](https://github.com/70548887/object0/releases) page. See the Windows packaging notes above; other platform documentation below describes the upstream project.
 
 | Platform | Architecture | Format |
 |----------|-------------|--------|
