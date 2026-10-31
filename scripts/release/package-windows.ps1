@@ -57,7 +57,7 @@ function Assert-SafePackageEntry([string]$EntryName) {
     $leaf = ($normalized.TrimEnd('/') -split '/')[-1]
     if ($leaf -match '(?i)^(vault(?:\..*)?|profiles?\.json|settings\.json|credentials(?:\..*)?|\.env(?:\..*)?|Cookies|History|Local State|Preferences|Secure Preferences|DevToolsActivePort)$' -or
         $leaf -match '(?i)\.(?:log|pem|pfx|p12|key)$' -or
-        $normalized -match '(?i)(^|/)(?:\.git|node_modules|EBWebView|User Data|\.config)(/|$)') {
+        $normalized -match '(?i)(^|/)(?:\.git|node_modules|User Data|\.config)(/|$)') {
         throw "Application data, credentials or build files are not permitted: $EntryName"
     }
 }
@@ -67,6 +67,23 @@ foreach ($entry in $runtimeEntries) {
         throw "Reparse points are not permitted in the fixed runtime: $($entry.Name)"
     }
     Assert-SafePackageEntry ([IO.Path]::GetRelativePath($runtimeRoot, $entry.FullName))
+}
+
+# Microsoft's fixed runtime itself contains an EBWebView directory. Do not
+# mistake those official loader files for a browser user profile. Instead,
+# require every runtime byte to match the pristine, pinned build input.
+$pristineRuntime = Join-Path $projectRoot 'src-tauri/WebView2Runtime'
+$pristineFiles = @(Get-ChildItem -LiteralPath $pristineRuntime -Recurse -File -Force)
+$runtimeFiles = @($runtimeEntries | Where-Object { -not $_.PSIsContainer })
+if ($pristineFiles.Count -ne $runtimeFiles.Count) { throw 'Runtime contains extra or missing files.' }
+foreach ($runtimeFile in $runtimeFiles) {
+    $relativeRuntimePath = [IO.Path]::GetRelativePath($runtimeRoot, $runtimeFile.FullName)
+    $pristineFile = Join-Path $pristineRuntime $relativeRuntimePath
+    if (-not (Test-Path -LiteralPath $pristineFile -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $pristineFile -Algorithm SHA256).Hash -ne
+        (Get-FileHash -LiteralPath $runtimeFile.FullName -Algorithm SHA256).Hash) {
+        throw 'Runtime does not match the pristine build input.'
+    }
 }
 
 $outputRoot = [IO.Path]::GetFullPath($OutputDir)
