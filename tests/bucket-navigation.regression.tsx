@@ -163,6 +163,14 @@ function renderEffects() {
   effects = [];
   ContentArea();
   for (const effect of effects) effect();
+  // ContentArea validates/synchronizes navigation; the mounted browser owns
+  // automatic listing. Follow the real rendered gate rather than invoking a
+  // browser while discovery is pending or the account/tab is unavailable.
+  effects = [];
+  const content = ContentArea();
+  if (walkTree(content).some((node) => node.type === ObjectBrowser))
+    ObjectBrowser();
+  for (const effect of effects) effect();
 }
 function objectCalls() {
   return requests.filter((request) => request.method === "objects:list");

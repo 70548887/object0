@@ -27,14 +27,14 @@ pub(crate) fn for_task(kind: &JobTaskKind, profiles: &[Profile]) -> (Option<JobL
             (None, Some(snapshot(profiles, profile_id, Some(profile_revision), Some(*provider), bucket, Some(key), None))),
         JobTaskKind::Download {profile_id, profile_revision, bucket, key, ..} =>
             (Some(snapshot(profiles, profile_id, Some(profile_revision), None, bucket, Some(key), None)), None),
-        JobTaskKind::Copy {source_profile_id, source_bucket, source_key, dest_profile_id, dest_bucket, dest_key}
-        | JobTaskKind::Move {source_profile_id, source_bucket, source_key, dest_profile_id, dest_bucket, dest_key} =>
-            (Some(snapshot(profiles, source_profile_id, None, None, source_bucket, Some(source_key), None)),
-             Some(snapshot(profiles, dest_profile_id, None, None, dest_bucket, Some(dest_key), None))),
-        JobTaskKind::Delete {profile_id, bucket, keys} =>
-            (Some(snapshot(profiles, profile_id, None, None, bucket, (keys.len()==1).then(||keys[0].as_str()), None)), None),
-        JobTaskKind::Archive {profile_id, bucket, keys, common_prefix, ..} =>
-            (Some(snapshot(profiles, profile_id, None, None, bucket, (keys.len()==1).then(||keys[0].as_str()), Some(common_prefix))), None),
+        JobTaskKind::Copy {source_profile_id, source_profile_revision, source_provider, source_bucket, source_key, dest_profile_id, dest_profile_revision, dest_provider, dest_bucket, dest_key}
+        | JobTaskKind::Move {source_profile_id, source_profile_revision, source_provider, source_bucket, source_key, dest_profile_id, dest_profile_revision, dest_provider, dest_bucket, dest_key} =>
+            (Some(snapshot(profiles, source_profile_id, Some(source_profile_revision), Some(*source_provider), source_bucket, Some(source_key), None)),
+             Some(snapshot(profiles, dest_profile_id, Some(dest_profile_revision), Some(*dest_provider), dest_bucket, Some(dest_key), None))),
+        JobTaskKind::Delete {profile_id, profile_revision, provider, bucket, keys} =>
+            (Some(snapshot(profiles, profile_id, Some(profile_revision), Some(*provider), bucket, (keys.len()==1).then(||keys[0].as_str()), None)), None),
+        JobTaskKind::Archive {profile_id, profile_revision, provider, bucket, keys, common_prefix, ..} =>
+            (Some(snapshot(profiles, profile_id, Some(profile_revision), Some(*provider), bucket, (keys.len()==1).then(||keys[0].as_str()), Some(common_prefix))), None),
         JobTaskKind::NativeUpload {..} | JobTaskKind::NativeDownload {..} => (None, None),
     }
 }
@@ -95,11 +95,11 @@ mod tests {
     }
     #[test]fn operation_directions_and_cross_account_copy_are_not_swapped() {
         let profiles=vec![profile("first","R2",S3Provider::R2),profile("second","Qiniu",S3Provider::Qiniu)];
-        let task=JobTaskKind::Copy{source_profile_id:"first".into(),source_bucket:"source".into(),source_key:"a".into(),dest_profile_id:"second".into(),dest_bucket:"target".into(),dest_key:"b".into()};
+        let task=JobTaskKind::Copy{source_profile_id:"first".into(),source_profile_revision:"revision-1".into(),source_provider:S3Provider::R2,source_bucket:"source".into(),source_key:"a".into(),dest_profile_id:"second".into(),dest_profile_revision:"revision-1".into(),dest_provider:S3Provider::Qiniu,dest_bucket:"target".into(),dest_key:"b".into()};
         let (source,destination)=for_task(&task,&profiles);assert_eq!(source.unwrap().profile_name.as_deref(),Some("R2"));assert_eq!(destination.unwrap().profile_name.as_deref(),Some("Qiniu"));
         let task=JobTaskKind::Download{profile_id:"second".into(),profile_revision:"revision-1".into(),bucket:"source".into(),key:"k".into(),local_path:"unused".into(),download_domain:None};
         let (source,destination)=for_task(&task,&profiles);assert_eq!(source.unwrap().bucket,"source");assert!(destination.is_none());
-        let task=JobTaskKind::Delete{profile_id:"first".into(),bucket:"source".into(),keys:vec!["a".into(),"b".into()]};
+        let task=JobTaskKind::Delete{profile_id:"first".into(),profile_revision:"revision-1".into(),provider:S3Provider::R2,bucket:"source".into(),keys:vec!["a".into(),"b".into()]};
         assert!(for_task(&task,&profiles).0.unwrap().key.is_none());
     }
     #[test]fn old_native_location_keeps_known_identity_without_inventing_labels() {

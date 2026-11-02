@@ -60,9 +60,8 @@ export function useS3Objects() {
       navigateToPrefix(prefix);
       if (!profileId || !bucket) return;
       updateNavigationTab(profileId, bucket, prefix);
-      loadObjects(profileId, bucket, prefix, pageSize);
     },
-    [profileId, bucket, pageSize, navigateToPrefix, loadObjects],
+    [profileId, bucket, navigateToPrefix],
   );
 
   const goBack = useCallback(() => {
@@ -72,8 +71,7 @@ export function useS3Objects() {
     navigateBack();
     if (!profileId || !bucket) return;
     updateNavigationTab(profileId, bucket, prev);
-    loadObjects(profileId, bucket, prev, pageSize);
-  }, [profileId, bucket, pageSize, navigateBack, loadObjects]);
+  }, [profileId, bucket, navigateBack]);
 
   const nextPage = useCallback(() => {
     if (!profileId || !bucket || !nextCursor) return;

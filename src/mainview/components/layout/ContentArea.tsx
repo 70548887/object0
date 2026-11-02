@@ -22,7 +22,6 @@ export function ContentArea() {
   const activeTabId = useTabStore((s) => s.activeTabId);
   const tabs = useTabStore((s) => s.tabs);
   const setSelectedBucket = useBucketStore((s) => s.setSelectedBucket);
-  const loadObjects = useObjectStore((s) => s.loadObjects);
   const navigateToPrefix = useObjectStore((s) => s.navigateToPrefix);
   const profiles = useVaultStore((s) => s.profiles);
   const buckets = useProfileStore((s) => s.buckets);
@@ -102,7 +101,6 @@ export function ContentArea() {
       useUIStore.getState().closeShareDialog();
       setSelectedBucket(tab.bucket);
       navigateToPrefix(tab.prefix);
-      loadObjects(tab.profileId, tab.bucket, tab.prefix);
     }
   }, [
     activeTabId,
@@ -116,7 +114,6 @@ export function ContentArea() {
     setActiveProfile,
     setSelectedBucket,
     navigateToPrefix,
-    loadObjects,
   ]);
 
   if (!activeProfile) {

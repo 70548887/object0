@@ -250,8 +250,14 @@ pub(crate) fn execute_sync_diff(
     app: &AppHandle,
     input: &SyncInput,
     diff: &SyncDiffRecord,
+    source_profile: &Profile,
+    dest_profile: &Profile,
 ) -> Result<String, String> {
     ensure_sync_execution_safe(input.mode, input.source_profile_id == input.dest_profile_id, diff)?;
+    if source_profile.id!=input.source_profile_id || dest_profile.id!=input.dest_profile_id {
+        return Err("同步账号不匹配 / Sync accounts do not match".into());
+    }
+    confirm_transfer_profiles(&app.state::<AppState>(),&source_profile.id,&source_profile.updated_at,source_profile.provider,&dest_profile.id,&dest_profile.updated_at,dest_profile.provider)?;
     let mut job_ids = Vec::new();
 
     let mut enqueue_copy = |entry: &SyncDiffEntryRecord| -> Result<(), String> {
@@ -276,9 +282,13 @@ pub(crate) fn execute_sync_diff(
             entry.source_size.unwrap_or(0),
             JobTaskKind::Copy {
                 source_profile_id: input.source_profile_id.clone(),
+                source_profile_revision: source_profile.updated_at.clone(),
+                source_provider: source_profile.provider,
                 source_bucket: input.source_bucket.clone(),
                 source_key,
                 dest_profile_id: input.dest_profile_id.clone(),
+                dest_profile_revision: dest_profile.updated_at.clone(),
+                dest_provider: dest_profile.provider,
                 dest_bucket: input.dest_bucket.clone(),
                 dest_key,
             },
@@ -309,6 +319,8 @@ pub(crate) fn execute_sync_diff(
             delete_keys.len() as i64,
             JobTaskKind::Delete {
                 profile_id: input.dest_profile_id.clone(),
+                profile_revision: dest_profile.updated_at.clone(),
+                provider: dest_profile.provider,
                 bucket: input.dest_bucket.clone(),
                 keys: delete_keys,
             },

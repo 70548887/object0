@@ -13,6 +13,7 @@ import {
   useBucketStore,
   useObjectStore,
   useProfileStore,
+  useTabStore,
   useUIStore,
 } from "@/stores";
 import { EmptyState } from "../common/EmptyState";
@@ -46,12 +47,24 @@ export function ObjectBrowser() {
     clearSelection,
   } = useS3Objects();
 
-  // Load objects when profile/bucket change
+  // The browser owns automatic listing for every navigation entry point and
+  // page-size change. Navigation only changes scope; explicit refresh and
+  // pagination remain user actions. Never run a stale effect after tab sync.
   useEffect(() => {
-    if (profileId && bucket) {
-      refresh();
-    }
-  }, [profileId, bucket, refresh]);
+    if (!profileId || !bucket) return;
+    const tabs = useTabStore.getState();
+    const tab = tabs.tabs.find((item) => item.id === tabs.activeTabId);
+    if (
+      useProfileStore.getState().activeProfileId !== profileId ||
+      useBucketStore.getState().selectedBucket !== bucket ||
+      useObjectStore.getState().currentPrefix !== currentPrefix ||
+      tab?.profileId !== profileId ||
+      tab.bucket !== bucket ||
+      tab.prefix !== currentPrefix
+    )
+      return;
+    refresh();
+  }, [profileId, bucket, currentPrefix, refresh]);
 
   // Apply client-side search filter
   const searchTerm = filters.search.toLowerCase();

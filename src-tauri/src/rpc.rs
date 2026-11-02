@@ -1419,6 +1419,7 @@ pub(crate) async fn rpc_request(
         }
         RpcMethod::TransferCopy => {
             let input: CopyInput = parse_payload(payload)?;
+            let (source_profile,dest_profile)=transfer_profiles(&state,&input.source_profile_id,&input.dest_profile_id)?;
             if (input.source_profile_id != input.dest_profile_id || input.source_bucket != input.dest_bucket) && !input.verification_readback_confirmed {
                 return Err("请确认跨空间复制可能使用本机中转并产生流量费用 / Confirm potential local relay and bandwidth costs before copying".to_string());
             }
@@ -1440,9 +1441,13 @@ pub(crate) async fn rpc_request(
                 0,
                 JobTaskKind::Copy {
                     source_profile_id: input.source_profile_id,
+                    source_profile_revision: source_profile.updated_at,
+                    source_provider: source_profile.provider,
                     source_bucket: input.source_bucket,
                     source_key: input.source_key,
                     dest_profile_id: input.dest_profile_id,
+                    dest_profile_revision: dest_profile.updated_at,
+                    dest_provider: dest_profile.provider,
                     dest_bucket: input.dest_bucket,
                     dest_key: input.dest_key,
                 },
@@ -1451,6 +1456,7 @@ pub(crate) async fn rpc_request(
         }
         RpcMethod::TransferMove => {
             let input: CopyInput = parse_payload(payload)?;
+            let (source_profile,dest_profile)=transfer_profiles(&state,&input.source_profile_id,&input.dest_profile_id)?;
             if !input.verification_readback_confirmed { return Err("请确认移动校验和本机中转可能产生的费用 / Confirm potential readback and local relay costs before moving".to_string()); }
             let file_name = input
                 .source_key
@@ -1470,9 +1476,13 @@ pub(crate) async fn rpc_request(
                 0,
                 JobTaskKind::Move {
                     source_profile_id: input.source_profile_id,
+                    source_profile_revision: source_profile.updated_at,
+                    source_provider: source_profile.provider,
                     source_bucket: input.source_bucket,
                     source_key: input.source_key,
                     dest_profile_id: input.dest_profile_id,
+                    dest_profile_revision: dest_profile.updated_at,
+                    dest_provider: dest_profile.provider,
                     dest_bucket: input.dest_bucket,
                     dest_key: input.dest_key,
                 },
@@ -1482,7 +1492,7 @@ pub(crate) async fn rpc_request(
         RpcMethod::TransferCrossBucket => {
             let input: CrossBucketInput = parse_payload(payload)?;
             if (input.mode == TransferMode::Move || input.source_profile_id != input.dest_profile_id || input.source_bucket != input.dest_bucket) && !input.verification_readback_confirmed { return Err("请确认跨空间传输和校验可能产生的费用 / Confirm potential transfer and readback costs".to_string()); }
-            let source_profile = profile_for_id(&state, &input.source_profile_id)?;
+            let (source_profile,dest_profile)=transfer_profiles(&state,&input.source_profile_id,&input.dest_profile_id)?;
             let source_client = to_s3_client(&source_profile)?;
 
             let mut expanded_keys = Vec::new();
@@ -1541,18 +1551,26 @@ pub(crate) async fn rpc_request(
                     if is_move {
                         JobTaskKind::Move {
                             source_profile_id: input.source_profile_id.clone(),
+                            source_profile_revision: source_profile.updated_at.clone(),
+                            source_provider: source_profile.provider,
                             source_bucket: input.source_bucket.clone(),
                             source_key,
                             dest_profile_id: input.dest_profile_id.clone(),
+                            dest_profile_revision: dest_profile.updated_at.clone(),
+                            dest_provider: dest_profile.provider,
                             dest_bucket: input.dest_bucket.clone(),
                             dest_key,
                         }
                     } else {
                         JobTaskKind::Copy {
                             source_profile_id: input.source_profile_id.clone(),
+                            source_profile_revision: source_profile.updated_at.clone(),
+                            source_provider: source_profile.provider,
                             source_bucket: input.source_bucket.clone(),
                             source_key,
                             dest_profile_id: input.dest_profile_id.clone(),
+                            dest_profile_revision: dest_profile.updated_at.clone(),
+                            dest_provider: dest_profile.provider,
                             dest_bucket: input.dest_bucket.clone(),
                             dest_key,
                         }
@@ -1565,7 +1583,8 @@ pub(crate) async fn rpc_request(
         }
         RpcMethod::TransferDownloadArchive => {
             let input: DownloadArchiveInput = parse_payload(payload)?;
-            let client = s3_client_for_profile(&state, &input.profile_id)?;
+            let profile = profile_for_id(&state, &input.profile_id)?;
+            let client = to_s3_client(&profile)?;
 
             let mut resolved_keys = input.keys.clone();
             let prefix = input.prefix.unwrap_or_default();
@@ -1681,6 +1700,8 @@ pub(crate) async fn rpc_request(
                 bytes_total.max(0),
                 JobTaskKind::Archive {
                     profile_id: input.profile_id.clone(),
+                    profile_revision: profile.updated_at,
+                    provider: profile.provider,
                     bucket: input.bucket.clone(),
                     keys: unique_keys,
                     common_prefix,
@@ -1702,11 +1723,12 @@ pub(crate) async fn rpc_request(
         }
         RpcMethod::SyncExecute => {
             let input: SyncInput = parse_payload(payload)?;
+            let (source_profile,dest_profile)=transfer_profiles(&state,&input.source_profile_id,&input.dest_profile_id)?;
             let ticket=sync_confirmation::begin(&state,&input)?;
             let approved=sync_confirmation::consume(&state,&input,&ticket)?;
             let diff = generate_sync_diff(&state, &input).await?;
             sync_confirmation::verify(&state,&input,&ticket,&approved,&diff)?;
-            let job_id = execute_sync_diff(&app, &input, &diff)?;
+            let job_id = execute_sync_diff(&app, &input, &diff, &source_profile, &dest_profile)?;
             Ok(json!({ "jobId": job_id }))
         }
 

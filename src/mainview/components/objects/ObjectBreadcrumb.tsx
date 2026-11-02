@@ -26,7 +26,6 @@ export function ObjectBreadcrumb({
   useT();
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
   const navigateToPrefix = useObjectStore((s) => s.navigateToPrefix);
-  const loadObjects = useObjectStore((s) => s.loadObjects);
   const activeProfileId = useProfileStore((s) => s.activeProfileId);
   const [copied, setCopied] = useState(false);
 
@@ -38,7 +37,6 @@ export function ObjectBreadcrumb({
     navigateToPrefix(prefix);
     if (activeProfileId) {
       updateNavigationTab(activeProfileId, bucket, prefix);
-      loadObjects(activeProfileId, bucket, prefix);
     }
   };
 

@@ -13,6 +13,138 @@ pub(crate) fn confirm_upload_profile(state:&AppState,id:&str,revision:&str,provi
     Ok(profile)
 }
 
+/// Read both ends in one vault snapshot. Batch transfers keep these identities
+/// across directory expansion and enqueueing, never rebind each queued item.
+pub(crate) fn transfer_profiles(state:&AppState,source_id:&str,dest_id:&str)->Result<(Profile,Profile),String>{
+    let vault=lock_state(&state.vault)?;
+    ensure_unlocked(&vault)?;
+    let profiles=&vault.data.as_ref().ok_or("Vault is locked")?.profiles;
+    let find=|id:&str|profiles.iter().find(|profile|profile.id==id).cloned()
+        .ok_or_else(||"传输账号不存在，请重新确认 / Transfer account no longer exists; confirm again".to_string());
+    Ok((find(source_id)?,find(dest_id)?))
+}
+
+/// Authorization binding, separate from the immutable display-only JobLocation.
+/// Fail closed before creating clients or issuing any source/destination request.
+pub(crate) fn confirm_transfer_profiles(state:&AppState,source_id:&str,source_revision:&str,source_provider:S3Provider,dest_id:&str,dest_revision:&str,dest_provider:S3Provider)->Result<(Profile,Profile),String>{
+    let (source,dest)=transfer_profiles(state,source_id,dest_id)?;
+    if source_revision.is_empty() || dest_revision.is_empty()
+        || source.updated_at!=source_revision || source.provider!=source_provider
+        || dest.updated_at!=dest_revision || dest.provider!=dest_provider {
+        return Err("传输账号已变更，旧任务已拒绝；请重新确认 / Transfer account changed; stale task refused. Confirm the transfer again".into());
+    }
+    Ok((source,dest))
+}
+
+pub(crate) fn confirm_job_profile(state:&AppState,id:&str,revision:&str,provider:S3Provider)->Result<Profile,String>{
+    let profile=profile_for_id(state,id)?;
+    if revision.is_empty() || profile.updated_at!=revision || profile.provider!=provider {
+        return Err("任务账号已变更，旧任务已拒绝；请重新确认 / Job account changed; stale task refused. Confirm the operation again".into());
+    }
+    Ok(profile)
+}
+
+/// Admission and display metadata must describe the same captured identity.
+/// These checks run on the same vault snapshot used by job_location::for_task;
+/// execution checks again because the account can change while queued.
+fn validate_queued_bindings(kind:&JobTaskKind,profiles:&[Profile])->Result<(),String>{
+    let check=|id:&str,revision:&str,provider:S3Provider|->Result<(),String>{
+        if !revision.is_empty() && profiles.iter().any(|p|p.id==id && p.updated_at==revision && p.provider==provider) {
+            Ok(())
+        } else {
+            Err("任务账号已变更或不可用，未加入队列；请重新确认 / Job account changed or unavailable; not queued. Confirm the operation again".into())
+        }
+    };
+    match kind {
+        JobTaskKind::Copy{source_profile_id,source_profile_revision,source_provider,dest_profile_id,dest_profile_revision,dest_provider,..}
+        | JobTaskKind::Move{source_profile_id,source_profile_revision,source_provider,dest_profile_id,dest_profile_revision,dest_provider,..}=>{
+            check(source_profile_id,source_profile_revision,*source_provider)?;
+            check(dest_profile_id,dest_profile_revision,*dest_provider)
+        }
+        JobTaskKind::Delete{profile_id,profile_revision,provider,..}
+        | JobTaskKind::Archive{profile_id,profile_revision,provider,..}=>check(profile_id,profile_revision,*provider),
+        _=>Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod queued_identity_tests {
+    use super::*;
+    fn profile(id:&str)->Profile {
+        serde_json::from_value(json!({"id":id,"name":id,"provider":"custom","endpoint":"http://127.0.0.1:1","accessKeyId":"fixture-ak","secretAccessKey":"fixture-sk","createdAt":"t","updatedAt":"revision-1"})).unwrap()
+    }
+    fn fixture()->(AppState,Profile,Profile) {
+        let state=AppState::default();let source=profile("source");let dest=profile("destination");
+        {let mut vault=state.vault.lock().unwrap();vault.unlocked=true;vault.data=Some(VaultData{profiles:vec![source.clone(),dest.clone()],..Default::default()});}
+        (state,source,dest)
+    }
+    fn confirm(state:&AppState,source:&Profile,dest:&Profile)->Result<(Profile,Profile),String>{
+        confirm_transfer_profiles(state,&source.id,&source.updated_at,source.provider,&dest.id,&dest.updated_at,dest.provider)
+    }
+    #[test]fn queued_transfer_refuses_either_changed_revision_or_provider_missing_or_locked_account(){
+        for index in 0..2 {
+            for change in ["revision","provider","removed","recreated","locked"] {
+                let (state,source,dest)=fixture();assert!(confirm(&state,&source,&dest).is_ok());
+                {let mut vault=state.vault.lock().unwrap();let profiles=&mut vault.data.as_mut().unwrap().profiles;
+                    match change {
+                        "revision"=>{profiles[index].updated_at="revision-2".into();profiles[index].endpoint=Some("http://127.0.0.1:2".into());}
+                        "provider"=>profiles[index].provider=S3Provider::R2,
+                        "removed"=>{profiles.remove(index);}
+                        "recreated"=>{let id=profiles[index].id.clone();profiles.remove(index);let mut replacement=profile(&id);replacement.updated_at="replacement-revision".into();profiles.push(replacement);}
+                        "locked"=>vault.unlocked=false,
+                        _=>unreachable!(),
+                    }
+                }
+                assert!(confirm(&state,&source,&dest).is_err(),"{index}/{change}");
+            }
+        }
+        let (state,source,dest)=fixture();
+        assert!(confirm_transfer_profiles(&state,&source.id,"",source.provider,&dest.id,&dest.updated_at,dest.provider).is_err());
+        assert!(confirm_transfer_profiles(&state,&source.id,&source.updated_at,source.provider,&dest.id,"",dest.provider).is_err());
+        let (same_source,same_dest)=confirm_transfer_profiles(&state,&source.id,&source.updated_at,source.provider,&source.id,&source.updated_at,source.provider).unwrap();
+        assert_eq!(same_source.id,same_dest.id);
+    }
+    #[test]fn queued_archive_and_delete_refuse_changed_revision_provider_removal_or_lock(){
+        for change in ["revision","provider","removed","locked"] {
+            let (state,original,_)=fixture();
+            assert!(confirm_job_profile(&state,&original.id,&original.updated_at,original.provider).is_ok());
+            {let mut vault=state.vault.lock().unwrap();match change {
+                "revision"=>vault.data.as_mut().unwrap().profiles[0].updated_at="revision-2".into(),
+                "provider"=>vault.data.as_mut().unwrap().profiles[0].provider=S3Provider::R2,
+                "removed"=>{vault.data.as_mut().unwrap().profiles.remove(0);}
+                "locked"=>vault.unlocked=false,
+                _=>unreachable!(),
+            }}
+            assert!(confirm_job_profile(&state,&original.id,&original.updated_at,original.provider).is_err(),"{change}");
+        }
+        let (state,original,_)=fixture();assert!(confirm_job_profile(&state,&original.id,"",original.provider).is_err());
+    }
+    #[test]fn queue_admission_refuses_stale_copy_move_archive_delete_before_capturing_labels(){
+        let (_,source,dest)=fixture();
+        let tasks=vec![
+            JobTaskKind::Copy{source_profile_id:source.id.clone(),source_profile_revision:source.updated_at.clone(),source_provider:source.provider,source_bucket:"bucket".into(),source_key:"a".into(),dest_profile_id:dest.id.clone(),dest_profile_revision:dest.updated_at.clone(),dest_provider:dest.provider,dest_bucket:"bucket".into(),dest_key:"b".into()},
+            JobTaskKind::Move{source_profile_id:source.id.clone(),source_profile_revision:source.updated_at.clone(),source_provider:source.provider,source_bucket:"bucket".into(),source_key:"a".into(),dest_profile_id:source.id.clone(),dest_profile_revision:source.updated_at.clone(),dest_provider:source.provider,dest_bucket:"bucket".into(),dest_key:"b".into()},
+            JobTaskKind::Archive{profile_id:source.id.clone(),profile_revision:source.updated_at.clone(),provider:source.provider,bucket:"bucket".into(),keys:vec!["a".into()],common_prefix:"".into(),destination_path:"unused-fixture.tar.gz".into()},
+            JobTaskKind::Delete{profile_id:source.id.clone(),profile_revision:source.updated_at.clone(),provider:source.provider,bucket:"bucket".into(),keys:vec!["a".into()]},
+        ];
+        for task in tasks {
+            let profiles=vec![source.clone(),dest.clone()];
+            assert!(validate_queued_bindings(&task,&profiles).is_ok());
+            let mut edited=profiles.clone();edited[0].updated_at="revision-2".into();edited[0].name="Replacement".into();
+            assert!(validate_queued_bindings(&task,&edited).is_err());
+            assert!(job_location::for_task(&task,&edited).0.unwrap().profile_name.is_none());
+            edited=profiles.clone();edited[0].provider=S3Provider::R2;
+            assert!(validate_queued_bindings(&task,&edited).is_err());
+            assert!(validate_queued_bindings(&task,&[]).is_err());
+            if matches!(task,JobTaskKind::Copy{..}) {
+                edited=profiles.clone();edited[1].updated_at="revision-2".into();
+                assert!(validate_queued_bindings(&task,&edited).is_err());
+                assert!(job_location::for_task(&task,&edited).1.unwrap().profile_name.is_none());
+            }
+        }
+    }
+}
+
 #[derive(Debug,Serialize)]
 #[serde(rename_all="camelCase")]
 pub(crate) struct JobClearError {
@@ -294,14 +426,17 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                     }
                     JobTaskKind::Copy {
                         source_profile_id,
+                        source_profile_revision,
+                        source_provider,
                         source_bucket,
                         source_key,
                         dest_profile_id,
+                        dest_profile_revision,
+                        dest_provider,
                         dest_bucket,
                         dest_key,
                     } => {
-                        let src_profile = profile_for_id(&state, source_profile_id)?;
-                        let dst_profile = profile_for_id(&state, dest_profile_id)?;
+                        let (src_profile,dst_profile)=confirm_transfer_profiles(&state,source_profile_id,source_profile_revision,*source_provider,dest_profile_id,dest_profile_revision,*dest_provider)?;
                         if source_profile_id == dest_profile_id && source_bucket == dest_bucket && source_key == dest_key {
                             return Err("Source and destination are the same object; nothing was changed".to_string());
                         }
@@ -358,9 +493,13 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                     }
                     JobTaskKind::Move {
                         source_profile_id,
+                        source_profile_revision,
+                        source_provider,
                         source_bucket,
                         source_key,
                         dest_profile_id,
+                        dest_profile_revision,
+                        dest_provider,
                         dest_bucket,
                         dest_key,
                     } => {
@@ -370,8 +509,7 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                         if source_bucket == dest_bucket && source_key == dest_key {
                             return Err("Source and destination are the same object; nothing was changed".to_string());
                         }
-                        let src_profile = profile_for_id(&state, source_profile_id)?;
-                        let dst_profile = profile_for_id(&state, dest_profile_id)?;
+                        let (src_profile,dst_profile)=confirm_transfer_profiles(&state,source_profile_id,source_profile_revision,*source_provider,dest_profile_id,dest_profile_revision,*dest_provider)?;
                         let src_client = to_s3_client(&src_profile)?;
                         let dst_client = to_s3_client(&dst_profile)?;
                         let same_profile = server_copy_scope_confirmed(source_profile_id, source_bucket, dest_profile_id, dest_bucket);
@@ -434,10 +572,12 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                     }
                     JobTaskKind::Delete {
                         profile_id,
+                        profile_revision,
+                        provider,
                         bucket,
                         keys,
                     } => {
-                        let profile = profile_for_id(&state, profile_id)?;
+                        let profile = confirm_job_profile(&state,profile_id,profile_revision,*provider)?;
                         let client = to_s3_client(&profile)?;
                         update(0, keys.len() as i64, &mut speed_calc);
                         if !keys.is_empty() {
@@ -449,12 +589,14 @@ pub(crate) fn try_start_queued_jobs(app: AppHandle) {
                     }
                     JobTaskKind::Archive {
                         profile_id,
+                        profile_revision,
+                        provider,
                         bucket,
                         keys,
                         common_prefix,
                         destination_path,
                     } => {
-                        let profile = profile_for_id(&state, profile_id)?;
+                        let profile = confirm_job_profile(&state,profile_id,profile_revision,*provider)?;
                         let client = to_s3_client(&profile)?;
                         let destination = expand_user_path(destination_path);
                         update(0, 0, &mut speed_calc);
@@ -522,11 +664,18 @@ pub(crate) fn enqueue_job(
 ) -> Result<String, String> {
     let job_id = Uuid::new_v4().to_string();
     let state = app.state::<AppState>();
-    // Display snapshots do not alter admission or authorization. If account
-    // metadata is unavailable, retain known task IDs without inventing labels.
+    // Validate captured transfer identities and label them under one vault lock.
+    // The JobLocation fields remain display-only; guards use task bindings.
     let (source, destination) = match state.vault.lock() {
-        Ok(vault) if vault.unlocked => job_location::for_task(&kind, vault.data.as_ref().map(|data|data.profiles.as_slice()).unwrap_or(&[])),
-        _ => job_location::for_task(&kind, &[]),
+        Ok(vault) if vault.unlocked => {
+            let profiles=vault.data.as_ref().map(|data|data.profiles.as_slice()).unwrap_or(&[]);
+            validate_queued_bindings(&kind,profiles)?;
+            job_location::for_task(&kind,profiles)
+        }
+        _ => {
+            validate_queued_bindings(&kind,&[])?;
+            job_location::for_task(&kind,&[])
+        }
     };
     let info = JobInfo {
         id: job_id.clone(),

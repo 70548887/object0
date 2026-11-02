@@ -78,3 +78,50 @@ fn copy(source:&Server,destination:&Server)->Result<i64,String>{runtime().block_
 #[test]fn relay_refuses_changed_source_metadata_before_writing_destination(){
     let source=source(5,false,true);let destination=destination();assert!(copy(&source,&destination).is_err());assert!(destination.requests.lock().unwrap().is_empty());
 }
+
+fn profile_fixture(id:&str,name:&str,endpoint:&str,revision:&str)->Profile {
+    serde_json::from_value(json!({"id":id,"name":name,"provider":"custom","endpoint":endpoint,"region":"auto","accessKeyId":"fixture-ak","secretAccessKey":"fixture-sk","createdAt":"t","updatedAt":revision})).unwrap()
+}
+fn queued_copy(state:&AppState,source:&Profile,dest:&Profile)->Result<i64,String> {
+    let (source,dest)=confirm_transfer_profiles(state,&source.id,&source.updated_at,source.provider,&dest.id,&dest.updated_at,dest.provider)?;
+    runtime().block_on(async {
+        let source_client=to_s3_client(&source)?;let dest_client=to_s3_client(&dest)?;
+        s3_copy_object_via_temp_file(&source_client,"source","original.txt",&dest_client,"dest","copy.txt",&AtomicBool::new(false),|_,_|{}).await
+    })
+}
+#[test]fn queued_copy_rejects_edited_destination_before_any_request_and_keeps_old_display_snapshot(){
+    let source=source(5,false,false);let before=destination();let after=destination();
+    let src=profile_fixture("source-id","Source fixture",&source.origin,"source-r1");
+    let original=profile_fixture("destination-id","Account A captured",&before.origin,"dest-r1");
+    let replacement=profile_fixture("destination-id","Account B replacement",&after.origin,"dest-r2");
+    let kind=JobTaskKind::Copy {
+        source_profile_id:src.id.clone(),source_profile_revision:src.updated_at.clone(),source_provider:src.provider,
+        source_bucket:"source".into(),source_key:"original.txt".into(),
+        dest_profile_id:original.id.clone(),dest_profile_revision:original.updated_at.clone(),dest_provider:original.provider,
+        dest_bucket:"dest".into(),dest_key:"copy.txt".into(),
+    };
+    let profiles=vec![src.clone(),original.clone()];let (_,snapshot)=crate::job_location::for_task(&kind,&profiles);
+    let state=AppState::default();
+    {let mut vault=state.vault.lock().unwrap();vault.unlocked=true;vault.data=Some(VaultData{profiles,..Default::default()});}
+    state.jobs.lock().unwrap().queue.push_back(JobTask{id:"fixture-copy".into(),kind});
+    state.vault.lock().unwrap().data.as_mut().unwrap().profiles[1]=replacement;
+    let queued=state.jobs.lock().unwrap().queue.pop_front().unwrap();
+    let JobTaskKind::Copy{source_profile_id,source_profile_revision,source_provider,dest_profile_id,dest_profile_revision,dest_provider,..}=queued.kind else{unreachable!()};
+    let result:Result<i64,String>=(||{
+        let (src,dst)=confirm_transfer_profiles(&state,&source_profile_id,&source_profile_revision,source_provider,&dest_profile_id,&dest_profile_revision,dest_provider)?;
+        queued_copy(&state,&src,&dst)
+    })();
+    assert!(result.unwrap_err().contains("stale task refused"));
+    assert_eq!(snapshot.unwrap().profile_name.as_deref(),Some("Account A captured"));
+    assert!(source.requests.lock().unwrap().is_empty());assert!(before.requests.lock().unwrap().is_empty());assert!(after.requests.lock().unwrap().is_empty());
+    println!("QUEUED_COPY_GUARD snapshot_account=A stale_task=refused source_requests=0 old_destination_puts=0 new_destination_puts=0 real_cloud=false");
+}
+#[test]fn queued_copy_with_unchanged_identity_still_writes_original_destination(){
+    let source=source(5,false,false);let destination=destination();
+    let src=profile_fixture("source-id","Source fixture",&source.origin,"source-r1");
+    let dst=profile_fixture("dest-id","Destination fixture",&destination.origin,"dest-r1");
+    let state=AppState::default();
+    {let mut vault=state.vault.lock().unwrap();vault.unlocked=true;vault.data=Some(VaultData{profiles:vec![src.clone(),dst.clone()],..Default::default()});}
+    assert_eq!(queued_copy(&state,&src,&dst).unwrap(),5);
+    assert_eq!(destination.requests.lock().unwrap().iter().filter(|r|r.starts_with(b"PUT ")).count(),1);
+}

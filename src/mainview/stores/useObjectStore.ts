@@ -67,6 +67,13 @@ let loadGeneration = 0;
 let currentScope = "";
 let consumedCursors = new Set<string>();
 
+function clearNavigationTargets() {
+  const ui = useUIStore.getState();
+  ui.setDetailKey(null);
+  ui.closeTransferDialog();
+  ui.closeShareDialog();
+}
+
 export const useObjectStore = create<ObjectState>()((set, get) => ({
   objects: [],
   prefixes: [],
@@ -154,14 +161,22 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
   },
 
   navigateToPrefix: (prefix) => {
+    const current = get().currentPrefix;
+    if (prefix === current) return;
     ++loadGeneration;
     currentScope = "";
     consumedCursors = new Set();
-    const current = get().currentPrefix;
+    clearNavigationTargets();
     set((s) => ({
+      objects: [],
+      prefixes: [],
+      loading: true,
+      error: null,
       currentPrefix: prefix,
       prefixHistory: [...s.prefixHistory, current],
       selectedKeys: new Set(),
+      isTruncated: false,
+      nextCursor: undefined,
       pageHistory: [],
     }));
   },
@@ -172,12 +187,19 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
     ++loadGeneration;
     currentScope = "";
     consumedCursors = new Set();
+    clearNavigationTargets();
 
     const previous = history[history.length - 1];
     set({
+      objects: [],
+      prefixes: [],
+      loading: true,
+      error: null,
       currentPrefix: previous,
       prefixHistory: history.slice(0, -1),
       selectedKeys: new Set(),
+      isTruncated: false,
+      nextCursor: undefined,
       pageHistory: [],
     });
   },
@@ -197,6 +219,12 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
 
   toggleSelect: (key) => {
     set((s) => {
+      // Ignore a handler from rows removed by navigation before React commits.
+      if (
+        !s.objects.some((object) => object.key === key) &&
+        !s.prefixes.some((prefix) => prefix.prefix === key)
+      )
+        return s;
       const next = new Set(s.selectedKeys);
       if (next.has(key)) {
         next.delete(key);

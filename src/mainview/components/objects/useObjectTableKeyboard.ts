@@ -168,7 +168,6 @@ export function useObjectTableKeyboard({
                 const prevPrefix =
                   store.prefixHistory[store.prefixHistory.length - 1] ?? "";
                 updateNavigationTab(profileId, bucket, prevPrefix);
-                store.loadObjects(profileId, bucket, prevPrefix);
               }
             }
           }
