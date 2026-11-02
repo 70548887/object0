@@ -8,11 +8,17 @@
 
 基于 [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0) 开发，保留上游 MIT 许可证与版权声明。
 
-[下载预览版](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1) · [发行说明](docs/RELEASE_v1.7.0-preview.1.md) · [MIT 许可证](LICENSE)
+[下载预览版](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2) · [发行说明](docs/RELEASE_v1.7.0-preview.2.md) · [MIT 许可证](LICENSE)
 
 > **预览版说明**：七牛功能已接入多项应用链路，但不等于完整 Kodo 控制台或所有公有云／私有云环境已验收。重要数据请先备份，并使用独立测试空间验证权限与操作行为。
 >
 > **本地凭据风险**：本版默认将 AK/SK **明文保存在本机** `accounts.local.json` 中，不要求云仓密码或恢复密钥。能读取该文件的程序也能读取凭据。请勿共享账号文件、上传到代码仓库或放入发布包。
+
+## 本次修复
+
+- 排队复制／移动绑定源、目标账号的版本和服务商；归档下载与队列删除增加同类保护，账号修改后旧任务会被拒绝，不会悄悄转向新连接。
+- 进入／返回目录时立即清除旧文件行、选择和操作目标，避免在新目录加载期间误操作旧文件。
+- 文件浏览器统一负责自动加载，目录、面包屑、后退、标签和页大小变更不再触发重复列表请求；手动刷新及分页仍保留。
 
 ## 支持哪些存储服务
 
@@ -81,11 +87,11 @@
 
 ## Windows 下载与使用
 
-当前预览版：[**v1.7.0-preview.1**](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1)。它不覆盖已有稳定版 [v1.6.0](https://github.com/70548887/object0/releases/tag/v1.6.0)；旧版安装包不包含本页全部新增功能。
+当前预览版：[**v1.7.0-preview.2**](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2)。它不覆盖已有稳定版 [v1.6.0](https://github.com/70548887/object0/releases/tag/v1.6.0)；旧版安装包不包含本页全部新增功能。
 
-- [Windows x64 安装包](https://github.com/70548887/object0/releases/download/v1.7.0-preview.1/object0_1.7.0-preview.1_windows_x64_setup.exe)：按向导安装，提供卸载入口。
-- [Windows x64 便携 ZIP](https://github.com/70548887/object0/releases/download/v1.7.0-preview.1/object0_1.7.0-preview.1_windows_x64_portable.zip)：**完整解压**到本地可写目录，再运行 `object0.exe`；保留旁边完整的 `WebView2Runtime`，无需另装 WebView2。
-- [SHA256 校验文件](https://github.com/70548887/object0/releases/download/v1.7.0-preview.1/SHA256SUMS.txt)：与下载文件逐项核对。
+- [Windows x64 安装包](https://github.com/70548887/object0/releases/download/v1.7.0-preview.2/object0_1.7.0-preview.2_windows_x64_setup.exe)：按向导安装，提供卸载入口。
+- [Windows x64 便携 ZIP](https://github.com/70548887/object0/releases/download/v1.7.0-preview.2/object0_1.7.0-preview.2_windows_x64_portable.zip)：**完整解压**到本地可写目录，再运行 `object0.exe`；保留旁边完整的 `WebView2Runtime`，无需另装 WebView2。
+- [SHA256 校验文件](https://github.com/70548887/object0/releases/download/v1.7.0-preview.2/SHA256SUMS.txt)：与下载文件逐项核对。
 
 支持 Windows 10／11 x64。安装包未使用商业代码签名，Windows 可能显示未知发布者；请核对仓库来源与 SHA256，不要关闭系统保护。详情见 [Windows 使用说明](docs/PORTABLE_ZH.md)。
 
@@ -119,7 +125,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --release --lib --locked
 bun run tauri dev
 ```
 
-Windows 构建需按 `packaging/windows-runtime.json` 准备固定 WebView2 运行时。最近功能阶段本地验证为 Rust **428 项通过、1 项忽略**，前端 **284 项／26 组隔离回归通过**；这些结果来自本地测试和模拟契约，不代表所有真实云环境或安装流程均已验收。以[本版本发行说明](docs/RELEASE_v1.7.0-preview.1.md)记录的验证范围为准。
+Windows 构建需按 `packaging/windows-runtime.json` 准备固定 WebView2 运行时。最近功能阶段本地验证为 Rust **433 项通过、1 项忽略**，前端 **284 项／27 组隔离回归通过**；这些结果来自本地测试和模拟契约，不代表所有真实云环境或安装流程均已验收。以[本版本发行说明](docs/RELEASE_v1.7.0-preview.2.md)记录的验证范围为准。
 
 ## 许可证与致谢
 

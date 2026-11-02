@@ -1,24 +1,28 @@
 # 云仓 Windows 使用说明
 
-适用版本：**1.7.0-preview.1**。本版是七牛适配及桌面功能预览，不是所有真实云环境的兼容性保证。旧 v1.6.0 包不会被覆盖，也不包含本版全部功能。
+适用版本：**1.7.0-preview.2**。本版是七牛适配及桌面功能预览，不是所有真实云环境的兼容性保证。旧 v1.6.0 包不会被覆盖，也不包含本版全部功能。
 
 > **凭据提示：AK/SK 默认明文保存在本机 `accounts.local.json`。任何能读取该文件的程序都能读取密钥。请勿共享、上传或随安装包分发账号配置。**
 
 ## 安装包
 
-运行 `object0_1.7.0-preview.1_windows_x64_setup.exe`，按中文安装向导操作。安装后可在设置中切换中文或 English，提供卸载入口。
+运行 `object0_1.7.0-preview.2_windows_x64_setup.exe`，按中文安装向导操作。安装后可在设置中切换中文或 English，提供卸载入口。
 
 安装或更换版本前，请等待传输任务结束并正常退出旧程序。发布包没有预置账号、密钥、密码库或用户任务，也不会为了安装自动删除已有配置。
 
 ## 便携 ZIP
 
-将 `object0_1.7.0-preview.1_windows_x64_portable.zip` **完整解压**到本地可写目录，运行其中的 `object0.exe`。
+将 `object0_1.7.0-preview.2_windows_x64_portable.zip` **完整解压**到本地可写目录，运行其中的 `object0.exe`。
 
 - 保留完整 `WebView2Runtime` 文件夹与 EXE 相邻；固定 Microsoft Edge WebView2 运行时已经包含，无需另行安装。
 - 不要在压缩软件中直接运行，不要只取出一个 EXE。
 - 支持 Windows 10／11 x64。界面可离线打开，云存储连接与操作仍需网络和有效权限。
 - “便携”不表示账号跟随 U 盘移动。配置保存在当前 Windows 用户的 `%USERPROFILE%\.config\object0`，不保存在 ZIP 中。
 - 安装版与便携版共享配置，请一次只运行一个实例。
+
+## 本次修复
+
+本版修复排队复制／移动及归档下载的账号变更保护，补齐队列删除的同类检查；目录切换会立即清除旧文件和操作目标，并统一自动列表加载，避免重复请求。账号配置发生变化时，请重新确认被拒绝的旧任务，不要把它当作已经完成。
 
 ## 首次使用
 
@@ -40,11 +44,11 @@
 
 ## 完整性与来源
 
-从 [本仓库发布页](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1) 下载同版安装包、便携 ZIP 与 `SHA256SUMS.txt`。
+从 [本仓库发布页](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2) 下载同版安装包、便携 ZIP 与 `SHA256SUMS.txt`。
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_setup.exe
-Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_portable.zip
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.2_windows_x64_setup.exe
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.2_windows_x64_portable.zip
 ```
 
 将哈希与校验文件逐项比较。当前包未使用商业 Windows 代码签名；未知发布者提示不应通过关闭安全保护来绕过。
@@ -53,4 +57,4 @@ Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_portable.zi
 
 云仓基于 object0，保留 MIT 许可证和原版权声明。Microsoft WebView2 许可随包放在 `WEBVIEW2-LICENSE.html`，固定运行时不会自行更新，请通过后续整包更新获取新版本。上游自动更新默认停用，请从本 fork 手动下载。
 
-用量读取失败会显示错误，不会当成零；统计来源、扫描范围和服务端延迟应以界面说明为准。产品说明和能力边界见 [README](../README.md) 与 [本版发行说明](RELEASE_v1.7.0-preview.1.md)。
+用量读取失败会显示错误，不会当成零；统计来源、扫描范围和服务端延迟应以界面说明为准。产品说明和能力边界见 [README](../README.md) 与 [本版发行说明](RELEASE_v1.7.0-preview.2.md)。

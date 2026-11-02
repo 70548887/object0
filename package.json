@@ -1,7 +1,7 @@
 {
   "name": "object0",
   "private": true,
-  "version": "1.7.0-preview.1",
+  "version": "1.7.0-preview.2",
   "description": "FOSS desktop S3 bucket manager built with Tauri",
   "license": "MIT",
   "type": "module",

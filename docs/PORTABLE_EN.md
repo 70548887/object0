@@ -1,24 +1,28 @@
 # Yuncang for Windows
 
-Version: **1.7.0-preview.1**. This is a preview of Qiniu integration and desktop workflows, not a compatibility guarantee for every real cloud environment. Existing v1.6.0 assets are not replaced and do not contain all new features.
+Version: **1.7.0-preview.2**. This is a preview of Qiniu integration and desktop workflows, not a compatibility guarantee for every real cloud environment. Existing v1.6.0 assets are not replaced and do not contain all new features.
 
 > **Credential warning: AK/SK are saved in plaintext in the local `accounts.local.json` by default. Any program that can read the file can read its keys. Never share, upload or distribute account configuration with a package.**
 
 ## Installer
 
-Run `object0_1.7.0-preview.1_windows_x64_setup.exe` and follow the Chinese setup wizard. The application supports Chinese/English switching in Settings and provides an uninstall entry.
+Run `object0_1.7.0-preview.2_windows_x64_setup.exe` and follow the Chinese setup wizard. The application supports Chinese/English switching in Settings and provides an uninstall entry.
 
 Finish transfers and exit the old application before installing or changing versions. Packages contain no preconfigured account, credentials, vault or user jobs, and installation does not intentionally delete existing settings.
 
 ## Portable ZIP
 
-**Extract the entire** `object0_1.7.0-preview.1_windows_x64_portable.zip` into a writable local folder, then run its `object0.exe`.
+**Extract the entire** `object0_1.7.0-preview.2_windows_x64_portable.zip` into a writable local folder, then run its `object0.exe`.
 
 - Keep the complete adjacent `WebView2Runtime` directory. The fixed Microsoft Edge WebView2 runtime is included; no separate installation is required.
 - Do not run from an archive viewer or copy only the EXE.
 - Windows 10/11 x64. The UI can open offline; cloud access requires network connectivity and valid permissions.
 - Portable does not mean portable accounts. Configuration stays under the current Windows user's `%USERPROFILE%\.config\object0`, not in the ZIP.
 - Installer and portable editions share configuration. Run only one instance at a time.
+
+## Fixes in this preview
+
+This version binds queued copy/move identities, protects archive downloads and queued deletes from account changes, clears old file rows and action targets on folder navigation, and avoids duplicate automatic listings. If account settings change, reconfirm any rejected stale jobs; rejection is not successful completion.
 
 ## First use
 
@@ -40,11 +44,11 @@ Qiniu file sharing selects the first available download domain by default. HTTP 
 
 ## Integrity and source
 
-Download matching installer, portable ZIP and `SHA256SUMS.txt` from [this repository's release page](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1).
+Download matching installer, portable ZIP and `SHA256SUMS.txt` from [this repository's release page](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2).
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_setup.exe
-Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_portable.zip
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.2_windows_x64_setup.exe
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.2_windows_x64_portable.zip
 ```
 
 Compare each hash with the checksum file. Packages are not commercially Windows code-signed; do not disable system protection to bypass an unknown-publisher warning.
@@ -53,4 +57,4 @@ Compare each hash with the checksum file. Packages are not commercially Windows 
 
 Yuncang preserves object0's MIT license and copyright notices. Microsoft WebView2 terms are included as `WEBVIEW2-LICENSE.html`. Its fixed runtime does not update itself; use later complete packages to obtain updates. The upstream automatic updater is disabled by default; download customized versions manually from this fork.
 
-Failed usage reads are not reported as zero. Check the UI's data source, scan scope and delay information. See the [README](../README.en.md) and [release notes](RELEASE_v1.7.0-preview.1.md) for feature boundaries.
+Failed usage reads are not reported as zero. Check the UI's data source, scan scope and delay information. See the [README](../README.en.md) and [release notes](RELEASE_v1.7.0-preview.2.md) for feature boundaries.
