@@ -3523,7 +3523,7 @@ dependencies = [
 
 [[package]]
 name = "object0"
-version = "1.6.0"
+version = "1.7.0-preview.1"
 dependencies = [
  "aes-gcm",
  "aws-sdk-s3",
