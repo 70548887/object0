@@ -106,6 +106,7 @@ interface SyncRuleCardProps {
   rule: FolderSyncRule;
   state?: FolderSyncState;
   error?: string;
+  unavailableReason?: string;
   conflictCount: number;
   isCompact: boolean;
   onSyncNow: (id: string) => void;
@@ -119,6 +120,7 @@ export function SyncRuleCard({
   rule,
   state,
   error,
+  unavailableReason,
   conflictCount,
   isCompact,
   onSyncNow,
@@ -279,6 +281,12 @@ export function SyncRuleCard({
           </div>
         )}
 
+        {unavailableReason && (
+          <p role="note" className="text-[10px] text-warning">
+            {unavailableReason}
+          </p>
+        )}
+
         {/* Actions */}
         <div
           className={`flex flex-wrap items-center gap-1 border-border/70 border-t ${
@@ -291,9 +299,11 @@ export function SyncRuleCard({
             className={`gap-1 px-2 ${
               isCompact ? "h-5 min-h-5 text-[9px]" : "h-6 min-h-6 text-[10px]"
             }`}
-            onClick={() => onSyncNow(rule.id)}
-            title={t("立即同步", "Sync now")}
-            disabled={status === "syncing"}
+            onClick={() => {
+              if (!unavailableReason) onSyncNow(rule.id);
+            }}
+            title={unavailableReason ?? t("立即同步", "Sync now")}
+            disabled={!!unavailableReason || status === "syncing"}
           >
             <IconArrowsRotate className="size-[9px]" />
             {t("同步", "Sync")}
@@ -304,11 +314,17 @@ export function SyncRuleCard({
             className={`gap-1 px-2 ${
               isCompact ? "h-5 min-h-5 text-[9px]" : "h-6 min-h-6 text-[10px]"
             }`}
-            onClick={() => onToggle(rule.id, !rule.enabled)}
+            onClick={() => {
+              if (!unavailableReason || rule.enabled)
+                onToggle(rule.id, !rule.enabled);
+            }}
+            disabled={!!unavailableReason && !rule.enabled}
             title={
-              rule.enabled
-                ? t("暂停规则", "Pause rule")
-                : t("启用规则", "Enable rule")
+              !rule.enabled && unavailableReason
+                ? unavailableReason
+                : rule.enabled
+                  ? t("暂停规则", "Pause rule")
+                  : t("启用规则", "Enable rule")
             }
           >
             {rule.enabled ? (

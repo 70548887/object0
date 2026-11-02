@@ -7,6 +7,47 @@ const DAY_SECONDS = 24 * HOUR_SECONDS;
 const MS_PER_MINUTE = MINUTE_SECONDS * 1000;
 const MS_PER_HOUR = HOUR_SECONDS * 1000;
 const MS_PER_DAY = DAY_SECONDS * 1000;
+export const DEFAULT_SHARE_MAX_SECONDS = 7 * DAY_SECONDS;
+
+export function shareLinkState(
+  entry: { expiresAt: string | null; accessMode?: "public" | "signed" },
+  nowMs = Date.now(),
+): "public" | "active" | "expired" | "unknown" {
+  if (entry.accessMode === "public") return "public";
+  const expiry =
+    typeof entry.expiresAt === "string" ? Date.parse(entry.expiresAt) : NaN;
+  if (!Number.isFinite(expiry) || !Number.isFinite(nowMs)) return "unknown";
+  return expiry > nowMs ? "active" : "expired";
+}
+
+export function expirationMaxValues(
+  maxSeconds = DEFAULT_SHARE_MAX_SECONDS,
+): Record<ExpirationUnit, number> {
+  return {
+    minutes: Math.floor(maxSeconds / MINUTE_SECONDS),
+    hours: Math.floor(maxSeconds / HOUR_SECONDS),
+    days: Math.floor(maxSeconds / DAY_SECONDS),
+  };
+}
+
+export function shareExpirationLimitLabel(
+  maxSeconds = DEFAULT_SHARE_MAX_SECONDS,
+): string {
+  if (maxSeconds % DAY_SECONDS === 0)
+    return t(
+      `${maxSeconds / DAY_SECONDS} 天`,
+      `${maxSeconds / DAY_SECONDS} days`,
+    );
+  if (maxSeconds % HOUR_SECONDS === 0)
+    return t(
+      `${maxSeconds / HOUR_SECONDS} 小时`,
+      `${maxSeconds / HOUR_SECONDS} hours`,
+    );
+  return t(
+    `${Math.floor(maxSeconds / MINUTE_SECONDS)} 分钟`,
+    `${Math.floor(maxSeconds / MINUTE_SECONDS)} minutes`,
+  );
+}
 
 export const EXPIRATION_PRESETS = [
   { label: "1 小时", labelEn: "1 hour", seconds: HOUR_SECONDS },
@@ -46,10 +87,20 @@ export interface CustomExpirationResult {
 export function parseCustomExpiration(
   value: string,
   unit: ExpirationUnit,
+  maxSeconds = DEFAULT_SHARE_MAX_SECONDS,
 ): CustomExpirationResult {
+  if (!Number.isSafeInteger(maxSeconds) || maxSeconds < MINUTE_SECONDS) {
+    return {
+      seconds: null,
+      error: t(
+        "无法确认有效期上限，请重新读取连接配置。",
+        "The expiration limit could not be verified. Reload connection settings.",
+      ),
+    };
+  }
   const trimmed = value.trim();
   const amount = Number(trimmed);
-  const maximum = CUSTOM_EXPIRATION_MAX[unit];
+  const maximum = expirationMaxValues(maxSeconds)[unit];
   if (
     !/^[0-9]+$/.test(trimmed) ||
     !Number.isSafeInteger(amount) ||
@@ -59,8 +110,8 @@ export function parseCustomExpiration(
     return {
       seconds: null,
       error: t(
-        `请输入 1 至 ${maximum} 的整数（${UNIT_LABELS[unit]}），最长有效期为 7 天。`,
-        `Enter a whole number from 1 to ${maximum} (${UNIT_LABELS_EN[unit]}), up to 7 days.`,
+        `请输入 1 至 ${maximum} 的整数（${UNIT_LABELS[unit]}），最长有效期为 ${shareExpirationLimitLabel(maxSeconds)}。`,
+        `Enter a whole number from 1 to ${maximum} (${UNIT_LABELS_EN[unit]}), up to ${maxSeconds % DAY_SECONDS === 0 ? `${maxSeconds / DAY_SECONDS} days` : maxSeconds % HOUR_SECONDS === 0 ? `${maxSeconds / HOUR_SECONDS} hours` : `${Math.floor(maxSeconds / MINUTE_SECONDS)} minutes`}.`,
       ),
     };
   }
@@ -68,10 +119,10 @@ export function parseCustomExpiration(
 }
 
 export function formatShareExpiration(
-  isoDate: string,
+  isoDate: string | null,
   nowMs = Date.now(),
 ): string {
-  const expiresMs = Date.parse(isoDate);
+  const expiresMs = typeof isoDate === "string" ? Date.parse(isoDate) : NaN;
   if (!Number.isFinite(expiresMs) || !Number.isFinite(nowMs)) {
     return t("有效期未知", "Expiration unknown");
   }

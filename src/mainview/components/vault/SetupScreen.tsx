@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { localize, t, useT } from "@/lib/i18n";
 import { IconSpinner, IconVault } from "@/lib/icons";
 import { useVaultStore } from "@/stores";
+import { PlaintextModeDialog } from "./PlaintextModeDialog";
 
 export function SetupScreen() {
   useT();
@@ -23,6 +24,7 @@ export function SetupScreen() {
   const [error, setError] = useState("");
   const setup = useVaultStore((s) => s.setup);
   const loading = useVaultStore((s) => s.loading);
+  const [plaintextOpen, setPlaintextOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +49,7 @@ export function SetupScreen() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-background/50">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="max-h-[90dvh] w-full max-w-md overflow-y-auto shadow-xl">
         <CardHeader>
           <div className="mb-4 text-center">
             <img
@@ -75,6 +77,26 @@ export function SetupScreen() {
         </CardHeader>
 
         <CardContent>
+          <div className="mb-4 space-y-2 rounded-md border border-warning/30 p-3 text-xs leading-relaxed">
+            <p>
+              {t(
+                "不需要密码保护？可以选择明文模式，账号密钥将直接写入本机文件。",
+                "No passphrase protection needed? Plaintext mode writes account keys directly to a local file.",
+              )}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={loading}
+              onClick={() => setPlaintextOpen(true)}
+            >
+              {t(
+                "使用本地明文模式（无密码）",
+                "Use local plaintext mode (no passphrase)",
+              )}
+            </Button>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="setup-passphrase">
@@ -137,6 +159,10 @@ export function SetupScreen() {
           </form>
         </CardContent>
       </Card>
+      <PlaintextModeDialog
+        open={plaintextOpen}
+        onClose={() => setPlaintextOpen(false)}
+      />
     </div>
   );
 }

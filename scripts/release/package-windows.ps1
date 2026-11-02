@@ -44,8 +44,9 @@ if ($installers.Count -ne 1) {
 }
 $license = Join-Path $projectRoot 'LICENSE'
 $guide = Join-Path $projectRoot 'docs/PORTABLE_ZH.md'
+$englishGuide = Join-Path $projectRoot 'docs/PORTABLE_EN.md'
 $webviewLicense = Join-Path $projectRoot 'packaging/WEBVIEW2-LICENSE.html'
-foreach ($required in @($application, $license, $guide, $webviewLicense)) {
+foreach ($required in @($application, $license, $guide, $englishGuide, $webviewLicense)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Missing input: $required" }
 }
 
@@ -57,7 +58,7 @@ function Assert-SafePackageEntry([string]$EntryName) {
         throw "Unsafe archive entry: $EntryName"
     }
     $leaf = ($normalized.TrimEnd('/') -split '/')[-1]
-    if ($leaf -match '(?i)^(vault(?:\..*)?|profiles?\.json|settings\.json|credentials(?:\..*)?|\.env(?:\..*)?|Cookies|History|Local State|Preferences|Secure Preferences|DevToolsActivePort)$' -or
+    if ($leaf -match '(?i)^(vault(?:\..*)?|accounts\.local\.json|profiles?\.json|settings\.json|credentials(?:\..*)?|\.env(?:\..*)?|Cookies|History|Local State|Preferences|Secure Preferences|DevToolsActivePort)$' -or
         $leaf -match '(?i)\.(?:log|pem|pfx|p12|key)$' -or
         $normalized -match '(?i)(^|/)(?:\.git|node_modules|User Data|\.config)(/|$)') {
         throw "Application data, credentials or build files are not permitted: $EntryName"
@@ -112,6 +113,7 @@ Copy-Item -LiteralPath $application -Destination (Join-Path $portableRoot 'objec
 Copy-Item -LiteralPath $runtimeRoot -Destination (Join-Path $portableRoot 'WebView2Runtime') -Recurse
 Copy-Item -LiteralPath $license -Destination (Join-Path $portableRoot 'LICENSE')
 Copy-Item -LiteralPath $guide -Destination (Join-Path $portableRoot 'README.zh-CN.md')
+Copy-Item -LiteralPath $englishGuide -Destination (Join-Path $portableRoot 'README.en.md')
 Copy-Item -LiteralPath $webviewLicense -Destination (Join-Path $portableRoot 'WEBVIEW2-LICENSE.html')
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -124,14 +126,14 @@ try {
     foreach ($entry in $files) {
         if (-not $entry.FullName.StartsWith($archivePrefix, [StringComparison]::Ordinal)) { throw 'ZIP root directory mismatch.' }
         $relative = $entry.FullName.Substring($archivePrefix.Length)
-        if ($relative -notin @('object0.exe', 'LICENSE', 'README.zh-CN.md', 'WEBVIEW2-LICENSE.html') -and -not $relative.StartsWith('WebView2Runtime/', [StringComparison]::Ordinal)) {
+        if ($relative -notin @('object0.exe', 'LICENSE', 'README.zh-CN.md', 'README.en.md', 'WEBVIEW2-LICENSE.html') -and -not $relative.StartsWith('WebView2Runtime/', [StringComparison]::Ordinal)) {
             throw "Unexpected ZIP member: $relative"
         }
     }
-    foreach ($expected in @('object0.exe', 'LICENSE', 'README.zh-CN.md', 'WEBVIEW2-LICENSE.html', 'WebView2Runtime/msedgewebview2.exe')) {
+    foreach ($expected in @('object0.exe', 'LICENSE', 'README.zh-CN.md', 'README.en.md', 'WEBVIEW2-LICENSE.html', 'WebView2Runtime/msedgewebview2.exe')) {
         if ($null -eq $archive.GetEntry($archivePrefix + $expected)) { throw "Missing ZIP member: $expected" }
     }
-    $expectedCount = @($runtimeEntries | Where-Object { -not $_.PSIsContainer }).Count + 4
+    $expectedCount = @($runtimeEntries | Where-Object { -not $_.PSIsContainer }).Count + 5
     if ($files.Count -ne $expectedCount) { throw 'ZIP member count does not match the explicit input allowlist.' }
 } finally { $archive.Dispose() }
 $verificationRoot = Join-Path $stagingRoot 'extracted-verification'

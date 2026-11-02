@@ -24,9 +24,15 @@ import {
   IconTriangleExclamation,
   IconXmark,
 } from "@/lib/icons";
-import { useFolderSyncStore, useUIStore } from "@/stores";
+import {
+  useFolderSyncStore,
+  useProfileStore,
+  useUIStore,
+  useVaultStore,
+} from "@/stores";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { toast } from "../common/Toast";
+import { qiniuUnfinishedTransferReason } from "../objects/qiniu-transfer-gates";
 import { FolderSyncRuleEditor } from "./FolderSyncRuleEditor";
 import { SyncRuleCard } from "./SyncRuleCard";
 
@@ -50,6 +56,16 @@ export function FolderSyncPanel() {
   const resumeAll = useFolderSyncStore((s) => s.resumeAll);
   const getActiveCount = useFolderSyncStore((s) => s.getActiveCount);
   const setSyncDialogOpen = useUIStore((s) => s.setSyncDialogOpen);
+  const profileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const profiles = useVaultStore((s) => s.profiles);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((profile) => profile.id === profileId),
+  );
+  const syncBlocked = qiniuUnfinishedTransferReason(
+    latestProfile ?? activeProfile,
+    "sync",
+  );
   const folderSyncListDensity = useUIStore((s) => s.folderSyncListDensity);
   const setFolderSyncListDensity = useUIStore(
     (s) => s.setFolderSyncListDensity,
@@ -58,6 +74,20 @@ export function FolderSyncPanel() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<FolderSyncRule | null>(null);
   const [deletingRule, setDeletingRule] = useState<FolderSyncRule | null>(null);
+  const blockedRules = useMemo(() => {
+    const blocked = new Map<string, string>();
+    for (const rule of rules) {
+      const reason = qiniuUnfinishedTransferReason(
+        profiles.find((p) => p.id === rule.profileId),
+        "sync",
+      );
+      if (reason) blocked.set(rule.id, reason);
+    }
+    return blocked;
+  }, [rules, profiles]);
+  const resumeBlocked = blockedRules.values().next().value as
+    | string
+    | undefined;
 
   useEffect(() => {
     loadRules();
@@ -80,6 +110,8 @@ export function FolderSyncPanel() {
 
   const syncRuleNow = useCallback(
     async (id: string) => {
+      const reason = blockedRules.get(id);
+      if (reason) return toast.warning(reason);
       try {
         await syncNow(id);
         toast.success(t("已开始同步", "Sync started"));
@@ -91,11 +123,13 @@ export function FolderSyncPanel() {
         );
       }
     },
-    [syncNow, t],
+    [syncNow, t, blockedRules],
   );
 
   const handleToggle = useCallback(
     async (id: string, enabled: boolean) => {
+      const reason = enabled ? blockedRules.get(id) : null;
+      if (reason) return toast.warning(reason);
       try {
         await toggleRule(id, enabled);
         toast.success(
@@ -111,7 +145,7 @@ export function FolderSyncPanel() {
         );
       }
     },
-    [toggleRule, t],
+    [toggleRule, t, blockedRules],
   );
 
   const activeCount = getActiveCount();
@@ -235,8 +269,12 @@ export function FolderSyncPanel() {
                   variant="ghost"
                   size="icon-xs"
                   className="size-5 min-h-5 text-foreground/40 hover:text-success"
-                  onClick={resumeAll}
-                  title={t("全部恢复", "Resume all")}
+                  onClick={() => {
+                    if (resumeBlocked) return toast.warning(resumeBlocked);
+                    void resumeAll();
+                  }}
+                  disabled={!!resumeBlocked}
+                  title={resumeBlocked ?? t("全部恢复", "Resume all")}
                 >
                   <IconPlay className="size-[9px]" />
                 </Button>
@@ -265,7 +303,12 @@ export function FolderSyncPanel() {
               variant="ghost"
               size="xs"
               className="h-5 min-h-5 px-1.5 text-[10px] text-info hover:text-info"
-              onClick={() => setSyncDialogOpen(true)}
+              onClick={() => {
+                if (syncBlocked) return toast.warning(syncBlocked);
+                setSyncDialogOpen(true);
+              }}
+              disabled={!!syncBlocked}
+              title={syncBlocked ?? undefined}
             >
               {t("打开对象同步", "Open object sync")}
             </Button>
@@ -352,6 +395,7 @@ export function FolderSyncPanel() {
                 rule={rule}
                 state={statuses.get(rule.id)}
                 error={errors.get(rule.id)}
+                unavailableReason={blockedRules.get(rule.id)}
                 conflictCount={conflictCountByRule.get(rule.id) ?? 0}
                 isCompact={isCompact}
                 onSyncNow={syncRuleNow}

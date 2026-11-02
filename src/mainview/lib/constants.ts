@@ -10,6 +10,12 @@ export const DEFAULT_CONCURRENCY = 3;
 export const PROVIDERS: { value: Provider; label: string }[] = [
   { value: "aws", label: "Amazon S3" },
   { value: "r2", label: "Cloudflare R2" },
+  {
+    value: "qiniu",
+    get label() {
+      return t("七牛云 Kodo", "Qiniu Kodo");
+    },
+  },
   { value: "spaces", label: "DigitalOcean Spaces" },
   { value: "minio", label: "MinIO" },
   { value: "gcs", label: "Google Cloud Storage" },

@@ -17,10 +17,21 @@ import {
 import { formatBytes, formatRelativeDate, getFileName } from "@/lib/formatters";
 import { localize, t, useT } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
-import { useBucketStore, useObjectStore, useProfileStore } from "@/stores";
+import {
+  useBucketStore,
+  useObjectStore,
+  useProfileStore,
+  useVaultStore,
+} from "@/stores";
 import { FileIcon } from "../common/FileIcon";
 import { toast } from "../common/Toast";
 import { ObjectContextMenu } from "./ObjectContextMenu";
+import {
+  parseQiniuStorageType,
+  qiniuRestoreInfo,
+  qiniuStorageTypeLabel,
+} from "./qiniu-object-info";
+import { qiniuFolderMutationBlockReason } from "./qiniu-transfer-gates";
 import { useObjectTableKeyboard } from "./useObjectTableKeyboard";
 
 interface ObjectTableProps {
@@ -57,12 +68,23 @@ export function ObjectTable({
   const [renameValue, setRenameValue] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
   const profileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((profile) => profile.id === profileId),
+  );
+  const profile = latestProfile ?? activeProfile;
+  const isQiniu = useProfileStore((s) => s.activeProfile?.provider === "qiniu");
   const bucket = useBucketStore((s) => s.selectedBucket);
-  const startRename = useCallback((key: string) => {
-    const name = getFileName(key);
-    setRenamingKey(key);
-    setRenameValue(name);
-  }, []);
+  const startRename = useCallback(
+    (key: string) => {
+      const blocked = qiniuFolderMutationBlockReason(profile, [key], "rename");
+      if (blocked) return toast.warning(blocked);
+      const name = getFileName(key);
+      setRenamingKey(key);
+      setRenameValue(name);
+    },
+    [profile],
+  );
 
   // Sort objects locally
   const sorted = [...objects].sort((a, b) => {
@@ -115,6 +137,16 @@ export function ObjectTable({
 
   const commitRename = async () => {
     if (!renamingKey || !renameValue.trim() || !profileId || !bucket) {
+      setRenamingKey(null);
+      return;
+    }
+    const blocked = qiniuFolderMutationBlockReason(
+      profile,
+      [renamingKey],
+      "rename",
+    );
+    if (blocked) {
+      toast.warning(blocked);
       setRenamingKey(null);
       return;
     }
@@ -290,6 +322,13 @@ export function ObjectTable({
           {/* Objects (files) */}
           {sorted.map((obj, i) => {
             const rowIdx = prefixes.length + i;
+            const storageType = parseQiniuStorageType(obj.storageClass);
+            const storageTypeLabel = qiniuStorageTypeLabel(storageType);
+            const restoreInfo = qiniuRestoreInfo(
+              storageType,
+              obj.restoreStatus,
+              "list",
+            );
             return (
               <ObjectContextMenu
                 key={obj.key}
@@ -320,37 +359,48 @@ export function ObjectTable({
                   />
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <FileIcon name={obj.key} />
-                    {renamingKey === obj.key ? (
-                      <Input
-                        ref={renameRef}
-                        type="text"
-                        className="h-6 max-w-md font-mono text-xs"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => void commitRename()}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") void commitRename();
-                          if (e.key === "Escape") setRenamingKey(null);
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="max-w-md cursor-text truncate border-none bg-transparent p-0 text-left font-inherit text-inherit"
-                        onDoubleClick={() => startRename(obj.key)}
-                        onKeyDown={(e) => {
-                          if (e.key === "F2") startRename(obj.key);
-                        }}
-                        aria-label={t(
-                          `重命名 ${getFileName(obj.key)}`,
-                          `Rename ${getFileName(obj.key)}`,
-                        )}
-                      >
-                        {getFileName(obj.key)}
-                      </button>
-                    )}
+                    <div className="min-w-0 flex-1">
+                      {renamingKey === obj.key ? (
+                        <Input
+                          ref={renameRef}
+                          type="text"
+                          className="h-6 max-w-md font-mono text-xs"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => void commitRename()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void commitRename();
+                            if (e.key === "Escape") setRenamingKey(null);
+                          }}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="block w-full max-w-md cursor-text truncate border-none bg-transparent p-0 text-left font-inherit text-inherit"
+                          title={obj.key}
+                          onDoubleClick={() => startRename(obj.key)}
+                          onKeyDown={(e) => {
+                            if (e.key === "F2") startRename(obj.key);
+                          }}
+                          aria-label={t(
+                            `重命名 ${getFileName(obj.key)}`,
+                            `Rename ${getFileName(obj.key)}`,
+                          )}
+                        >
+                          {getFileName(obj.key)}
+                        </button>
+                      )}
+                      {isQiniu && (
+                        <span
+                          className="mt-0.5 inline-block max-w-full truncate rounded bg-muted px-1.5 py-px align-middle text-[10px] leading-tight text-muted-foreground"
+                          title={`${storageTypeLabel} · ${restoreInfo.label}\n${restoreInfo.hint}`}
+                        >
+                          {storageTypeLabel}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-mono text-foreground/60">

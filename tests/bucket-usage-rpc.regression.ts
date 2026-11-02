@@ -4,6 +4,11 @@
 import { mock } from "bun:test";
 import { strict as assert } from "node:assert";
 
+Object.defineProperty(globalThis, "window", {
+  configurable: true,
+  value: { confirm: () => true },
+});
+
 type Scope = { profileId: string; bucket: string };
 type Listener = (event: { payload: Scope }) => void;
 const nativeListeners = new Map<string, Listener>();

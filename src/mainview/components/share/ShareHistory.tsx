@@ -1,3 +1,4 @@
+import type { ShareHistoryEntry } from "@shared/s3.types";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import {
 } from "@/lib/icons";
 import { useShareHistoryStore, useUIStore } from "@/stores";
 import { toast } from "../common/Toast";
+import { shareLinkState } from "./share-expiration";
 
 type FilterMode = "all" | "active" | "expired";
 
@@ -43,17 +45,25 @@ export function ShareHistory() {
   const filtered = useMemo(() => {
     switch (filter) {
       case "active":
-        return entries.filter((e) => new Date(e.expiresAt) > now);
+        return entries.filter((e) =>
+          ["active", "public"].includes(shareLinkState(e, now.getTime())),
+        );
       case "expired":
-        return entries.filter((e) => new Date(e.expiresAt) <= now);
+        return entries.filter(
+          (e) => shareLinkState(e, now.getTime()) === "expired",
+        );
       default:
         return entries;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, filter]);
 
-  const activeCount = entries.filter((e) => new Date(e.expiresAt) > now).length;
-  const expiredCount = entries.length - activeCount;
+  const activeCount = entries.filter((e) =>
+    ["active", "public"].includes(shareLinkState(e, now.getTime())),
+  ).length;
+  const expiredCount = entries.filter(
+    (e) => shareLinkState(e, now.getTime()) === "expired",
+  ).length;
 
   const handleCopy = async (url: string) => {
     try {
@@ -64,8 +74,13 @@ export function ShareHistory() {
     }
   };
 
-  const formatExpiry = (expiresAt: string): string => {
-    const date = new Date(expiresAt);
+  const formatExpiry = (entry: ShareHistoryEntry): string => {
+    const state = shareLinkState(entry, now.getTime());
+    if (state === "public")
+      return t("公开 · 无固定到期", "Public · No fixed expiry");
+    if (state === "unknown" || !entry.expiresAt)
+      return t("有效期未知", "Expiration unknown");
+    const date = new Date(entry.expiresAt);
     if (date <= now) return t("已过期", "Expired");
     const diff = date.getTime() - now.getTime();
     if (diff < 3600000) {
@@ -160,7 +175,8 @@ export function ShareHistory() {
             <Table>
               <TableBody>
                 {filtered.map((entry) => {
-                  const isExpired = new Date(entry.expiresAt) <= now;
+                  const isExpired =
+                    shareLinkState(entry, now.getTime()) === "expired";
                   return (
                     <TableRow
                       key={entry.id}
@@ -186,7 +202,7 @@ export function ShareHistory() {
                                 : "bg-success/15 text-success"
                             }`}
                           >
-                            {formatExpiry(entry.expiresAt)}
+                            {formatExpiry(entry)}
                           </span>
                         </div>
                         <div className="mt-0.5 truncate text-[10px] text-foreground/40">

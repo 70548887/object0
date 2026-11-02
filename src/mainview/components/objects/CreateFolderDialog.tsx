@@ -12,8 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { localize, t, useT } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
-import { useBucketStore, useObjectStore, useProfileStore } from "@/stores";
+import {
+  useBucketStore,
+  useObjectStore,
+  useProfileStore,
+  useVaultStore,
+} from "@/stores";
 import { toast } from "../common/Toast";
+import { assertCurrentUploadScope } from "./upload-scope";
 
 interface CreateFolderDialogProps {
   open: boolean;
@@ -23,6 +29,12 @@ interface CreateFolderDialogProps {
 export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
   useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((item) => item.id === profileId),
+  );
+  const profile = latestProfile ?? activeProfile;
+  const profileRevision = profile?.updatedAt;
   const bucket = useBucketStore((s) => s.selectedBucket);
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
   const [name, setName] = useState("");
@@ -30,7 +42,8 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
 
   const handleCreate = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!name.trim() || !profileId || !bucket) return;
+    if (!name.trim() || !profileId || !bucket || !profileRevision || !profile)
+      return;
 
     const cleanName = name.trim().replace(/\/+$/, "");
     const key = currentPrefix
@@ -39,9 +52,17 @@ export function CreateFolderDialog({ open, onClose }: CreateFolderDialogProps) {
 
     setCreating(true);
     try {
+      assertCurrentUploadScope({
+        profileId,
+        expectedProfileRevision: profileRevision,
+        provider: profile.provider,
+        bucket,
+        prefix: currentPrefix,
+      });
       // Create a zero-byte object with a trailing slash to represent a folder
       await rpcCall("transfer:upload", {
         profileId,
+        expectedProfileRevision: profileRevision,
         bucket,
         key,
         localPath: "", // empty path signals a zero-byte folder marker

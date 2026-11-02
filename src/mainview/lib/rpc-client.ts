@@ -1,6 +1,7 @@
 import type { RPCEvents, RPCSchema } from "@shared/rpc-schema";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { t } from "./i18n";
 
 type EventHandler<E extends keyof RPCEvents> = (data: RPCEvents[E]) => void;
 
@@ -60,9 +61,44 @@ export async function rpcCall<M extends keyof RPCSchema>(
   payload: RPCSchema[M]["req"],
 ): Promise<RPCSchema[M]["res"]> {
   try {
+    const isMove =
+      method === "transfer:move" ||
+      (method === "transfer:cross-bucket" &&
+        (payload as { mode?: string })?.mode === "move");
+    const transfer = payload as
+      | {
+          sourceProfileId?: string;
+          destProfileId?: string;
+          sourceBucket?: string;
+          destBucket?: string;
+        }
+      | undefined;
+    const isCrossScope =
+      (method === "transfer:copy" || method === "transfer:cross-bucket") &&
+      !!transfer &&
+      (transfer.sourceProfileId !== transfer.destProfileId ||
+        transfer.sourceBucket !== transfer.destBucket);
+    const requiresConsent =
+      method === "objects:rename" || isMove || isCrossScope;
+    let requestPayload: unknown = payload ?? null;
+    if (requiresConsent) {
+      const accepted =
+        typeof window !== "undefined" &&
+        window.confirm(
+          t(
+            "为防止数据丢失，重命名或移动可能读取来源和目标的完整内容；跨空间复制或移动还可能使用本机临时空间，并产生流量或取回费用。是否继续？",
+            "To protect your data, renaming or moving may read the full source and destination. Cross-bucket copying or moving may also use local temporary space and incur bandwidth or retrieval charges. Continue?",
+          ),
+        );
+      if (!accepted) throw new Error(t("操作已取消", "Operation cancelled"));
+      requestPayload = {
+        ...(payload as object),
+        verificationReadbackConfirmed: true,
+      };
+    }
     return await invoke<RPCSchema[M]["res"]>("rpc_request", {
       method,
-      payload: payload ?? null,
+      payload: requestPayload,
     });
   } catch (error: unknown) {
     // Tauri rejects Result<_, String> as a string, not a JavaScript Error.

@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "check": "biome check .",
     "test": "cd src-tauri && cargo test",
+    "test:frontend": "bun scripts/test-local.ts",
     "check:all": "bun run check && bun run build && cd src-tauri && cargo check && cargo test",
     "lint": "biome lint .",
     "format": "biome format --write .",

@@ -36,6 +36,10 @@ import {
   useVaultStore,
 } from "@/stores";
 import { toast } from "../common/Toast";
+import {
+  qiniuTransferPairReason,
+  qiniuUnfinishedTransferReason,
+} from "../objects/qiniu-transfer-gates";
 
 export function TransferDialog() {
   useT();
@@ -44,6 +48,7 @@ export function TransferDialog() {
   const closeDialog = useUIStore((s) => s.closeTransferDialog);
   const profiles = useVaultStore((s) => s.profiles);
   const currentProfileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
   const currentBucket = useBucketStore((s) => s.selectedBucket);
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
 
@@ -54,6 +59,11 @@ export function TransferDialog() {
   const [destBuckets, setDestBuckets] = useState<string[]>([]);
   const [loadingBuckets, setLoadingBuckets] = useState(false);
   const [transferring, setTransferring] = useState(false);
+  const transferBlocked = qiniuTransferPairReason(
+    profiles.find((p) => p.id === currentProfileId) ?? activeProfile,
+    profiles.find((p) => p.id === destProfileId),
+    "transfer",
+  );
 
   // Reset mode when target changes
   const effectiveMode = target?.defaultMode ?? mode;
@@ -78,6 +88,11 @@ export function TransferDialog() {
   }, []);
 
   const handleDestProfileChange = (id: string) => {
+    const reason = qiniuUnfinishedTransferReason(
+      profiles.find((p) => p.id === id),
+      "transfer",
+    );
+    if (reason) return toast.warning(reason);
     setDestProfileId(id);
     setDestBucket("");
     if (id) {
@@ -89,6 +104,7 @@ export function TransferDialog() {
     if (!currentProfileId || !currentBucket || !destProfileId || !destBucket)
       return;
     if (keys.length === 0) return;
+    if (transferBlocked) return toast.warning(transferBlocked);
 
     setTransferring(true);
     try {
@@ -171,6 +187,11 @@ export function TransferDialog() {
         </DialogHeader>
 
         <div className="space-y-4">
+          {transferBlocked && (
+            <p role="note" className="text-warning text-xs">
+              {transferBlocked}
+            </p>
+          )}
           {/* Source summary */}
           <div className="rounded bg-muted p-2 text-xs">
             <span className="font-semibold">{t("来源：", "Source:")}</span>{" "}
@@ -252,7 +273,14 @@ export function TransferDialog() {
               </SelectTrigger>
               <SelectContent>
                 {profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
+                  <SelectItem
+                    key={p.id}
+                    value={p.id}
+                    disabled={p.provider === "qiniu"}
+                    title={
+                      qiniuUnfinishedTransferReason(p, "transfer") ?? undefined
+                    }
+                  >
                     {p.name}
                   </SelectItem>
                 ))}
@@ -334,8 +362,13 @@ export function TransferDialog() {
             size="sm"
             onClick={runCrossBucketTransfer}
             disabled={
-              transferring || !destProfileId || !destBucket || keys.length === 0
+              !!transferBlocked ||
+              transferring ||
+              !destProfileId ||
+              !destBucket ||
+              keys.length === 0
             }
+            title={transferBlocked ?? undefined}
           >
             {transferring ? (
               <IconSpinner className="size-3.5 animate-spin" />

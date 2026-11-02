@@ -9,6 +9,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { updateNavigationTab } from "@/hooks/useS3Objects";
 import { t, useT } from "@/lib/i18n";
 import { IconBucket, IconCheck, IconCloud, IconCopy } from "@/lib/icons";
 import { useObjectStore, useProfileStore } from "@/stores";
@@ -36,6 +37,7 @@ export function ObjectBreadcrumb({
 
     navigateToPrefix(prefix);
     if (activeProfileId) {
+      updateNavigationTab(activeProfileId, bucket, prefix);
       loadObjects(activeProfileId, bucket, prefix);
     }
   };

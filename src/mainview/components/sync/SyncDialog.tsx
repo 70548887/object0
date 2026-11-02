@@ -1,5 +1,5 @@
 import type { SyncDiff, SyncMode } from "@shared/s3.types";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +29,10 @@ import {
   useVaultStore,
 } from "@/stores";
 import { toast } from "../common/Toast";
+import {
+  qiniuTransferPairReason,
+  qiniuUnfinishedTransferReason,
+} from "../objects/qiniu-transfer-gates";
 
 export function SyncDialog() {
   const t = useT();
@@ -37,6 +41,7 @@ export function SyncDialog() {
   const setFolderSyncPanelOpen = useUIStore((s) => s.setFolderSyncPanelOpen);
   const profiles = useVaultStore((s) => s.profiles);
   const currentProfileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
   const currentBucket = useBucketStore((s) => s.selectedBucket);
   const currentPrefix = useObjectStore((s) => s.currentPrefix);
 
@@ -49,6 +54,45 @@ export function SyncDialog() {
   const [diff, setDiff] = useState<SyncDiff | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const selectedChanges = diff
+    ? diff.toAdd.filter((entry) => entry.selected).length +
+      diff.toUpdate.filter((entry) => entry.selected).length
+    : 0;
+  const scope = JSON.stringify([
+    open,
+    currentProfileId,
+    activeProfile?.updatedAt,
+    currentBucket,
+    currentPrefix,
+    destProfileId,
+    profiles.find((p) => p.id === destProfileId)?.updatedAt,
+    destBucket,
+    destPrefix,
+    mode,
+  ]);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const previewRequest = useRef(0);
+  const bucketRequest = useRef(0);
+  useEffect(() => {
+    void scope;
+    previewRequest.current++;
+    setDiff(null);
+    setPreviewing(false);
+    setSyncing(false);
+  }, [scope]);
+  useEffect(
+    () => () => {
+      previewRequest.current++;
+      bucketRequest.current++;
+    },
+    [],
+  );
+  const syncBlocked = qiniuTransferPairReason(
+    profiles.find((p) => p.id === currentProfileId) ?? activeProfile,
+    profiles.find((p) => p.id === destProfileId),
+    "sync",
+  );
 
   const handleOpenLiveFolderSync = () => {
     setOpen(false);
@@ -57,23 +101,32 @@ export function SyncDialog() {
 
   const loadDestBuckets = useCallback(
     async (profileId: string) => {
+      const request = ++bucketRequest.current;
       setLoadingBuckets(true);
+      setDestBuckets([]);
       try {
         const buckets = await rpcCall("buckets:list", { profileId });
+        if (request !== bucketRequest.current) return;
         setDestBuckets(buckets.map((b) => b.name));
       } catch (err: unknown) {
+        if (request !== bucketRequest.current) return;
         toast.error(
           err instanceof Error
             ? localize(err.message)
             : t("未知错误", "Unknown error"),
         );
       }
-      setLoadingBuckets(false);
+      if (request === bucketRequest.current) setLoadingBuckets(false);
     },
     [t],
   );
 
   const handleDestProfileChange = (id: string) => {
+    const reason = qiniuUnfinishedTransferReason(
+      profiles.find((p) => p.id === id),
+      "sync",
+    );
+    if (reason) return toast.warning(reason);
     setDestProfileId(id);
     setDestBucket("");
     setDiff(null);
@@ -85,7 +138,10 @@ export function SyncDialog() {
   const previewSyncDiff = async () => {
     if (!currentProfileId || !currentBucket || !destProfileId || !destBucket)
       return;
+    if (syncBlocked) return toast.warning(syncBlocked);
 
+    const capturedScope = scope;
+    const request = ++previewRequest.current;
     setPreviewing(true);
     setDiff(null);
     try {
@@ -98,21 +154,37 @@ export function SyncDialog() {
         destPrefix,
         mode,
       });
-      setDiff(result);
+      if (
+        capturedScope === scopeRef.current &&
+        request === previewRequest.current
+      )
+        setDiff(result);
     } catch (err: unknown) {
+      if (
+        capturedScope !== scopeRef.current ||
+        request !== previewRequest.current
+      )
+        return;
       toast.error(
         err instanceof Error
           ? localize(err.message)
           : t("未知错误", "Unknown error"),
       );
     }
-    setPreviewing(false);
+    if (
+      capturedScope === scopeRef.current &&
+      request === previewRequest.current
+    )
+      setPreviewing(false);
   };
 
   const handleSync = async () => {
     if (!currentProfileId || !currentBucket || !destProfileId || !destBucket)
       return;
+    if (syncBlocked) return toast.warning(syncBlocked);
+    if (!diff?.previewToken) return;
 
+    const capturedScope = scope;
     setSyncing(true);
     try {
       await rpcCall("sync:execute", {
@@ -123,17 +195,21 @@ export function SyncDialog() {
         destBucket,
         destPrefix,
         mode,
+        previewToken: diff.previewToken,
       });
+      if (capturedScope !== scopeRef.current) return;
       toast.success(t("同步任务已加入队列", "Sync jobs queued"));
       setOpen(false);
     } catch (err: unknown) {
+      if (capturedScope !== scopeRef.current) return;
+      setDiff(null); // approvals are single-use, including a failed recheck
       toast.error(
         err instanceof Error
           ? localize(err.message)
           : t("未知错误", "Unknown error"),
       );
     }
-    setSyncing(false);
+    if (capturedScope === scopeRef.current) setSyncing(false);
   };
 
   return (
@@ -152,6 +228,11 @@ export function SyncDialog() {
         </DialogHeader>
 
         <div className="space-y-4">
+          {syncBlocked && (
+            <p role="note" className="text-warning text-xs">
+              {syncBlocked}
+            </p>
+          )}
           <div className="space-y-2 rounded border border-info/30 bg-info/10 p-2.5 text-xs">
             <p className="text-foreground/70">
               {t(
@@ -208,7 +289,14 @@ export function SyncDialog() {
               </SelectTrigger>
               <SelectContent>
                 {profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
+                  <SelectItem
+                    key={p.id}
+                    value={p.id}
+                    disabled={p.provider === "qiniu"}
+                    title={
+                      qiniuUnfinishedTransferReason(p, "sync") ?? undefined
+                    }
+                  >
                     {p.name}
                   </SelectItem>
                 ))}
@@ -264,7 +352,10 @@ export function SyncDialog() {
               className="h-7 text-xs w-full"
               placeholder={t("例如 backups/", "For example, backups/")}
               value={destPrefix}
-              onChange={(e) => setDestPrefix(e.target.value)}
+              onChange={(e) => {
+                setDestPrefix(e.target.value);
+                setDiff(null);
+              }}
             />
           </div>
 
@@ -317,10 +408,10 @@ export function SyncDialog() {
                     "Overwrite: add missing and update changed files",
                   )}
                 </SelectItem>
-                <SelectItem value="mirror">
+                <SelectItem value="mirror" disabled>
                   {t(
-                    "镜像：保持完全一致（会删除目标中多余的文件）",
-                    "Mirror: exact match (deletes extra destination files)",
+                    "镜像：暂不可用，等待条件删除与任务依赖校验",
+                    "Mirror: unavailable pending conditional-delete and task-order validation",
                   )}
                 </SelectItem>
               </SelectContent>
@@ -350,17 +441,25 @@ export function SyncDialog() {
                 {t("预览：", "Preview:")}
               </div>
               <div className="text-success">
-                + {diff.toAdd.length}
+                + {diff.toAdd.filter((entry) => entry.selected).length}
                 {t(" 个文件待新增", " file(s) to add")}
               </div>
               <div className="text-warning">
-                ~ {diff.toUpdate.length}
+                ~ {diff.toUpdate.filter((entry) => entry.selected).length}
                 {t(" 个文件待更新", " file(s) to update")}
               </div>
               <div className="text-destructive">
                 - {diff.toDelete.length}
                 {t(" 个文件待删除", " file(s) to delete")}
               </div>
+              {diff.toUpdate.some((entry) => !entry.selected) && (
+                <p className="text-warning" role="note">
+                  {t(
+                    `${diff.toUpdate.filter((entry) => !entry.selected).length} 个对象校验值不可安全比较，本次不会覆盖；需单独核对`,
+                    `${diff.toUpdate.filter((entry) => !entry.selected).length} object(s) have incomparable identities and will not be overwritten; verify them separately`,
+                  )}
+                </p>
+              )}
               {diff.toAdd.length === 0 &&
                 diff.toUpdate.length === 0 &&
                 diff.toDelete.length === 0 && (
@@ -383,7 +482,10 @@ export function SyncDialog() {
             variant="outline"
             size="sm"
             onClick={previewSyncDiff}
-            disabled={previewing || !destProfileId || !destBucket}
+            disabled={
+              !!syncBlocked || previewing || !destProfileId || !destBucket
+            }
+            title={syncBlocked ?? undefined}
           >
             {previewing ? (
               <IconSpinner className="size-3.5 animate-spin" />
@@ -391,7 +493,18 @@ export function SyncDialog() {
               t("预览变更", "Preview changes")
             )}
           </Button>
-          <Button size="sm" onClick={handleSync} disabled={syncing || !diff}>
+          <Button
+            size="sm"
+            onClick={handleSync}
+            disabled={
+              !!syncBlocked ||
+              syncing ||
+              !diff?.previewToken ||
+              !selectedChanges ||
+              mode === "mirror"
+            }
+            title={syncBlocked ?? undefined}
+          >
             {syncing ? (
               <IconSpinner className="size-3.5 animate-spin" />
             ) : (

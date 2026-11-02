@@ -16,8 +16,10 @@ export function TabBar() {
   return (
     <div className="flex items-center border-border border-b bg-card/30">
       <Tabs
-        value={activeTabId ?? undefined}
-        onValueChange={setActiveTab}
+        value={activeTabId}
+        onValueChange={(value) =>
+          setActiveTab(typeof value === "string" ? value : null)
+        }
         className="w-full"
       >
         <TabsList

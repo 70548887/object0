@@ -1,14 +1,237 @@
 import type { ProfileInfo } from "@shared/profile.types";
-import type { BucketUsage } from "@shared/s3.types";
+import type {
+  BucketUsage,
+  QiniuClassUsage,
+  QiniuUsageAnalytics,
+} from "@shared/s3.types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BUCKET_USAGE_INVALIDATED,
   type BucketUsageInvalidation,
 } from "@/lib/bucket-usage-events";
+import { t } from "@/lib/i18n";
 import { onEvent, rpcCall } from "@/lib/rpc-client";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 20;
+const QINIU_CLASSES = new Set([
+  "standard",
+  "line",
+  "intelligent_tiering",
+  "archive_ir",
+  "archive",
+  "deep_archive",
+]);
+
+function metric(value: unknown): value is number | null {
+  return (
+    value === null || (Number.isSafeInteger(value) && (value as number) >= 0)
+  );
+}
+function instant(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 64 &&
+    /^\d{4}-\d{2}-\d{2}T/.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+function record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function optionalText(value: unknown): value is string | undefined {
+  return (
+    value === undefined || (typeof value === "string" && value.length <= 4000)
+  );
+}
+
+/** Validate IPC data before rendering or caching it. Never repair bad metrics to zero. */
+export function parseBucketUsage(
+  value: unknown,
+  expectedProfileId: string,
+  expectedBucket: string,
+  expectedProvider?: string,
+): BucketUsage {
+  const invalid = () =>
+    new Error(
+      t(
+        "用量统计的范围、数值或时间无效，未采用此结果。",
+        "The usage scope, values or timestamps are invalid. This result was not used.",
+      ),
+    );
+  if (
+    !record(value) ||
+    value.profileId !== expectedProfileId ||
+    value.bucket !== expectedBucket ||
+    !metric(value.bytes) ||
+    !metric(value.objectCount) ||
+    !["r2", "scan", "qiniu"].includes(value.source as string) ||
+    typeof value.complete !== "boolean" ||
+    !instant(value.fetchedAt) ||
+    (value.measuredAt !== null && !instant(value.measuredAt)) ||
+    !optionalText(value.warning) ||
+    (value.metadataBytes !== undefined &&
+      (!metric(value.metadataBytes) || value.metadataBytes === null)) ||
+    (value.scannedPages !== undefined &&
+      (!Number.isSafeInteger(value.scannedPages) ||
+        (value.scannedPages as number) < 0)) ||
+    (value.source === "r2" && expectedProvider && expectedProvider !== "r2") ||
+    (value.source === "qiniu" &&
+      expectedProvider &&
+      expectedProvider !== "qiniu") ||
+    (value.source !== "qiniu" &&
+      (value.bytes === null ||
+        value.objectCount === null ||
+        value.measuredAt === null))
+  )
+    throw invalid();
+  let analytics: QiniuUsageAnalytics | undefined;
+  if (value.qiniuAnalytics !== undefined) {
+    const raw = value.qiniuAnalytics;
+    if (
+      !record(raw) ||
+      (expectedProvider && expectedProvider !== "qiniu") ||
+      value.source === "r2" ||
+      typeof raw.complete !== "boolean" ||
+      (raw.measuredAt !== null && !instant(raw.measuredAt)) ||
+      !Array.isArray(raw.classes) ||
+      raw.classes.length > 32 ||
+      !optionalText(raw.warning)
+    )
+      throw invalid();
+    const seen = new Set<string>();
+    const classes: QiniuClassUsage[] = raw.classes.map((item) => {
+      if (
+        !record(item) ||
+        typeof item.storageClass !== "string" ||
+        !item.storageClass ||
+        item.storageClass.length > 128 ||
+        seen.has(item.storageClass) ||
+        !metric(item.bytes) ||
+        !metric(item.objectCount) ||
+        (item.measuredAt !== null && !instant(item.measuredAt)) ||
+        ![
+          "available",
+          "partial",
+          "forbidden",
+          "unsupported",
+          "unavailable",
+        ].includes(item.state as string) ||
+        !optionalText(item.reason)
+      )
+        throw invalid();
+      seen.add(item.storageClass);
+      const incompleteRow =
+        item.state === "available" &&
+        (item.bytes === null ||
+          item.objectCount === null ||
+          item.measuredAt === null);
+      return {
+        storageClass: item.storageClass,
+        bytes: item.bytes,
+        objectCount: item.objectCount,
+        measuredAt: item.measuredAt,
+        state: incompleteRow
+          ? "partial"
+          : (item.state as QiniuClassUsage["state"]),
+        ...(item.reason ? { reason: item.reason } : {}),
+      };
+    });
+    const aligned =
+      raw.measuredAt !== null &&
+      classes.length === QINIU_CLASSES.size &&
+      classes.every(
+        (item) =>
+          QINIU_CLASSES.has(item.storageClass) &&
+          item.state === "available" &&
+          item.bytes !== null &&
+          item.objectCount !== null &&
+          item.measuredAt !== null &&
+          Date.parse(item.measuredAt) === Date.parse(raw.measuredAt as string),
+      );
+    const sums = classes.reduce(
+      (result, item) => [
+        result[0] + (item.bytes ?? 0),
+        result[1] + (item.objectCount ?? 0),
+      ],
+      [0, 0],
+    );
+    analytics = {
+      complete: raw.complete && aligned && sums.every(Number.isSafeInteger),
+      measuredAt: raw.measuredAt,
+      classes,
+      ...(raw.warning ? { warning: raw.warning } : {}),
+    };
+  }
+  if (value.source === "qiniu" && !analytics) throw invalid();
+  let complete = value.complete;
+  let bytes = value.bytes;
+  let objectCount = value.objectCount;
+  let measuredAt = value.measuredAt;
+  let warning = value.warning;
+  if (value.source === "qiniu") {
+    if (!analytics) throw invalid();
+    const sums = analytics.classes.reduce(
+      (result, item) => [
+        result[0] + (item.bytes ?? 0),
+        result[1] + (item.objectCount ?? 0),
+      ],
+      [0, 0],
+    );
+    const consistent =
+      analytics.complete &&
+      bytes !== null &&
+      objectCount !== null &&
+      measuredAt !== null &&
+      analytics.measuredAt !== null &&
+      Date.parse(measuredAt) === Date.parse(analytics.measuredAt) &&
+      Number.isSafeInteger(sums[0]) &&
+      Number.isSafeInteger(sums[1]) &&
+      bytes === sums[0] &&
+      objectCount === sums[1];
+    if (!complete || !consistent) {
+      complete = false;
+      bytes = null;
+      objectCount = null;
+      measuredAt = null;
+      warning ??= t(
+        "官方分类统计尚未齐全或时间不一致，总量待确认；缺失数据不是零。",
+        "Official class metrics are incomplete or not time-aligned. The total is unconfirmed; missing data is not zero.",
+      );
+    }
+  }
+  return {
+    profileId: expectedProfileId,
+    bucket: expectedBucket,
+    bytes,
+    objectCount,
+    source: value.source as BucketUsage["source"],
+    measuredAt,
+    fetchedAt: value.fetchedAt,
+    complete,
+    ...(value.metadataBytes !== undefined
+      ? { metadataBytes: value.metadataBytes as number }
+      : {}),
+    ...(value.scannedPages !== undefined
+      ? { scannedPages: value.scannedPages as number }
+      : {}),
+    ...(warning ? { warning } : {}),
+    ...(analytics ? { qiniuAnalytics: analytics } : {}),
+  };
+}
+
+export function isBucketUsageCacheable(data: BucketUsage): boolean {
+  return (
+    data.complete &&
+    data.bytes !== null &&
+    data.objectCount !== null &&
+    data.measuredAt !== null &&
+    metric(data.bytes) &&
+    metric(data.objectCount) &&
+    instant(data.measuredAt) &&
+    (data.source !== "qiniu" || data.qiniuAnalytics?.complete === true)
+  );
+}
 
 export interface BucketUsageState {
   data: BucketUsage | null;
@@ -45,6 +268,7 @@ export function useBucketUsage(
     profileId && bucket
       ? JSON.stringify([
           profileId,
+          profile?.provider,
           profile?.updatedAt,
           !!profile?.hasR2AnalyticsToken,
           bucket,
@@ -121,7 +345,7 @@ export function useBucketUsage(
     const timer = window.setTimeout(async () => {
       if (active.current?.id !== requestId || latestKey.current !== key) return;
       try {
-        const data = await rpcCall("buckets:usage", {
+        const result = await rpcCall("buckets:usage", {
           profileId,
           bucket,
           requestId,
@@ -129,10 +353,13 @@ export function useBucketUsage(
         });
         if (active.current?.id !== requestId || latestKey.current !== key)
           return;
-        if (data.profileId !== profileId || data.bucket !== bucket) {
-          throw new Error("统计结果与当前存储桶不一致，请重新刷新");
-        }
-        if (data.complete) {
+        const data = parseBucketUsage(
+          result,
+          profileId,
+          bucket,
+          profile?.provider,
+        );
+        if (isBucketUsageCacheable(data)) {
           cache.current.delete(key);
           cache.current.set(key, { data, receivedAt: Date.now() });
           if (cache.current.size > MAX_CACHE_ENTRIES) {
@@ -166,7 +393,15 @@ export function useBucketUsage(
       window.clearTimeout(timer);
       if (active.current?.id === requestId) cancelActive();
     };
-  }, [key, bucket, profileId, online, revision, cancelActive]);
+  }, [
+    key,
+    bucket,
+    profileId,
+    online,
+    revision,
+    cancelActive,
+    profile?.provider,
+  ]);
 
   useEffect(() => {
     let refreshTimer: number | undefined;

@@ -13,8 +13,10 @@ import { localize, t, useT } from "@/lib/i18n";
 import { IconCheck, IconCircleInfo } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import {
+  DEFAULT_SHARE_MAX_SECONDS,
   EXPIRATION_PRESETS,
-  CUSTOM_EXPIRATION_MAX as MAX_VALUES,
+  expirationMaxValues,
+  shareExpirationLimitLabel,
 } from "./share-expiration";
 
 interface ShareExpirationFieldsProps {
@@ -28,6 +30,8 @@ interface ShareExpirationFieldsProps {
   onCustomUnitChange: (unit: ExpirationUnit) => void;
   disabled: boolean;
   error: string | null;
+  maxSeconds?: number;
+  applicationLimit?: boolean;
 }
 
 const UNIT_LABELS: Record<ExpirationUnit, string> = {
@@ -71,6 +75,8 @@ export function ShareExpirationFields({
   onCustomUnitChange,
   disabled,
   error,
+  maxSeconds = DEFAULT_SHARE_MAX_SECONDS,
+  applicationLimit = false,
 }: ShareExpirationFieldsProps) {
   useT();
   const presetLabels = EXPIRATION_PRESETS.map((preset) =>
@@ -81,6 +87,8 @@ export function ShareExpirationFields({
   const errorId = `${id}-error`;
   const customId = `${id}-value`;
   const describedBy = error ? `${hintId} ${errorId}` : hintId;
+  const maximums = expirationMaxValues(maxSeconds);
+  const maximumLabel = shareExpirationLimitLabel(maxSeconds);
 
   return (
     <fieldset
@@ -133,7 +141,9 @@ export function ShareExpirationFields({
                   type="radio"
                   name={`${id}-preset`}
                   checked={selectedPreset === index}
-                  disabled={disabled}
+                  disabled={
+                    disabled || EXPIRATION_PRESETS[index].seconds > maxSeconds
+                  }
                   onChange={() => onPresetChange(index)}
                   className="peer sr-only"
                 />
@@ -172,7 +182,7 @@ export function ShareExpirationFields({
               type="number"
               inputMode="numeric"
               min={1}
-              max={MAX_VALUES[customUnit]}
+              max={maximums[customUnit]}
               step={1}
               value={customValue}
               disabled={disabled}
@@ -236,7 +246,25 @@ export function ShareExpirationFields({
           aria-hidden="true"
         />
         <div className="space-y-1 text-xs leading-relaxed">
-          <p>{t("最长有效期：7 天", "Maximum expiration: 7 days")}</p>
+          <p>
+            {applicationLimit
+              ? t(
+                  `应用安全上限：${maximumLabel}（不是服务商上限）`,
+                  `Application safety cap: ${maximumLabel} (not a provider limit)`,
+                )
+              : t(
+                  `最长有效期：${maximumLabel}`,
+                  `Maximum expiration: ${maximumLabel}`,
+                )}
+          </p>
+          {applicationLimit && (
+            <p>
+              {t(
+                "域名策略可能更早使链接失效；实际访问不作保证。",
+                "Domain policy may invalidate a link earlier; access is not guaranteed.",
+              )}
+            </p>
+          )}
           <p className="text-muted-foreground/85">
             {t(
               "到期后，分享链接将失效",

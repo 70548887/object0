@@ -21,6 +21,7 @@ import { IconFolderOpen, IconSpinner } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { useFolderSyncStore, useVaultStore } from "@/stores";
 import { toast } from "../common/Toast";
+import { qiniuUnfinishedTransferReason } from "../objects/qiniu-transfer-gates";
 
 const DEFAULT_POLL_INTERVAL_MS = 30000;
 const DEFAULT_EXCLUDE_PATTERNS = [
@@ -67,9 +68,17 @@ export function FolderSyncRuleEditor({
   const [buckets, setBuckets] = useState<string[]>([]);
   const [loadingBuckets, setLoadingBuckets] = useState(false);
   const [saving, setSaving] = useState(false);
+  const syncBlocked = qiniuUnfinishedTransferReason(
+    profiles.find((p) => p.id === profileId),
+    "sync",
+  );
 
   const loadBuckets = useCallback(
     async (pid: string) => {
+      if (profiles.find((p) => p.id === pid)?.provider === "qiniu") {
+        setBuckets([]);
+        return;
+      }
       setLoadingBuckets(true);
       try {
         const result = await rpcCall("buckets:list", { profileId: pid });
@@ -83,7 +92,7 @@ export function FolderSyncRuleEditor({
       }
       setLoadingBuckets(false);
     },
-    [t],
+    [t, profiles],
   );
 
   useEffect(() => {
@@ -98,6 +107,7 @@ export function FolderSyncRuleEditor({
   };
 
   const handleSave = async () => {
+    if (syncBlocked) return toast.warning(syncBlocked);
     if (!profileId || !bucket || !localPath) {
       toast.error(t("请填写所有必填项", "Please fill in all required fields"));
       return;
@@ -139,6 +149,11 @@ export function FolderSyncRuleEditor({
 
   return (
     <div className="space-y-3">
+      {syncBlocked && (
+        <p role="note" className="text-warning text-xs">
+          {syncBlocked}
+        </p>
+      )}
       <div className="rounded border border-success/30 bg-success/10 p-2 text-xs">
         <p className="font-semibold text-success">
           {t("实时同步规则", "Live sync rule")}
@@ -158,6 +173,11 @@ export function FolderSyncRuleEditor({
           value={profileId}
           onValueChange={(v) => {
             if (v == null) return;
+            const reason = qiniuUnfinishedTransferReason(
+              profiles.find((p) => p.id === v),
+              "sync",
+            );
+            if (reason) return toast.warning(reason);
             setProfileId(v);
             setBucket("");
           }}
@@ -177,7 +197,12 @@ export function FolderSyncRuleEditor({
           </SelectTrigger>
           <SelectContent>
             {profiles.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
+              <SelectItem
+                key={p.id}
+                value={p.id}
+                disabled={p.provider === "qiniu"}
+                title={qiniuUnfinishedTransferReason(p, "sync") ?? undefined}
+              >
                 {p.name}
               </SelectItem>
             ))}
@@ -428,7 +453,10 @@ export function FolderSyncRuleEditor({
         <Button
           size="sm"
           onClick={handleSave}
-          disabled={saving || !profileId || !bucket || !localPath}
+          disabled={
+            !!syncBlocked || saving || !profileId || !bucket || !localPath
+          }
+          title={syncBlocked ?? undefined}
         >
           {saving ? (
             <IconSpinner className="size-3.5 animate-spin" />

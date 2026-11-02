@@ -29,6 +29,7 @@ import {
 } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
 import { toast } from "../common/Toast";
+import { connectionTestPresentation } from "./connection-test-feedback";
 import {
   copyAllProfileInformation,
   copyCredential,
@@ -71,7 +72,8 @@ export function ProfileList({
       const result = await rpcCall("profile:test-saved", {
         profileId: profile.id,
       });
-      if (result.success) {
+      const feedback = connectionTestPresentation(profile.provider, result);
+      if (feedback.tone === "success") {
         toast.success(
           t(
             `“${profile.name}”连接成功`,
@@ -79,11 +81,19 @@ export function ProfileList({
           ),
           { id: toastId },
         );
+      } else if (feedback.tone === "warning") {
+        toast.warning(
+          t(
+            `“${profile.name}”：${feedback.msg}`,
+            `“${profile.name}”: ${localize(feedback.msg)}`,
+          ),
+          { id: toastId },
+        );
       } else {
         toast.error(
           t(
-            `连接失败：${result.error ?? "请检查账号配置"}`,
-            `Connection failed: ${localize(result.error ?? t("请检查账号配置", "Check the account configuration"))}`,
+            `连接失败：${feedback.msg}`,
+            `Connection failed: ${localize(feedback.msg)}`,
           ),
           {
             id: toastId,
@@ -244,6 +254,8 @@ function ProviderIcon({ provider }: { provider: ProfileInfo["provider"] }) {
       return <IconAws className="size-4 text-warning" />;
     case "r2":
       return <IconCloud className="size-4 text-info" />;
+    case "qiniu":
+      return <IconCloud className="size-4 text-primary" />;
     case "spaces":
       return <IconDigitalOcean className="size-4 text-info" />;
     case "minio":
@@ -263,6 +275,7 @@ function providerBadge(provider: ProfileInfo["provider"]): string {
   const map: Record<string, string> = {
     aws: "bg-warning/10 text-warning",
     r2: "bg-info/10 text-info",
+    qiniu: "bg-primary/10 text-primary",
     spaces: "bg-info/10 text-info",
     minio: "bg-destructive/10 text-destructive",
     gcs: "bg-success/10 text-success",
@@ -276,6 +289,7 @@ function providerDot(provider: ProfileInfo["provider"]): string {
   const map: Record<string, string> = {
     aws: "bg-warning",
     r2: "bg-info",
+    qiniu: "bg-primary",
     spaces: "bg-info",
     minio: "bg-destructive",
     gcs: "bg-success",

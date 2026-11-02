@@ -1,4 +1,5 @@
-//! Read-only whole-bucket usage, using an optional R2 snapshot or a bounded S3 scan.
+//! Read-only whole-bucket usage: official snapshots or a clearly sourced,
+//! bounded object scan. Missing metrics never become zero-valued totals.
 
 use super::*;
 use futures_util::future::{AbortHandle, AbortRegistration, Abortable};
@@ -42,7 +43,7 @@ impl Drop for UsageChangeGuard<'_> {
 
 #[derive(Default)]
 pub(crate) struct UsageRuntime {
-    tasks: HashMap<String, AbortHandle>,
+    tasks: HashMap<String, (String, AbortHandle)>,
     cancelled: HashMap<String, Instant>,
 }
 
@@ -65,16 +66,28 @@ pub(crate) struct UsageCancelInput {
 pub(crate) struct BucketUsage {
     profile_id: String,
     bucket: String,
-    bytes: u64,
-    object_count: u64,
+    bytes: Option<u64>,
+    object_count: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     metadata_bytes: Option<u64>,
     source: &'static str,
-    measured_at: String,
+    measured_at: Option<String>,
     fetched_at: String,
     complete: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     scanned_pages: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    qiniu_analytics: Option<QiniuAnalyticsDetails>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QiniuAnalyticsDetails {
+    complete: bool,
+    measured_at: Option<String>,
+    classes: Vec<qiniu::analytics::ClassUsage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     warning: Option<String>,
 }
@@ -139,7 +152,7 @@ fn register_task<'a>(
         return Err("用量统计任务过多，请稍后重试".to_string());
     }
     let (handle, registration) = AbortHandle::new_pair();
-    runtime.tasks.insert(input.request_id.clone(), handle);
+    runtime.tasks.insert(input.request_id.clone(), (profile.id.clone(), handle));
     Ok((profile, registration, UsageTaskGuard {
         runtime: &state.usage,
         request_id: input.request_id.clone(),
@@ -152,7 +165,7 @@ pub(crate) fn cancel(state: &AppState, input: UsageCancelInput) -> Result<(), St
     }
     let mut runtime = lock_state(&state.usage)?;
     prune_cancelled(&mut runtime);
-    if let Some(handle) = runtime.tasks.get(&input.request_id) {
+    if let Some((_, handle)) = runtime.tasks.get(&input.request_id) {
         handle.abort();
     }
     // Cancellation may race ahead of registration when a tab changes quickly.
@@ -167,7 +180,17 @@ pub(crate) fn cancel(state: &AppState, input: UsageCancelInput) -> Result<(), St
 
 pub(crate) fn cancel_all(state: &AppState) {
     if let Ok(runtime) = state.usage.lock() {
-        for handle in runtime.tasks.values() { handle.abort(); }
+        for (_, handle) in runtime.tasks.values() { handle.abort(); }
+    }
+}
+
+/// Account edits must stop old credential-bearing analytics/scan requests,
+/// not just hide the response after it has completed.
+pub(crate) fn invalidate_profile(state: &AppState, profile_id: &str) {
+    if let Ok(runtime) = state.usage.lock() {
+        for (owner, handle) in runtime.tasks.values() {
+            if owner == profile_id { handle.abort(); }
+        }
     }
 }
 
@@ -185,6 +208,9 @@ pub(crate) async fn get(state: &AppState, input: UsageInput) -> Result<BucketUsa
 
 async fn collect_usage(profile: &Profile, bucket: &str) -> Result<BucketUsage, String> {
     let started = Instant::now();
+    if profile.provider == S3Provider::Qiniu {
+        return collect_qiniu_usage(profile, bucket, started).await;
+    }
     let warning = if profile.provider == S3Provider::R2 && profile.r2_analytics_token.is_some() {
         match r2_snapshot(profile, bucket).await {
             Ok(result) => return Ok(result),
@@ -198,15 +224,104 @@ async fn collect_usage(profile: &Profile, bucket: &str) -> Result<BucketUsage, S
     })
 }
 
+async fn collect_qiniu_usage(profile: &Profile, bucket: &str, started: Instant) -> Result<BucketUsage, String> {
+    let client = storage_backend::qiniu_client(profile)?;
+    let context = tokio::time::timeout(PAGE_TIMEOUT, client.resolve_named_bucket(bucket)).await
+        .map_err(|_| "七牛空间解析超时 / Qiniu bucket resolution timed out".to_string())?
+        .map_err(|error| error.to_string())?;
+    if context.backend_mode != "kodo" {
+        return Err("此七牛私有或受限 S3 连接的全桶用量尚未验证，未扩大授权范围 / Whole-bucket usage is not verified for this private or restricted Qiniu S3 connection; access scope was not expanded".to_string());
+    }
+    let report = match tokio::time::timeout(StdDuration::from_secs(24), client.classified_usage(&context, Utc::now())).await {
+        Ok(result) => result.map_err(|error| error.to_string()),
+        Err(_) => Err("七牛官方统计超时 / Official Qiniu analytics timed out".into()),
+    };
+    finish_qiniu_usage(profile, bucket, started, &client, &context, report).await
+}
+
+/// Keep the official categories as independent evidence even when a scan
+/// becomes the displayed value. Never combine metrics from the two sources.
+async fn finish_qiniu_usage(
+    profile: &Profile, bucket: &str, started: Instant, client: &qiniu::QiniuClient,
+    context: &qiniu::ResolvedBucketContext, report: Result<qiniu::analytics::AnalyticsReport, String>,
+) -> Result<BucketUsage, String> {
+    let details = match report {
+        Ok(report) => {
+            if report.complete {
+                if let (Some(bytes), Some(object_count), Some(measured_at)) = (report.bytes, report.object_count, report.measured_at.as_ref()) {
+                    return Ok(BucketUsage {profile_id:profile.id.clone(),bucket:bucket.into(),bytes:Some(bytes),object_count:Some(object_count),metadata_bytes:None,
+                        source:"qiniu",measured_at:Some(measured_at.clone()),fetched_at:now_iso(),complete:true,scanned_pages:None,
+                        warning:report.warning.clone(),qiniu_analytics:Some(QiniuAnalyticsDetails {complete:true,measured_at:report.measured_at,classes:report.classes,warning:report.warning})});
+                }
+            }
+            QiniuAnalyticsDetails {complete:false,measured_at:report.measured_at,classes:report.classes,warning:report.warning}
+        }
+        Err(error) => QiniuAnalyticsDetails {complete:false,measured_at:None,classes:vec![],warning:Some(error)},
+    };
+    let reason = details.warning.as_deref().unwrap_or("分类缺项或时间未对齐 / Missing classes or unaligned measurement times");
+    let warning = format!("七牛官方统计暂不能确认全桶总量，回退对象扫描 / Official Qiniu totals are unconfirmed; falling back to an object scan. {reason}");
+    match scan_qiniu_objects(profile,bucket,started,client,context,Some(warning.clone())).await {
+        Ok(mut scan) => {scan.qiniu_analytics=Some(details);Ok(scan)}
+        Err(error) => Ok(BucketUsage {profile_id:profile.id.clone(),bucket:bucket.into(),bytes:None,object_count:None,metadata_bytes:None,
+            source:"qiniu",measured_at:None,fetched_at:now_iso(),complete:false,scanned_pages:None,
+            warning:Some(format!("{warning}；扫描未取得可用结果 / Scan returned no usable result: {error}")),qiniu_analytics:Some(details)}),
+    }
+}
+
+async fn scan_qiniu_objects(
+    profile: &Profile, bucket: &str, started: Instant, client: &qiniu::QiniuClient,
+    context: &qiniu::ResolvedBucketContext, warning: Option<String>,
+) -> Result<BucketUsage, String> {
+    let mut marker: Option<String> = None;
+    let mut seen = HashSet::new();
+    let mut bytes = 0_u64;
+    let mut count = 0_u64;
+    let mut pages = 0_u32;
+    loop {
+        let remaining = SCAN_BUDGET.saturating_sub(started.elapsed());
+        if remaining.is_zero() || pages >= MAX_SCAN_PAGES {
+            return if pages == 0 { Err("七牛用量统计超时 / Qiniu usage timed out".to_string()) }
+            else { Ok(partial_scan(profile, bucket, bytes, count, pages, warning, "扫描达到时间或分页上限，仅显示已扫描对象的用量下限。")) };
+        }
+        let response = tokio::time::timeout(remaining.min(PAGE_TIMEOUT), client.list_objects(&context, "", None, marker.as_deref(), 1000)).await;
+        let page = match response {
+            Ok(Ok(page)) => page,
+            Ok(Err(error)) if pages > 0 => return Ok(partial_scan(profile, bucket, bytes, count, pages, warning, &format!("{error}；扫描未完成，当前值仅是已扫描对象的下限。"))),
+            Err(_) if pages > 0 => return Ok(partial_scan(profile, bucket, bytes, count, pages, warning, "七牛用量扫描超时；当前值仅是已扫描对象的下限。")),
+            Ok(Err(error)) => return Err(error.to_string()),
+            Err(_) => return Err("七牛用量扫描超时 / Qiniu usage scan timed out".to_string()),
+        };
+        if page.is_truncated && page.next_cursor.as_ref().is_some_and(|next| seen.contains(next)) {
+            return Ok(partial_scan(profile, bucket, bytes, count, pages, warning, "存储服务重复返回分页标识，扫描已停止；当前值仅是用量下限。"));
+        }
+        for object in page.objects {
+            bytes = bytes.checked_add(object.size).filter(|value| *value <= MAX_SAFE_INTEGER)
+                .ok_or_else(|| "存储桶用量超出安全数值范围，无法准确显示".to_string())?;
+            count = count.checked_add(1).filter(|value| *value <= MAX_SAFE_INTEGER)
+                .ok_or_else(|| "对象数量超出安全数值范围，无法准确显示".to_string())?;
+        }
+        pages += 1;
+        if !page.is_truncated {
+            return Ok(BucketUsage {profile_id: profile.id.clone(), bucket: bucket.to_string(), bytes:Some(bytes), object_count:Some(count),
+                metadata_bytes: None, source: "scan", measured_at: Some(now_iso()), fetched_at: now_iso(),
+                complete: true, scanned_pages: Some(pages), warning, qiniu_analytics:None});
+        }
+        match page.next_cursor {
+            Some(next) if seen.insert(next.clone()) => marker = Some(next),
+            _ => return Ok(partial_scan(profile, bucket, bytes, count, pages, warning, "存储服务返回异常分页标识，扫描已停止；当前值仅是用量下限。")),
+        }
+    }
+}
+
 fn partial_scan(
     profile: &Profile, bucket: &str, bytes: u64, count: u64, pages: u32,
     warning: Option<String>, reason: &str,
 ) -> BucketUsage {
     let detail = match warning { Some(message) => format!("{message} {reason}"), None => reason.to_string() };
     BucketUsage {
-        profile_id: profile.id.clone(), bucket: bucket.to_string(), bytes, object_count: count,
-        metadata_bytes: None, source: "scan", measured_at: now_iso(), fetched_at: now_iso(),
-        complete: false, scanned_pages: Some(pages), warning: Some(detail),
+        profile_id: profile.id.clone(), bucket: bucket.to_string(), bytes:Some(bytes), object_count:Some(count),
+        metadata_bytes: None, source: "scan", measured_at: Some(now_iso()), fetched_at: now_iso(),
+        complete: false, scanned_pages: Some(pages), warning: Some(detail), qiniu_analytics:None,
     }
 }
 
@@ -240,7 +355,7 @@ async fn scan_bucket(
             Err(error) if pages > 0 => return Ok(partial_scan(profile, bucket, bytes, count, pages, warning, &format!("{error}；扫描未完成，当前值仅是已扫描对象的下限。"))),
             Err(error) => return Err(error),
         };
-        let truncated = output.is_truncated().unwrap_or(false);
+        let truncated = output.is_truncated().ok_or_else(|| "存储服务缺少分页状态，不能确认空桶或完整用量 / Storage response lacks pagination status; empty or complete usage cannot be confirmed".to_string())?;
         let next = output.next_continuation_token().filter(|value| !value.is_empty()).map(str::to_string);
         if truncated && next.as_ref().is_some_and(|next| seen_tokens.contains(next)) {
             // A repeated cursor can mean a repeated page. Exclude the page from
@@ -264,9 +379,9 @@ async fn scan_bucket(
         pages += 1;
         if !truncated {
             return Ok(BucketUsage {
-                profile_id: profile.id.clone(), bucket: bucket.to_string(), bytes, object_count: count,
-                metadata_bytes: None, source: "scan", measured_at: now_iso(), fetched_at: now_iso(),
-                complete: true, scanned_pages: Some(pages), warning,
+                profile_id: profile.id.clone(), bucket: bucket.to_string(), bytes:Some(bytes), object_count:Some(count),
+                metadata_bytes: None, source: "scan", measured_at: Some(now_iso()), fetched_at: now_iso(),
+                complete: true, scanned_pages: Some(pages), warning, qiniu_analytics:None,
             });
         }
         match next {
@@ -365,9 +480,13 @@ async fn r2_snapshot(profile: &Profile, bucket: &str) -> Result<BucketUsage, Str
     } else { None };
     Ok(BucketUsage {
         profile_id: profile.id.clone(), bucket: bucket.to_string(),
-        bytes: safe_metric(metrics, "payloadSize")?, object_count: safe_metric(metrics, "objectCount")?,
+        bytes: Some(safe_metric(metrics, "payloadSize")?), object_count: Some(safe_metric(metrics, "objectCount")?),
         metadata_bytes: if metrics.get("metadataSize").is_some_and(|value| !value.is_null()) { Some(safe_metric(metrics, "metadataSize")?) } else { None }, source: "r2",
-        measured_at: measured.to_rfc3339(), fetched_at: now_iso(), complete: true,
-        scanned_pages: None, warning,
+        measured_at: Some(measured.to_rfc3339()), fetched_at: now_iso(), complete: true,
+        scanned_pages: None, warning, qiniu_analytics:None,
     })
 }
+
+#[cfg(test)]
+#[path = "usage_tests.rs"]
+mod tests;

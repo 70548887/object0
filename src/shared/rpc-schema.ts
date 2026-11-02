@@ -8,7 +8,22 @@ import type {
   FolderSyncStatusEvent,
 } from "./folder-sync.types";
 import type { JobCompleteEvent, JobInfo, ProgressEvent } from "./job.types";
-import type { ProfileInfo, ProfileInput } from "./profile.types";
+import type {
+  ProfileInfo,
+  ProfileInput,
+  QiniuProfileConfig,
+} from "./profile.types";
+import type {
+  QiniuBucketContext,
+  QiniuBucketDetails,
+  QiniuDirectoryShareResult,
+  QiniuDomainReport,
+  QiniuDownloadOptions,
+  QiniuMutationResult,
+  QiniuRegionInfo,
+  QiniuShareListResult,
+  QiniuShareSessionInfo,
+} from "./qiniu.types";
 import type {
   BucketInfo,
   BucketUsage,
@@ -44,17 +59,53 @@ export type KeychainUnlockFailureReason =
   | "stale_stored_passphrase"
   | "keychain_unavailable";
 
+export type VaultStorageMode = "encrypted" | "plaintext";
+export interface LocalAccountsOpenResult {
+  ready: boolean;
+  legacyImportRequired: boolean;
+  legacyAvailable: boolean;
+  storageMode: "plaintext";
+  configPath: string;
+  profiles: ProfileInfo[];
+  version: 5;
+  hasRecoveryKey: false;
+}
+
 // ── RPC Schema: maps method names → request/response types ──
 export interface RPCSchema {
   "system:set-language": { req: { locale: "zh-CN" | "en" }; res: undefined };
   // ── Vault ──
+  "vault:open-local": {
+    req: { skipLegacyImport?: boolean };
+    res: LocalAccountsOpenResult;
+  };
+  "vault:import-legacy": {
+    req: { passphrase: string };
+    res: LocalAccountsOpenResult;
+  };
   "vault:status": {
     req: undefined;
-    res: { exists: boolean; unlocked: boolean; hasRecoveryKey: boolean };
+    res: {
+      exists: boolean;
+      unlocked: boolean;
+      hasRecoveryKey: boolean;
+      version?: number | null;
+      storageMode?: VaultStorageMode;
+      configPath?: string;
+    };
   };
   "vault:setup": {
     req: { passphrase: string; remember?: boolean };
     res: { success: boolean; recoveryKey?: string };
+  };
+  "vault:enable-plaintext": {
+    req: { confirmPlaintext: true };
+    res: {
+      success: true;
+      profiles: ProfileInfo[];
+      storageMode: "plaintext";
+      configPath: string;
+    };
   };
   "vault:unlock": {
     req: { passphrase: string; remember?: boolean };
@@ -68,6 +119,8 @@ export interface RPCSchema {
       hasRecoveryKey: boolean;
       reason?: KeychainUnlockFailureReason;
       detail?: string;
+      storageMode?: VaultStorageMode;
+      configPath?: string;
     };
   };
   "vault:unlock-keychain": {
@@ -78,6 +131,8 @@ export interface RPCSchema {
       hasRecoveryKey: boolean;
       reason?: KeychainUnlockFailureReason;
       detail?: string;
+      storageMode?: VaultStorageMode;
+      configPath?: string;
     };
   };
   "vault:lock": { req: undefined; res: undefined };
@@ -101,6 +156,10 @@ export interface RPCSchema {
     req: { newPassphrase: string; remember?: boolean };
     res: { success: boolean; recoveryKey: string };
   };
+  "vault:rotate-recovery-key": {
+    req: { passphrase: string; confirmInvalidateOldKey: true };
+    res: { recoveryKey: string; backupPath: string };
+  };
   "vault:add-recovery-key": {
     req: undefined;
     res: { recoveryKey: string };
@@ -116,10 +175,33 @@ export interface RPCSchema {
 
   // ── Profiles ──
   "profile:list": { req: undefined; res: ProfileInfo[] };
+  "profile:connect-qiniu": {
+    req: {
+      requestId: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      name?: string;
+    };
+    res: {
+      profile: ProfileInfo;
+      buckets: BucketInfo[];
+      accountConnected: true;
+      bucketReadsVerified: false;
+      downloadVerified: false;
+    };
+  };
+  "profile:connect-qiniu-cancel": {
+    req: { requestId: string };
+    res: undefined;
+  };
+  "qiniu:download-options": {
+    req: { profileId: string; bucket: string };
+    res: QiniuDownloadOptions;
+  };
   "profile:credential": {
     req: {
       profileId: string;
-      field: "accessKeyId" | "secretAccessKey" | "sessionToken";
+      field: "accessKeyId" | "secretAccessKey";
     };
     res: { value: string };
   };
@@ -131,18 +213,61 @@ export interface RPCSchema {
   "profile:remove": { req: { id: string }; res: undefined };
   "profile:test": {
     req: {
+      profileId?: string;
+      expectedProfileRevision?: string;
+      clearSessionToken?: boolean;
       provider: string;
       endpoint?: string;
       region: string;
       accessKeyId: string;
       secretAccessKey: string;
+      sessionToken?: string;
       defaultBucket?: string;
+      qiniu?: QiniuProfileConfig;
     };
-    res: { success: boolean; bucketCount: number; error?: string };
+    res: {
+      success: boolean;
+      bucketCount: number;
+      buckets?: Array<{
+        name: string;
+        regionId?: string;
+        s3Name?: string;
+        permission?: "readonly" | "readwrite";
+      }>;
+      error?: string;
+      checks?: Array<{
+        name:
+          | "authentication"
+          | "bucketAccess"
+          | "regionDiscovery"
+          | "downloadDomain";
+        status: "ok" | "warning" | "error" | "unsupported";
+        message?: string;
+      }>;
+    };
   };
   "profile:test-saved": {
     req: { profileId: string };
-    res: { success: boolean; bucketCount: number; error?: string };
+    res: {
+      success: boolean;
+      bucketCount: number;
+      buckets?: Array<{
+        name: string;
+        regionId?: string;
+        s3Name?: string;
+        permission?: "readonly" | "readwrite";
+      }>;
+      error?: string;
+      checks?: Array<{
+        name:
+          | "authentication"
+          | "bucketAccess"
+          | "regionDiscovery"
+          | "downloadDomain";
+        status: "ok" | "warning" | "error" | "unsupported";
+        message?: string;
+      }>;
+    };
   };
 
   // ── Buckets ──
@@ -157,12 +282,98 @@ export interface RPCSchema {
     res: BucketUsage;
   };
   "buckets:usage-cancel": { req: { requestId: string }; res: undefined };
+  "qiniu:regions": { req: { profileId: string }; res: QiniuRegionInfo[] };
+  "qiniu:share-create": {
+    req: {
+      profileId: string;
+      expectedProfileRevision: string;
+      bucketName: string;
+      prefix: string;
+      durationSeconds: number;
+      readOnly: true;
+    };
+    res: QiniuDirectoryShareResult;
+  };
+  "qiniu:share-login": {
+    req: {
+      url: string;
+      extractionCode: string;
+      privateEnvironmentId?: string;
+      expectedPrivateEnvironmentRevision?: string;
+    };
+    res: QiniuShareSessionInfo;
+  };
+  "qiniu:share-list": {
+    req: { sessionId: string; prefix: string; cursor?: string };
+    res: QiniuShareListResult;
+  };
+  "qiniu:share-download": {
+    req: { sessionId: string; key: string };
+    res: { cancelled: boolean; bytes?: number };
+  };
+  "qiniu:share-close": { req: { sessionId: string }; res: undefined };
+  "qiniu:bucket-context": {
+    req: { profileId: string; bucket: string };
+    res: QiniuBucketContext;
+  };
+  "qiniu:bucket-details": {
+    req: { profileId: string; bucket: string };
+    res: QiniuBucketDetails;
+  };
+  "qiniu:bucket-domains": {
+    req: { profileId: string; bucket: string };
+    res: QiniuDomainReport;
+  };
+  "qiniu:bucket-create": {
+    req: {
+      profileId: string;
+      name: string;
+      regionId: string;
+      access: "private";
+    };
+    res: { name: string; privateVerified: boolean };
+  };
+  "qiniu:bucket-delete": {
+    req: { profileId: string; bucket: string; confirmName: string };
+    res: undefined;
+  };
+  "qiniu:bucket-remark": {
+    req: { profileId: string; bucket: string; remark: string };
+    res: undefined;
+  };
+  "qiniu:object-change-type": {
+    req: {
+      profileId: string;
+      expectedProfileRevision: string;
+      bucket: string;
+      keys: string[];
+      value: number;
+      costConfirmed: boolean;
+    };
+    res: { results: QiniuMutationResult[] };
+  };
+  "qiniu:object-restore": {
+    req: {
+      profileId: string;
+      expectedProfileRevision: string;
+      bucket: string;
+      keys: string[];
+      value: number;
+      costConfirmed: boolean;
+    };
+    res: { results: QiniuMutationResult[] };
+  };
 
   // ── Objects ──
   "objects:list": { req: ObjectListReq; res: ObjectListRes };
   "objects:delete": {
-    req: { profileId: string; bucket: string; keys: string[] };
-    res: undefined;
+    req: {
+      profileId: string;
+      bucket: string;
+      keys: string[];
+      expectedProfileRevision?: string;
+    };
+    res: { results: Array<{ key: string; success: boolean; error?: string }> };
   };
   "objects:rename": {
     req: {
@@ -170,6 +381,7 @@ export interface RPCSchema {
       bucket: string;
       oldKey: string;
       newKey: string;
+      verificationReadbackConfirmed?: boolean;
     };
     res: undefined;
   };
@@ -181,11 +393,21 @@ export interface RPCSchema {
   // ── Transfers ──
   "transfer:upload": { req: UploadReq; res: { jobId: string } };
   "transfer:pick-and-upload": {
-    req: { profileId: string; bucket: string; prefix: string };
+    req: {
+      profileId: string;
+      expectedProfileRevision?: string;
+      bucket: string;
+      prefix: string;
+    };
     res: { jobIds: string[] };
   };
   "transfer:pick-and-upload-folder": {
-    req: { profileId: string; bucket: string; prefix: string };
+    req: {
+      profileId: string;
+      expectedProfileRevision?: string;
+      bucket: string;
+      prefix: string;
+    };
     res: { jobIds: string[] };
   };
   "transfer:download": { req: DownloadReq; res: { jobId: string } };
@@ -207,14 +429,27 @@ export interface RPCSchema {
   // ── Sync ──
   "sync:preview": { req: SyncReq; res: SyncDiff };
   "sync:execute": {
-    req: SyncReq;
+    req: SyncReq & { previewToken: string };
     res: { jobId: string };
   };
 
   // ── Jobs ──
   "jobs:list": { req: undefined; res: JobInfo[] };
   "jobs:cancel": { req: { jobId: string }; res: undefined };
-  "jobs:clear": { req: undefined; res: undefined };
+  "jobs:pause": { req: { jobId: string }; res: undefined };
+  "jobs:resume": { req: { jobId: string }; res: undefined };
+  "jobs:retry": { req: { jobId: string }; res: undefined };
+  "jobs:restore": {
+    req: undefined;
+    res: { restored: number; unreadable: number };
+  };
+  "jobs:clear": {
+    req: undefined;
+    res: {
+      removed: Array<{ jobId: string; attempt: number }>;
+      errors: Array<{ jobId?: string; error: string }>;
+    };
+  };
   "jobs:get-concurrency": { req: undefined; res: { concurrency: number } };
   "jobs:set-concurrency": {
     req: { concurrency: number };

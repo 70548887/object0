@@ -8,6 +8,7 @@ import { IconChevronDown, IconClock, IconCopy, IconQrcode } from "@/lib/icons";
 interface ShareResultProps {
   url: string;
   expiresLabel: string;
+  accessMode?: "public" | "signed";
   showQR: boolean;
   onCopy: () => void;
   onToggleQR: () => void;
@@ -16,6 +17,7 @@ interface ShareResultProps {
 export function ShareResult({
   url,
   expiresLabel,
+  accessMode,
   showQR,
   onCopy,
   onToggleQR,
@@ -56,10 +58,15 @@ export function ShareResult({
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
         <IconClock className="size-4" />
         <span>
-          {expiresLabel === t("已过期", "Expired") ||
-          expiresLabel === t("有效期未知", "Expiration unknown")
-            ? expiresLabel
-            : t(`剩余有效期 ${expiresLabel}`, `Expires in ${expiresLabel}`)}
+          {accessMode === "public"
+            ? t(
+                "公开链接：无固定到期时间，仍受域名及空间访问策略限制。",
+                "Public link: no fixed expiry; domain and bucket access policies still apply.",
+              )
+            : expiresLabel === t("已过期", "Expired") ||
+                expiresLabel === t("有效期未知", "Expiration unknown")
+              ? expiresLabel
+              : t(`剩余有效期 ${expiresLabel}`, `Expires in ${expiresLabel}`)}
         </span>
       </div>
 

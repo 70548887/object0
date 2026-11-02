@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { t, useT } from "@/lib/i18n";
 import { IconFolderOpen, IconRotate } from "@/lib/icons";
-import { useUIStore } from "@/stores";
+import { useProfileStore, useUIStore, useVaultStore } from "@/stores";
+import { toast } from "../common/Toast";
+import { qiniuUnfinishedTransferReason } from "../objects/qiniu-transfer-gates";
 
 function optionCopy(preference: SyncEntryPreference) {
   if (preference === "object-sync") {
@@ -42,6 +44,15 @@ export function SyncTypeChooserDialog() {
   const setSyncDialogOpen = useUIStore((s) => s.setSyncDialogOpen);
   const setFolderSyncPanelOpen = useUIStore((s) => s.setFolderSyncPanelOpen);
   const setSyncEntryPreference = useUIStore((s) => s.setSyncEntryPreference);
+  const profileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((profile) => profile.id === profileId),
+  );
+  const syncBlocked = qiniuUnfinishedTransferReason(
+    latestProfile ?? activeProfile,
+    "sync",
+  );
 
   const [rememberChoice, setRememberChoice] = useState(false);
 
@@ -52,6 +63,7 @@ export function SyncTypeChooserDialog() {
   }, [open]);
 
   const handleChoose = (preference: SyncEntryPreference) => {
+    if (syncBlocked) return toast.warning(syncBlocked);
     if (rememberChoice) {
       setSyncEntryPreference(preference);
     }
@@ -73,6 +85,11 @@ export function SyncTypeChooserDialog() {
         </DialogHeader>
 
         <div className="space-y-3">
+          {syncBlocked && (
+            <p role="note" className="text-warning text-xs">
+              {syncBlocked}
+            </p>
+          )}
           <p className="text-foreground/60 text-xs">
             {t(
               "请选择同步方式。可以每次选择，也可以将其设为同步按钮的默认方式。",
@@ -88,6 +105,8 @@ export function SyncTypeChooserDialog() {
                 type="button"
                 className="w-full rounded-lg border border-border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                 onClick={() => handleChoose(preference)}
+                disabled={!!syncBlocked}
+                title={syncBlocked ?? undefined}
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-primary">

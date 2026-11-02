@@ -24,32 +24,23 @@ export function useS3Buckets() {
     loadBuckets,
   } = useProfileStore();
   const { selectedBucket, setSelectedBucket } = useBucketStore();
-  const { loadObjects, reset: resetObjects } = useObjectStore();
+  const resetObjects = useObjectStore((s) => s.reset);
   const openBucket = useTabStore((s) => s.openBucket);
 
   const selectBucket = useCallback(
     (bucket: string) => {
-      setSelectedBucket(bucket);
       if (activeProfileId && activeProfile) {
-        resetObjects();
-        loadObjects(activeProfileId, bucket, "");
         openBucket(activeProfileId, activeProfile.name, bucket);
       }
     },
-    [
-      activeProfileId,
-      activeProfile,
-      setSelectedBucket,
-      loadObjects,
-      resetObjects,
-      openBucket,
-    ],
+    [activeProfileId, activeProfile, openBucket],
   );
 
   const switchProfile = useCallback(
     (profile: ProfileInfo | null) => {
       resetObjects();
       setSelectedBucket(null);
+      useTabStore.getState().setActiveTab(null);
       setActiveProfile(profile);
     },
     [setActiveProfile, setSelectedBucket, resetObjects],
@@ -66,34 +57,13 @@ export function useS3Buckets() {
    */
   const selectFavoriteBucket = useCallback(
     (profileId: string, bucket: string) => {
-      // Switch profile if it differs from the current one
-      if (profileId !== activeProfileId) {
-        const profiles = useVaultStore.getState().profiles;
-        const profile = profiles.find((p) => p.id === profileId);
-        if (profile) {
-          setActiveProfile(profile);
-        }
-      }
-
-      setSelectedBucket(bucket);
-      resetObjects();
-
-      // Look up the profile name for the tab label
       const profiles = useVaultStore.getState().profiles;
-      const profileName =
-        profiles.find((p) => p.id === profileId)?.name ?? "Unknown";
-
-      loadObjects(profileId, bucket, "");
-      openBucket(profileId, profileName, bucket);
+      const profile = profiles.find((p) => p.id === profileId);
+      if (!profile) return;
+      // ContentArea binds the account and validates Qiniu discovery before load.
+      openBucket(profileId, profile.name, bucket);
     },
-    [
-      activeProfileId,
-      setActiveProfile,
-      setSelectedBucket,
-      resetObjects,
-      loadObjects,
-      openBucket,
-    ],
+    [openBucket],
   );
 
   return {

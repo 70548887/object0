@@ -2,7 +2,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatSpeed } from "@/lib/formatters";
-import { useT } from "@/lib/i18n";
+import { localize, useT } from "@/lib/i18n";
 import {
   IconArrowsRotate,
   IconBroom,
@@ -10,19 +10,24 @@ import {
   IconFolderOpen,
   IconGaugeHigh,
   IconListCheck,
+  IconPause,
   IconPlay,
   IconXmark,
 } from "@/lib/icons";
 import { useJobStore, useUIStore } from "@/stores";
+import { toast } from "../common/Toast";
 import { JobItem } from "./JobItem";
 import { useJobPanelModel } from "./useJobPanelModel";
 
 const VIRTUAL_SECTION_HEIGHT = 26;
-const VIRTUAL_JOB_HEIGHT = 56;
+// Collapsed rows now include one compact account/bucket snapshot line.
+// Expanded/active rows still use measureElement for their actual height.
+const VIRTUAL_JOB_HEIGHT = 72;
 
 export function JobPanel() {
   const t = useT();
-  const { jobs, refreshJobs, clearCompleted } = useJobStore();
+  const { jobs, refreshJobs, clearCompleted, restoreJobs, restoring, error } =
+    useJobStore();
   const setJobPanelOpen = useUIStore((s) => s.setJobPanelOpen);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +42,7 @@ export function JobPanel() {
 
   const {
     activeJobs,
+    waitingJobs,
     runningJobs,
     queuedJobs,
     completedJobs,
@@ -49,6 +55,45 @@ export function JobPanel() {
     virtualRows,
     shouldVirtualize,
   } = useJobPanelModel(jobs);
+  const restore = async () => {
+    try {
+      const result = await restoreJobs();
+      if (result.unreadable > 0)
+        toast.warning(
+          t(
+            `已载入 ${result.restored} 个本地任务，${result.unreadable} 个记录无法读取；未自动传输。`,
+            `Loaded ${result.restored} local tasks; ${result.unreadable} records could not be read. No transfer started automatically.`,
+          ),
+        );
+      else
+        toast.info(
+          t(
+            `已载入 ${result.restored} 个本地任务，请手动恢复；未自动传输。`,
+            `Loaded ${result.restored} local tasks. Resume manually; no transfer started automatically.`,
+          ),
+        );
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? localize(error.message)
+          : t("读取本地任务失败", "Failed to read local tasks"),
+      );
+    }
+  };
+  const clear = async () => {
+    try {
+      await clearCompleted();
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? localize(error.message)
+          : t(
+              "清除任务失败，记录仍保留",
+              "Failed to clear tasks; records were retained",
+            ),
+      );
+    }
+  };
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? virtualRows.length : 0,
@@ -86,6 +131,12 @@ export function JobPanel() {
               <IconCheck className="ml-0.5 inline size-[7px]" />
             </span>
           )}
+          {waitingJobs.length > 0 && (
+            <span className="rounded-full bg-warning/10 px-1.5 py-px text-[9px] text-warning tabular-nums">
+              {waitingJobs.length}
+              {t(" 待恢复", " Awaiting resume")}
+            </span>
+          )}
           {failedCount > 0 && (
             <span className="rounded-full bg-destructive/15 px-1.5 py-px text-[9px] text-destructive tabular-nums">
               {failedCount}
@@ -94,13 +145,30 @@ export function JobPanel() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={restoring}
+            onClick={() => void restore()}
+            title={t(
+              "读取本地断点任务（不会自动传输）",
+              "Load local checkpoint tasks (no automatic transfer)",
+            )}
+            aria-label={t(
+              "读取本地断点任务（不会自动传输）",
+              "Load local checkpoint tasks (no automatic transfer)",
+            )}
+          >
+            <IconFolderOpen className="size-[10px]" />
+          </Button>
           {completedJobs.length > 0 && (
             <Button
               type="button"
               variant="ghost"
               size="xs"
               className="text-foreground/40 hover:text-foreground/70"
-              onClick={clearCompleted}
+              onClick={() => void clear()}
               title={t("清除已完成任务", "Clear finished jobs")}
             >
               <IconBroom className="size-[10px]" />
@@ -128,6 +196,14 @@ export function JobPanel() {
           </Button>
         </div>
       </div>
+      {error && (
+        <p
+          role="alert"
+          className="border-b border-border/60 px-3 py-2 text-xs text-destructive"
+        >
+          {localize(error)}
+        </p>
+      )}
 
       {/* Bulk progress summary — only when multiple jobs are running */}
       {runningJobs.length > 1 && totalBytes > 0 && (
@@ -179,6 +255,7 @@ export function JobPanel() {
 
               if (row.kind === "section") {
                 const isActive = row.label === "active";
+                const isWaiting = row.label === "waiting";
                 return (
                   <div
                     key={virtualRow.key}
@@ -190,12 +267,16 @@ export function JobPanel() {
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       {isActive ? (
                         <IconPlay className="mr-1 inline size-[8px] text-info/50" />
+                      ) : isWaiting ? (
+                        <IconPause className="mr-1 inline size-[8px] text-warning/70" />
                       ) : (
                         <IconCheck className="mr-1 inline size-[8px] text-success/50" />
                       )}
                       {isActive
                         ? t("进行中", "Active")
-                        : t("已完成", "Completed")}
+                        : isWaiting
+                          ? t("待恢复", "Awaiting resume")
+                          : t("已结束", "Finished")}
                       {isActive && row.queuedCount && row.queuedCount > 0 && (
                         <span className="ml-1 font-normal text-foreground/20">
                           ({row.queuedCount}
@@ -229,7 +310,7 @@ export function JobPanel() {
             {/* Active jobs section */}
             {activeJobs.length > 0 && (
               <div>
-                {completedJobs.length > 0 && (
+                {(completedJobs.length > 0 || waitingJobs.length > 0) && (
                   <div className="sticky top-0 z-10 border-border/40 border-b bg-card/95 px-3 py-1">
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       <IconPlay className="mr-1 inline size-[8px] text-info/50" />
@@ -251,14 +332,33 @@ export function JobPanel() {
               </div>
             )}
 
+            {waitingJobs.length > 0 && (
+              <div>
+                <div className="sticky top-0 z-10 border-b border-border/40 bg-card/95 px-3 py-1">
+                  <span className="text-[10px] font-semibold text-warning">
+                    <IconPause className="mr-1 inline size-[8px]" />
+                    {t(
+                      "待恢复（保留断点，不自动传输）",
+                      "Awaiting resume (checkpoints retained; no automatic transfer)",
+                    )}
+                  </span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {waitingJobs.map((job) => (
+                    <JobItem key={job.id} job={job} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Completed jobs section */}
             {completedJobs.length > 0 && (
               <div>
-                {activeJobs.length > 0 && (
+                {(activeJobs.length > 0 || waitingJobs.length > 0) && (
                   <div className="sticky top-0 z-10 border-border/40 border-b bg-card/95 px-3 py-1">
                     <span className="font-semibold text-[10px] text-foreground/30 uppercase tracking-wider">
                       <IconCheck className="mr-1 inline size-[8px] text-success/50" />
-                      {t("已完成", "Completed")}
+                      {t("已结束", "Finished")}
                     </span>
                   </div>
                 )}

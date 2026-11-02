@@ -41,22 +41,40 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 
 mod config_paths;
+mod batch_delete;
 mod crypto;
 mod folder_sync;
 mod jobs;
+mod job_location;
 mod keychain;
 mod native_locale;
+mod native_upload_store;
+mod native_download_store;
+mod native_download_jobs;
+mod native_jobs;
+mod qiniu;
+mod qiniu_download;
+mod qiniu_privacy_gate;
+mod qiniu_share_runtime;
+mod qiniu_share_rpc;
 mod persistence;
+mod profile_test_draft;
 mod rpc;
 mod rpc_method;
 mod s3;
 mod s3_errors;
+mod storage_backend;
 mod sync;
+mod sync_confirmation;
 mod tray;
+mod transfer_checkpoint;
 mod updater;
 mod usage;
 mod util;
 mod vault;
+mod plaintext_accounts;
+mod local_startup;
+mod qiniu_connect;
 mod windows_runtime;
 
 use folder_sync::*;
@@ -103,8 +121,6 @@ const FOLDER_SYNC_MIN_POLL_MS: i64 = 250;
 const FOLDER_SYNC_MAX_POLL_MS: i64 = 86_400_000;
 const MIN_JOB_CONCURRENCY: u8 = 1;
 const MAX_JOB_CONCURRENCY: u8 = 10;
-const MIN_SHARE_TTL_SECS: i64 = 1;
-const MAX_SHARE_TTL_SECS: i64 = 604_800;
 const UPDATE_CHECK_INITIAL_DELAY_SECS: u64 = 5;
 const UPDATE_CHECK_INTERVAL_SECS: u64 = 30 * 60;
 const DEFAULT_UPDATER_CHANNEL: &str = "stable";
@@ -144,12 +160,15 @@ struct VaultFileV3 {
     iv: String,
     data: String,
     recovery: Option<VaultRecoveryBlob>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recovery_mode: Option<String>,
 }
 
 enum VaultFileDisk {
     V1(VaultFileV1),
     V2(VaultFileV2),
     V3(VaultFileV3),
+    V4(VaultFileV3),
 }
 
 // ── Closed-set domain enums (serde-renamed to preserve the existing wire format
@@ -163,6 +182,7 @@ enum S3Provider {
     Minio,
     Gcs,
     Backblaze,
+    Qiniu,
     Custom,
 }
 
@@ -222,6 +242,8 @@ struct Profile {
     default_bucket: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     r2_analytics_token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    qiniu: Option<qiniu::QiniuConfig>,
     created_at: String,
     updated_at: String,
 }
@@ -229,6 +251,8 @@ struct Profile {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 struct VaultData {
     profiles: Vec<Profile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transfer_master_key: Option<vault::TransferMasterKey>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -241,6 +265,9 @@ struct ProfileInfo {
     region: Option<String>,
     default_bucket: Option<String>,
     has_r2_analytics_token: bool,
+    has_session_token: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    qiniu: Option<qiniu::QiniuConfig>,
     created_at: String,
     updated_at: String,
 }
@@ -264,9 +291,27 @@ enum JobType {
 enum JobStatus {
     Queued,
     Running,
+    Paused,
+    Interrupted,
     Completed,
     Failed,
     Cancelled,
+}
+
+/// Display-only immutable storage location. Never contains credentials or URLs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct JobLocation {
+    pub(crate) profile_id: String,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub(crate) profile_name: Option<String>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub(crate) provider: Option<S3Provider>,
+    pub(crate) bucket: String,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub(crate) key: Option<String>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub(crate) prefix: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -276,8 +321,15 @@ struct JobInfo {
     #[serde(rename = "type")]
     job_type: JobType,
     status: JobStatus,
+    #[serde(default)] resumable: bool,
+    #[serde(default)] attempt: u64,
+    #[serde(default)] cancel_requested: bool,
     file_name: String,
     description: String,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    source: Option<JobLocation>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    destination: Option<JobLocation>,
     bytes_transferred: i64,
     bytes_total: i64,
     percentage: i64,
@@ -296,7 +348,14 @@ struct JobProgressEvent {
     #[serde(rename = "type")]
     job_type: JobType,
     status: JobStatus,
+    resumable: bool,
+    attempt: u64,
+    cancel_requested: bool,
     file_name: String,
+    #[serde(skip_serializing_if="Option::is_none")]
+    source: Option<JobLocation>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    destination: Option<JobLocation>,
     bytes_transferred: i64,
     bytes_total: i64,
     percentage: i64,
@@ -312,21 +371,33 @@ struct JobCompleteEvent {
     file_name: Option<String>,
     success: bool,
     error: Option<String>,
+    status: JobStatus,
+    attempt: u64,
+    #[serde(skip_serializing_if="Option::is_none")] profile_id: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")] bucket: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")] source: Option<JobLocation>,
+    #[serde(skip_serializing_if="Option::is_none")] destination: Option<JobLocation>,
 }
 
 #[derive(Clone, Debug)]
 enum JobTaskKind {
+    NativeUpload { attempt:u64 },
+    NativeDownload { attempt:u64 },
     Upload {
         profile_id: String,
+        profile_revision: String,
+        provider: S3Provider,
         bucket: String,
         key: String,
         local_path: String,
     },
     Download {
         profile_id: String,
+        profile_revision: String,
         bucket: String,
         key: String,
         local_path: String,
+        download_domain: Option<String>,
     },
     Copy {
         source_profile_id: String,
@@ -562,8 +633,9 @@ impl Default for FolderSyncRuntime {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct VaultRuntime {
+    plaintext: bool,
     unlocked: bool,
     data: Option<VaultData>,
     key: Option<[u8; KEY_BYTES]>,
@@ -584,6 +656,12 @@ struct AppState {
     folder_sync: Mutex<FolderSyncRuntime>,
     updater: Mutex<UpdaterRuntime>,
     usage: Mutex<usage::UsageRuntime>,
+    backends: Mutex<storage_backend::BackendRuntime>,
+    native_uploads: Mutex<native_jobs::NativeRuntime>,
+    native_downloads: Mutex<native_download_jobs::DownloadRuntime>,
+    share_sessions: qiniu_share_runtime::ShareRuntime,
+    qiniu_connections: Mutex<qiniu_connect::ConnectRuntime>,
+    sync_previews: Mutex<sync_confirmation::PreviewRegistry>,
     is_quitting: AtomicBool,
 }
 
@@ -595,6 +673,12 @@ impl Default for AppState {
             folder_sync: Mutex::new(FolderSyncRuntime::default()),
             updater: Mutex::new(UpdaterRuntime::default()),
             usage: Mutex::new(usage::UsageRuntime::default()),
+            backends: Mutex::new(storage_backend::BackendRuntime::default()),
+            native_uploads: Mutex::new(native_jobs::NativeRuntime::default()),
+            native_downloads: Mutex::new(native_download_jobs::DownloadRuntime::default()),
+            share_sessions: qiniu_share_runtime::ShareRuntime::default(),
+            qiniu_connections: Mutex::new(qiniu_connect::ConnectRuntime::default()),
+            sync_previews: Mutex::new(sync_confirmation::PreviewRegistry::default()),
             is_quitting: AtomicBool::new(false),
         }
     }
@@ -627,6 +711,14 @@ struct ChangePassphraseInput {
     remember: Option<bool>,
 }
 
+// Never derive Debug: the current password must not appear in diagnostics.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RotateRecoveryKeyInput {
+    passphrase: String,
+    confirm_invalidate_old_key: bool,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProfileInput {
@@ -639,6 +731,8 @@ struct ProfileInput {
     region: Option<String>,
     default_bucket: Option<String>,
     r2_analytics_token: Option<String>,
+    qiniu: Option<qiniu::QiniuConfig>,
+    migration_recovery_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -649,6 +743,7 @@ struct ProfileUpdateInput {
     provider: S3Provider,
     access_key_id: Option<String>,
     secret_access_key: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_present_option")]
     session_token: Option<Option<String>>,
     endpoint: Option<String>,
     region: Option<String>,
@@ -656,17 +751,29 @@ struct ProfileUpdateInput {
     r2_analytics_token: Option<String>,
     #[serde(default)]
     clear_r2_analytics_token: bool,
+    qiniu: Option<qiniu::QiniuConfig>,
+    migration_recovery_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProfileTestInput {
+    #[serde(default)] profile_id: Option<String>,
+    #[serde(default)] expected_profile_revision: Option<String>,
+    #[serde(default)] clear_session_token: bool,
     provider: S3Provider,
     endpoint: Option<String>,
     region: String,
     access_key_id: String,
     secret_access_key: String,
+    session_token: Option<String>,
+    qiniu: Option<qiniu::QiniuConfig>,
     default_bucket: Option<String>,
+}
+
+fn deserialize_present_option<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
+where D: serde::Deserializer<'de> {
+    Option::<String>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Deserialize)]
@@ -674,6 +781,26 @@ struct ProfileTestInput {
 struct ProfileIdInput {
     profile_id: String,
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QiniuBucketInput { profile_id: String, bucket: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QiniuCreateBucketInput { profile_id: String, name: String, region_id: String, access: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QiniuDeleteBucketInput { profile_id: String, bucket: String, confirm_name: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QiniuRemarkInput { profile_id: String, bucket: String, remark: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QiniuObjectMutationInput { profile_id: String, expected_profile_revision: String, bucket: String, keys: Vec<String>, value: u8, #[serde(default)] cost_confirmed: bool }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -687,7 +814,6 @@ struct ProfileCredentialInput {
 enum ProfileCredentialField {
     AccessKeyId,
     SecretAccessKey,
-    SessionToken,
 }
 
 #[derive(Debug, Deserialize)]
@@ -709,6 +835,8 @@ struct ShareGenerateInput {
     bucket: String,
     key: String,
     expires_in: i64,
+    #[serde(default)] download_domain: Option<String>,
+    #[serde(default)] expected_profile_revision: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -718,7 +846,7 @@ struct ObjectsListInput {
     bucket: String,
     prefix: Option<String>,
     max_keys: Option<u16>,
-    start_after: Option<String>,
+    cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -727,6 +855,8 @@ struct ObjectsDeleteInput {
     profile_id: String,
     bucket: String,
     keys: Vec<String>,
+    #[serde(default)]
+    expected_profile_revision: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -736,6 +866,8 @@ struct ObjectsRenameInput {
     bucket: String,
     old_key: String,
     new_key: String,
+    #[serde(default)]
+    verification_readback_confirmed: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -750,6 +882,7 @@ struct ObjectsStatInput {
 #[serde(rename_all = "camelCase")]
 struct UploadInput {
     profile_id: String,
+    #[serde(default)] expected_profile_revision: Option<String>,
     bucket: String,
     key: String,
     local_path: String,
@@ -762,12 +895,15 @@ struct DownloadInput {
     bucket: String,
     key: String,
     local_path: String,
+    #[serde(default)] download_domain: Option<String>,
+    #[serde(default)] expected_profile_revision: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PickUploadInput {
     profile_id: String,
+    #[serde(default)] expected_profile_revision: Option<String>,
     bucket: String,
     prefix: String,
 }
@@ -789,6 +925,8 @@ struct CopyInput {
     dest_profile_id: String,
     dest_bucket: String,
     dest_key: String,
+    #[serde(default)]
+    verification_readback_confirmed: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -802,6 +940,8 @@ struct CrossBucketInput {
     dest_bucket: String,
     dest_prefix: String,
     mode: TransferMode,
+    #[serde(default)]
+    verification_readback_confirmed: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -824,6 +964,8 @@ struct SyncInput {
     dest_bucket: String,
     dest_prefix: String,
     mode: SyncMode,
+    #[serde(default)]
+    preview_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -934,6 +1076,7 @@ pub fn run() {
                     refresh_tray_menu(&app);
                 } else {
                     state.is_quitting.store(true, Ordering::SeqCst);
+                    native_jobs::pause_for_exit(&app);
                     app.exit(0);
                 }
             }
@@ -1057,7 +1200,21 @@ mod tests {
         assert_wire(S3Provider::Minio, "minio");
         assert_wire(S3Provider::Gcs, "gcs");
         assert_wire(S3Provider::Backblaze, "backblaze");
+        assert_wire(S3Provider::Qiniu, "qiniu");
         assert_wire(S3Provider::Custom, "custom");
+    }
+
+    #[test]
+    fn session_token_update_distinguishes_absent_null_and_value() {
+        let base = json!({"id":"p","name":"n","provider":"qiniu"});
+        let absent: ProfileUpdateInput = serde_json::from_value(base.clone()).unwrap();
+        assert!(absent.session_token.is_none());
+        let mut clear = base.clone(); clear["sessionToken"] = Value::Null;
+        let clear: ProfileUpdateInput = serde_json::from_value(clear).unwrap();
+        assert_eq!(clear.session_token, Some(None));
+        let mut replace = base; replace["sessionToken"] = json!("temporary-token");
+        let replace: ProfileUpdateInput = serde_json::from_value(replace).unwrap();
+        assert_eq!(replace.session_token, Some(Some("temporary-token".to_string())));
     }
 
     #[test]

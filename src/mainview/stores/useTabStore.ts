@@ -15,7 +15,7 @@ interface TabState {
 
   addTab: (tab: Omit<BrowserTab, "id">) => string;
   removeTab: (id: string) => void;
-  setActiveTab: (id: string) => void;
+  setActiveTab: (id: string | null) => void;
   updateTabPrefix: (id: string, prefix: string) => void;
 
   /** Open a bucket in a new tab or switch to existing tab for that bucket */
@@ -58,7 +58,11 @@ export const useTabStore = create<TabState>()(
         set({ tabs: next, activeTabId: nextActive });
       },
 
-      setActiveTab: (id) => set({ activeTabId: id }),
+      setActiveTab: (id) =>
+        set({
+          activeTabId:
+            id && get().tabs.some((tab) => tab.id === id) ? id : null,
+        }),
 
       updateTabPrefix: (id, prefix) => {
         set((s) => ({

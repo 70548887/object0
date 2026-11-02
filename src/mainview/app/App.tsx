@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useJobProgress, useKeyboardShortcuts } from "@/hooks";
 import { clearMessageTranslations } from "@/lib/i18n";
 import {
@@ -23,11 +23,8 @@ import { Toast } from "../components/common/Toast";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ResizeBorders } from "../components/layout/ResizeBorders";
 import { WindowChrome } from "../components/layout/WindowChrome";
-import { ChangePassphraseDialog } from "../components/vault/ChangePassphraseDialog";
-import { RecoveryFlow } from "../components/vault/RecoveryFlow";
+import { LocalAccountsStartScreen } from "../components/vault/LegacyImport";
 import { RecoveryKeyDisplay } from "../components/vault/RecoveryKeyDisplay";
-import { SetupScreen } from "../components/vault/SetupScreen";
-import { UnlockScreen } from "../components/vault/UnlockScreen";
 import { ThemeProvider } from "./ThemeProvider";
 
 let nativeLanguageQueue: Promise<unknown> = Promise.resolve();
@@ -45,16 +42,14 @@ export default function App() {
       .catch(() => {});
   }, [locale]);
   const {
-    exists,
     unlocked,
     loading,
     checkStatus,
-    needsPassphraseChange,
     pendingRecoveryKey,
+    pendingRecoveryBackupPath,
     clearPendingRecoveryKey,
   } = useVaultStore();
 
-  const [showRecovery, setShowRecovery] = useState(false);
   useEffect(() => {
     if (!unlocked) clearMessageTranslations();
   }, [unlocked]);
@@ -86,12 +81,6 @@ export default function App() {
       rpcCall("folder-sync:start-all", undefined).catch(() => {});
     }
   }, [unlocked]);
-
-  useEffect(() => {
-    if (unlocked || !exists) {
-      setShowRecovery(false);
-    }
-  }, [unlocked, exists]);
 
   // Suppress the webview's native context menu (reload / back / forward /
   // inspect element) so right-clicking feels like a native app. Editable
@@ -128,17 +117,7 @@ export default function App() {
   );
   useKeyboardShortcuts(shortcuts);
 
-  const screenKey = loading
-    ? "loading"
-    : !exists
-      ? "setup"
-      : !unlocked && showRecovery
-        ? "recovery"
-        : !unlocked
-          ? "unlock"
-          : needsPassphraseChange
-            ? "change-passphrase"
-            : "main";
+  const screenKey = loading ? "loading" : unlocked ? "main" : "local-accounts";
 
   const handleRecoveryKeyDismissed = useCallback(() => {
     clearPendingRecoveryKey();
@@ -155,16 +134,7 @@ export default function App() {
               <Loader2 className="size-8 animate-spin text-primary" />
             </div>
           )}
-          {screenKey === "setup" && <SetupScreen />}
-          {screenKey === "unlock" && (
-            <UnlockScreen onForgotPassphrase={() => setShowRecovery(true)} />
-          )}
-          {screenKey === "recovery" && (
-            <RecoveryFlow onBack={() => setShowRecovery(false)} />
-          )}
-          {screenKey === "change-passphrase" && (
-            <ChangePassphraseDialog onComplete={() => {}} />
-          )}
+          {screenKey === "local-accounts" && <LocalAccountsStartScreen />}
           {screenKey === "main" && <MainLayout />}
 
           {/* Window decorations. The main screen's TopBar carries its own
@@ -182,9 +152,11 @@ export default function App() {
             lock/loading screens too, not just the main view. */}
         <ResizeBorders />
 
-        {pendingRecoveryKey && (
+        {pendingRecoveryKey && unlocked && (
           <RecoveryKeyDisplay
+            key={pendingRecoveryKey}
             recoveryKey={pendingRecoveryKey}
+            backupPath={pendingRecoveryBackupPath}
             onDone={handleRecoveryKeyDismissed}
           />
         )}

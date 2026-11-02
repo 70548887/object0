@@ -44,3 +44,17 @@ src-tauri/WebView2Runtime/
 release-output/
 packaging/downloads/
 .preview/
+
+# User-selected local plaintext account store and its in-progress writes.
+accounts.local.json
+.accounts-local-*.tmp
+
+# Local secrets and transfer/runtime data must never enter a source release.
+vault.enc*
+vault.recovery*
+jobs-history.json
+native-upload-jobs/
+native-download-jobs/
+credentials.json
+*.pfx
+*.p12

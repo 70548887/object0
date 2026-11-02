@@ -1,0 +1,3 @@
+# Keep checkout bytes consistent with Biome and generated version files,
+# including Windows checkouts whose global core.autocrlf is enabled.
+* text=auto eol=lf

@@ -1,5 +1,5 @@
 import type { S3StatResult } from "@shared/s3.types";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -24,6 +24,8 @@ import {
 import { rpcCall } from "@/lib/rpc-client";
 import { useBucketStore, useProfileStore, useUIStore } from "@/stores";
 import { FileIcon } from "../common/FileIcon";
+import { QiniuDetailsActions } from "../qiniu/QiniuDetailsActions";
+import { qiniuRestoreInfo, qiniuStorageTypeLabel } from "./qiniu-object-info";
 
 const PREVIEWABLE_IMAGES = new Set([
   "png",
@@ -42,44 +44,72 @@ export function DetailPanel() {
   const detailKey = useUIStore((s) => s.detailKey);
   const setDetailKey = useUIStore((s) => s.setDetailKey);
   const profileId = useProfileStore((s) => s.activeProfileId);
+  const profileRevision = useProfileStore(
+    (s) => s.activeProfile?.updatedAt ?? "",
+  );
+  const isQiniu = useProfileStore((s) => s.activeProfile?.provider === "qiniu");
   const bucket = useBucketStore((s) => s.selectedBucket);
 
-  const [stat, setStat] = useState<S3StatResult | null>(null);
+  const scope = JSON.stringify([profileId, profileRevision, bucket, detailKey]);
+  const latestScope = useRef(scope);
+  latestScope.current = scope;
+  const requestGeneration = useRef(0);
+  const [statState, setStatState] = useState<{
+    scope: string;
+    data: S3StatResult;
+  } | null>(null);
+  const stat = statState?.scope === scope ? statState.data : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const refreshDetails = useCallback(
+    async (silent = false) => {
+      const generation = ++requestGeneration.current;
+      if (!detailKey || !profileId || !bucket) {
+        setStatState(null);
+        setLoading(false);
+        return;
+      }
+
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const result = await rpcCall("objects:stat", {
+          profileId,
+          bucket,
+          key: detailKey,
+        });
+        if (
+          generation === requestGeneration.current &&
+          latestScope.current === scope
+        )
+          setStatState({ scope, data: result });
+      } catch (err: unknown) {
+        if (
+          generation !== requestGeneration.current ||
+          latestScope.current !== scope
+        )
+          return;
+        if (silent) throw err;
+        setError(
+          err instanceof Error ? err.message : t("未知错误", "Unknown error"),
+        );
+      } finally {
+        if (
+          generation === requestGeneration.current &&
+          latestScope.current === scope
+        )
+          setLoading(false);
+      }
+    },
+    [profileId, bucket, detailKey, scope],
+  );
   useEffect(() => {
-    if (!detailKey || !profileId || !bucket) {
-      setStat(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    rpcCall("objects:stat", { profileId, bucket, key: detailKey })
-      .then((result) => {
-        if (!cancelled) {
-          setStat(result);
-          setLoading(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? localize(err.message)
-              : t("未知错误", "Unknown error"),
-          );
-          setLoading(false);
-        }
-      });
-
+    void refreshDetails();
     return () => {
-      cancelled = true;
+      requestGeneration.current++;
     };
-  }, [detailKey, profileId, bucket]);
+  }, [refreshDetails]);
 
   const fileName = detailKey ? getFileName(detailKey) : "";
   const ext = detailKey ? getExtension(detailKey).toLowerCase() : "";
@@ -93,7 +123,7 @@ export function DetailPanel() {
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="flex flex-col gap-0 p-0 w-72 sm:max-w-xs"
+        className="flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-0 p-0 sm:max-w-xs"
       >
         <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
           <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
@@ -148,10 +178,15 @@ export function DetailPanel() {
                 <div className="overflow-hidden rounded-lg bg-muted">
                   <div className="flex items-center justify-center p-2 text-foreground/30 text-xs">
                     <IconImage className="mr-1 size-3" />
-                    {t(
-                      "此 S3 对象暂不支持直接预览图片",
-                      "Image previews are not available for this S3 object",
-                    )}
+                    {isQiniu
+                      ? t(
+                          "此七牛对象暂不支持直接预览图片",
+                          "Image previews are not available for this Qiniu object",
+                        )
+                      : t(
+                          "此 S3 对象暂不支持直接预览图片",
+                          "Image previews are not available for this S3 object",
+                        )}
                   </div>
                 </div>
               )}
@@ -183,6 +218,18 @@ export function DetailPanel() {
                   />
                 </tbody>
               </table>
+              {isQiniu && <QiniuStatDetails stat={stat} />}
+              {isQiniu && profileId && bucket && (
+                <QiniuDetailsActions
+                  key={scope}
+                  profileId={profileId}
+                  profileRevision={profileRevision}
+                  bucket={bucket}
+                  objectKey={detailKey}
+                  stat={stat}
+                  onRefresh={() => refreshDetails(true)}
+                />
+              )}
 
               {/* Quick actions */}
               <div className="space-y-1 pt-2">
@@ -206,6 +253,68 @@ export function DetailPanel() {
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function QiniuStatDetails({ stat }: { stat: S3StatResult }) {
+  useT();
+  const restore = qiniuRestoreInfo(
+    stat.storageType,
+    stat.restoreStatus,
+    "stat",
+  );
+  const metadata = Object.entries(stat.metadata ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  return (
+    <section
+      className="min-w-0 space-y-3 border-t border-border pt-3"
+      aria-label={t("七牛对象信息", "Qiniu object information")}
+    >
+      <table className="w-full table-fixed text-xs">
+        <tbody>
+          <DetailRow
+            label={t("存储类型", "Storage type")}
+            value={qiniuStorageTypeLabel(stat.storageType)}
+          />
+          <DetailRow
+            label={t("恢复状态", "Restore state")}
+            value={restore.label}
+          />
+        </tbody>
+      </table>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {restore.hint}
+      </p>
+      <div className="min-w-0 space-y-2">
+        <h4 className="text-xs font-semibold">
+          {t("自定义元信息（只读）", "Custom metadata (read-only)")}
+        </h4>
+        {metadata.length > 0 ? (
+          <dl className="min-w-0 space-y-2 text-xs">
+            {metadata.map(([key, value]) => (
+              <div key={key} className="min-w-0 space-y-0.5">
+                <dt className="break-all font-mono text-[10px] text-muted-foreground">
+                  {key}
+                </dt>
+                <dd className="m-0 break-all font-mono text-[10px] text-foreground/80">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {stat.metadata === undefined
+              ? t(
+                  "服务未返回自定义元信息。",
+                  "The service did not return custom metadata.",
+                )
+              : t("无自定义元信息。", "No custom metadata.")}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 

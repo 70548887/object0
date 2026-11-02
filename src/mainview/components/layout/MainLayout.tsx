@@ -53,6 +53,11 @@ const ObjectSearchDialog = lazy(() =>
     default: module.ObjectSearchDialog,
   })),
 );
+const QiniuShareWorkspace = lazy(() =>
+  import("../qiniu/QiniuShareWorkspace").then((module) => ({
+    default: module.QiniuShareWorkspace,
+  })),
+);
 
 export function MainLayout() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
@@ -131,6 +136,9 @@ export function MainLayout() {
       </Suspense>
       <Suspense fallback={null}>
         <ObjectSearchDialog />
+      </Suspense>
+      <Suspense fallback={null}>
+        <QiniuShareWorkspace />
       </Suspense>
     </SidebarProvider>
   );

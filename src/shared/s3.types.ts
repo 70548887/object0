@@ -5,6 +5,7 @@ export interface S3Object {
   lastModified: string;
   etag: string;
   storageClass?: string;
+  restoreStatus?: number;
 }
 
 // ── Object listing sort ──
@@ -20,21 +21,43 @@ export interface S3Prefix {
 export interface BucketInfo {
   name: string;
   creationDate?: string;
+  regionId?: string;
+  s3Name?: string;
+  permission?: "readonly" | "readwrite";
+  remark?: string;
 }
 
-// Whole-bucket usage. An incomplete scan is a lower bound, never a total.
+export interface QiniuClassUsage {
+  storageClass: string;
+  bytes: number | null;
+  objectCount: number | null;
+  measuredAt: string | null;
+  state: "available" | "partial" | "forbidden" | "unsupported" | "unavailable";
+  reason?: string;
+}
+
+export interface QiniuUsageAnalytics {
+  complete: boolean;
+  measuredAt: string | null;
+  classes: QiniuClassUsage[];
+  warning?: string;
+}
+
+// Only an incomplete object scan is a lower bound. Missing official metrics
+// stay null; they must not be displayed or cached as a zero-valued total.
 export interface BucketUsage {
   profileId: string;
   bucket: string;
-  bytes: number;
-  objectCount: number;
+  bytes: number | null;
+  objectCount: number | null;
   metadataBytes?: number;
-  source: "r2" | "scan";
-  measuredAt: string;
+  source: "r2" | "scan" | "qiniu";
+  measuredAt: string | null;
   fetchedAt: string;
   complete: boolean;
   scannedPages?: number;
   warning?: string;
+  qiniuAnalytics?: QiniuUsageAnalytics;
 }
 
 // ── Object list request ──
@@ -43,7 +66,8 @@ export interface ObjectListReq {
   bucket: string;
   prefix?: string;
   maxKeys?: number;
-  startAfter?: string;
+  // Opaque provider cursor; never derive it from a displayed object key.
+  cursor?: string;
   sortField?: "key" | "size" | "lastModified";
   sortDir?: "asc" | "desc";
 }
@@ -63,11 +87,15 @@ export interface S3StatResult {
   etag: string;
   lastModified: string;
   type: string;
+  metadata?: Record<string, string>;
+  storageType?: number;
+  restoreStatus?: number;
 }
 
 // ── Upload request ──
 export interface UploadReq {
   profileId: string;
+  expectedProfileRevision?: string;
   bucket: string;
   key: string;
   localPath: string;
@@ -79,6 +107,8 @@ export interface DownloadReq {
   bucket: string;
   key: string;
   localPath: string;
+  downloadDomain?: string;
+  expectedProfileRevision?: string;
 }
 
 // ── Download folder request ──
@@ -105,10 +135,13 @@ export interface CopyReq {
   destProfileId: string;
   destBucket: string;
   destKey: string;
+  verificationReadbackConfirmed?: boolean;
 }
 
 // ── Move request ──
-export interface MoveReq extends CopyReq {}
+export interface MoveReq extends CopyReq {
+  verificationReadbackConfirmed?: boolean;
+}
 
 // ── Cross-bucket transfer request (batch: files + folders) ──
 export type TransferMode = "copy" | "move";
@@ -122,6 +155,7 @@ export interface CrossTransferReq {
   destBucket: string;
   destPrefix: string;
   mode: TransferMode;
+  verificationReadbackConfirmed?: boolean;
 }
 
 // ── Sync request ──
@@ -139,6 +173,7 @@ export type SyncMode = "mirror" | "additive" | "overwrite";
 
 // ── Sync diff ──
 export interface SyncDiff {
+  previewToken: string;
   toAdd: SyncDiffEntry[];
   toUpdate: SyncDiffEntry[];
   toDelete: SyncDiffEntry[];
@@ -186,12 +221,15 @@ export interface ShareReq {
   bucket: string;
   key: string;
   expiresIn: number; // seconds
+  downloadDomain?: string;
+  expectedProfileRevision?: string;
 }
 
 // ── Share response ──
 export interface ShareRes {
   url: string;
-  expiresAt: string; // ISO timestamp
+  expiresAt: string | null; // Public URLs have no client-enforced expiry.
+  accessMode?: "public" | "signed";
   key: string;
 }
 
@@ -202,6 +240,7 @@ export interface ShareHistoryEntry {
   bucket: string;
   key: string;
   url: string;
-  expiresAt: string;
+  expiresAt: string | null;
+  accessMode?: "public" | "signed";
   createdAt: string;
 }

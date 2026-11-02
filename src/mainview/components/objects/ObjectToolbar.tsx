@@ -34,15 +34,30 @@ import {
   useObjectStore,
   useProfileStore,
   useUIStore,
+  useVaultStore,
 } from "@/stores";
+import { useQiniuShareStore } from "@/stores/useQiniuShareStore";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { toast } from "../common/Toast";
+import { canCreateQiniuDirectoryShare } from "../qiniu/qiniu-share-scope";
 import { CreateFolderDialog } from "./CreateFolderDialog";
+import {
+  qiniuFolderMutationBlockReason,
+  qiniuUnfinishedTransferReason,
+  qiniuUploadBlockReason,
+  qiniuUploadNotice,
+} from "./qiniu-transfer-gates";
+import { assertCurrentUploadScope } from "./upload-scope";
 import { usePendingDelete } from "./usePendingDelete";
 
 export function ObjectToolbar() {
   useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((profile) => profile.id === profileId),
+  );
+  const profile = latestProfile ?? activeProfile;
   const bucket = useBucketStore((s) => s.selectedBucket);
   const { selectedKeys, clearSelection, refresh, filters, setFilters } =
     useS3Objects();
@@ -58,6 +73,7 @@ export function ObjectToolbar() {
 
   const requestDelete = usePendingDelete({
     profileId,
+    profileRevision: profile?.updatedAt,
     bucket,
     selectedKeys,
     clearSelection,
@@ -65,8 +81,21 @@ export function ObjectToolbar() {
   });
 
   const selected = Array.from(selectedKeys);
+  const deleteBlocked = qiniuFolderMutationBlockReason(
+    profile,
+    selected,
+    "delete",
+  );
   const singleSelectedKey = selected.length === 1 ? selected[0] : null;
   const hasSelection = selectedKeys.size > 0;
+  const uploadBlocked = qiniuUploadBlockReason(profile);
+  const uploadNotice = qiniuUploadNotice(profile);
+  const syncBlocked = qiniuUnfinishedTransferReason(profile, "sync");
+  const archiveBlocked = qiniuUnfinishedTransferReason(profile, "archive");
+  const transferBlocked = qiniuUnfinishedTransferReason(profile, "transfer");
+  const folderDownloadBlocked = selected.some((key) => key.endsWith("/"))
+    ? qiniuUnfinishedTransferReason(profile, "folder-download")
+    : null;
   const canShare =
     !!singleSelectedKey &&
     !!profileId &&
@@ -96,12 +125,22 @@ export function ObjectToolbar() {
   }, []);
 
   const handleUpload = useCallback(async () => {
-    if (!profileId || !bucket) return;
+    if (!profileId || !bucket || !profile?.updatedAt) return;
+    if (uploadBlocked) return toast.warning(uploadBlocked);
+    if (uploadNotice) toast.warning(uploadNotice);
     const prefix = useObjectStore.getState().currentPrefix;
 
     try {
+      assertCurrentUploadScope({
+        profileId,
+        expectedProfileRevision: profile.updatedAt,
+        provider: profile.provider,
+        bucket,
+        prefix,
+      });
       const result = await rpcCall("transfer:pick-and-upload", {
         profileId,
+        expectedProfileRevision: profile.updatedAt,
         bucket,
         prefix,
       });
@@ -119,15 +158,32 @@ export function ObjectToolbar() {
       const msg = err instanceof Error ? localize(err.message) : String(err);
       toast.error(t(`上传失败：${msg}`, `Upload failed: ${msg}`));
     }
-  }, [profileId, bucket]);
+  }, [
+    profileId,
+    bucket,
+    profile?.updatedAt,
+    profile?.provider,
+    uploadBlocked,
+    uploadNotice,
+  ]);
 
   const handleUploadFolder = useCallback(async () => {
-    if (!profileId || !bucket) return;
+    if (!profileId || !bucket || !profile?.updatedAt) return;
+    if (uploadBlocked) return toast.warning(uploadBlocked);
+    if (uploadNotice) toast.warning(uploadNotice);
     const prefix = useObjectStore.getState().currentPrefix;
 
     try {
+      assertCurrentUploadScope({
+        profileId,
+        expectedProfileRevision: profile.updatedAt,
+        provider: profile.provider,
+        bucket,
+        prefix,
+      });
       const result = await rpcCall("transfer:pick-and-upload-folder", {
         profileId,
+        expectedProfileRevision: profile.updatedAt,
         bucket,
         prefix,
       });
@@ -145,10 +201,18 @@ export function ObjectToolbar() {
       const msg = err instanceof Error ? localize(err.message) : String(err);
       toast.error(t(`上传文件夹失败：${msg}`, `Folder upload failed: ${msg}`));
     }
-  }, [profileId, bucket]);
+  }, [
+    profileId,
+    bucket,
+    profile?.updatedAt,
+    profile?.provider,
+    uploadBlocked,
+    uploadNotice,
+  ]);
 
   const handleDownload = useCallback(async () => {
     if (!profileId || !bucket || selectedKeys.size === 0) return;
+    if (folderDownloadBlocked) return toast.warning(folderDownloadBlocked);
 
     let started = false;
     for (const key of selectedKeys) {
@@ -205,10 +269,11 @@ export function ObjectToolbar() {
         );
       }
     }
-  }, [profileId, bucket, selectedKeys]);
+  }, [profileId, bucket, selectedKeys, folderDownloadBlocked]);
 
   const handleDownloadArchive = useCallback(async () => {
     if (!profileId || !bucket || selectedKeys.size === 0) return;
+    if (archiveBlocked) return toast.warning(archiveBlocked);
 
     try {
       const keys = Array.from(selectedKeys);
@@ -241,7 +306,7 @@ export function ObjectToolbar() {
         ),
       );
     }
-  }, [profileId, bucket, selectedKeys]);
+  }, [profileId, bucket, selectedKeys, archiveBlocked]);
 
   const handleShare = useCallback(() => {
     if (!canShare || !profileId || !bucket || !singleSelectedKey) return;
@@ -250,16 +315,28 @@ export function ObjectToolbar() {
 
   const handleTransfer = useCallback(() => {
     if (selectedKeys.size === 0) return;
+    if (transferBlocked) return toast.warning(transferBlocked);
     openTransferDialog({
       keys: Array.from(selectedKeys),
       defaultMode: "copy",
     });
-  }, [selectedKeys, openTransferDialog]);
+  }, [selectedKeys, openTransferDialog, transferBlocked]);
+
+  const handleSync = useCallback(() => {
+    if (syncBlocked) return toast.warning(syncBlocked);
+    openSyncEntry();
+  }, [openSyncEntry, syncBlocked]);
+
+  const handleCreateFolder = useCallback(() => {
+    if (uploadBlocked) return toast.warning(uploadBlocked);
+    setCreateFolderOpen(true);
+  }, [uploadBlocked]);
 
   const openDeleteConfirm = useCallback(() => {
     if (selectedKeys.size === 0) return;
+    if (deleteBlocked) return toast.warning(deleteBlocked);
     setConfirmDelete(true);
-  }, [selectedKeys.size]);
+  }, [selectedKeys.size, deleteBlocked]);
 
   useEffect(() => {
     // Keep event-driven toolbar actions centralized for shortcuts and command palette.
@@ -267,11 +344,11 @@ export function ObjectToolbar() {
       [OBJECT_TOOLBAR_EVENTS.OPEN_SEARCH, openSearch],
       [OBJECT_TOOLBAR_EVENTS.UPLOAD_FILES, () => void handleUpload()],
       [OBJECT_TOOLBAR_EVENTS.UPLOAD_FOLDER, () => void handleUploadFolder()],
-      [OBJECT_TOOLBAR_EVENTS.NEW_FOLDER, () => setCreateFolderOpen(true)],
+      [OBJECT_TOOLBAR_EVENTS.NEW_FOLDER, handleCreateFolder],
       [OBJECT_TOOLBAR_EVENTS.DOWNLOAD_SELECTION, () => void handleDownload()],
       [OBJECT_TOOLBAR_EVENTS.DELETE_SELECTION, openDeleteConfirm],
       [OBJECT_TOOLBAR_EVENTS.REFRESH_OBJECTS, refresh],
-      [OBJECT_TOOLBAR_EVENTS.OPEN_SYNC, openSyncEntry],
+      [OBJECT_TOOLBAR_EVENTS.OPEN_SYNC, handleSync],
       [OBJECT_TOOLBAR_EVENTS.OPEN_TRANSFER, handleTransfer],
       [OBJECT_TOOLBAR_EVENTS.SHARE_SELECTION, handleShare],
     ] as const;
@@ -296,18 +373,22 @@ export function ObjectToolbar() {
     handleDownload,
     openDeleteConfirm,
     refresh,
-    openSyncEntry,
+    handleSync,
+    handleCreateFolder,
     handleTransfer,
     handleShare,
   ]);
 
   return (
-    <div className="no-drag flex items-center gap-2 border-t border-border px-3 py-2">
+    <div
+      className={`no-drag flex items-center gap-2 border-t border-border px-3 py-2${profile?.provider === "qiniu" ? " flex-wrap" : ""}`}
+    >
       <div className="flex items-center gap-1.5">
         <Button
           size="sm"
           onClick={() => void handleUpload()}
-          title={t("上传文件", "Upload files")}
+          disabled={!!uploadBlocked}
+          title={uploadNotice ?? t("上传文件", "Upload files")}
         >
           <IconCloudArrowUp /> {t("上传", "Upload")}
         </Button>
@@ -315,8 +396,9 @@ export function ObjectToolbar() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setCreateFolderOpen(true)}
-          title={t("新建文件夹", "New folder")}
+          onClick={handleCreateFolder}
+          disabled={!!uploadBlocked}
+          title={uploadBlocked ?? t("新建文件夹", "New folder")}
         >
           <IconFolder /> {t("新建文件夹", "New folder")}
         </Button>
@@ -325,8 +407,10 @@ export function ObjectToolbar() {
           variant="ghost"
           size="sm"
           onClick={() => void handleDownload()}
-          disabled={!hasSelection}
-          title={t("下载选中项", "Download selected items")}
+          disabled={!hasSelection || !!folderDownloadBlocked}
+          title={
+            folderDownloadBlocked ?? t("下载选中项", "Download selected items")
+          }
         >
           <IconCloudArrowDown /> {t("下载", "Download")}
         </Button>
@@ -334,8 +418,9 @@ export function ObjectToolbar() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={openSyncEntry}
-          title={syncButtonTitle}
+          onClick={handleSync}
+          disabled={!!syncBlocked}
+          title={syncBlocked ?? syncButtonTitle}
         >
           <SyncButtonIcon /> {syncButtonLabel}
         </Button>
@@ -349,11 +434,12 @@ export function ObjectToolbar() {
               : "text-foreground/35 opacity-60"
           }
           onClick={openDeleteConfirm}
-          disabled={!hasSelection}
+          disabled={!hasSelection || !!deleteBlocked}
           title={
-            hasSelection
+            deleteBlocked ??
+            (hasSelection
               ? t("删除选中项", "Delete selected items")
-              : t("选择要删除的文件", "Select files to delete")
+              : t("选择要删除的文件", "Select files to delete"))
           }
         >
           <IconTrashCan /> {t("删除", "Delete")}
@@ -369,22 +455,62 @@ export function ObjectToolbar() {
             }
           />
           <DropdownMenuContent align="start" className="w-52">
-            <DropdownMenuItem onClick={() => void handleUploadFolder()}>
+            <DropdownMenuItem
+              onClick={() => void handleUploadFolder()}
+              disabled={!!uploadBlocked}
+              title={uploadNotice ?? undefined}
+            >
               <IconFolderPlus /> {t("上传文件夹", "Upload folder")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => void handleDownloadArchive()}
-              disabled={!hasSelection}
+              disabled={!hasSelection || !!archiveBlocked}
+              title={archiveBlocked ?? undefined}
             >
               <IconFileZipper /> {t("打包下载", "Download archive")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleTransfer} disabled={!hasSelection}>
+            <DropdownMenuItem
+              onClick={handleTransfer}
+              disabled={!hasSelection || !!transferBlocked}
+              title={transferBlocked ?? undefined}
+            >
               <IconArrowRightArrowLeft /> {t("传输", "Transfer")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleShare} disabled={!canShare}>
               <IconShareNodes /> {t("分享", "Share")}
             </DropdownMenuItem>
+            {profile?.provider === "qiniu" && (
+              <DropdownMenuItem
+                disabled={
+                  !bucket ||
+                  !profileId ||
+                  !canCreateQiniuDirectoryShare(profile)
+                }
+                title={t(
+                  "公有云永久凭据可创建；实际权限由服务端确认。分享当前目录，而非选中文件。",
+                  "Available for public-cloud permanent credentials; the service confirms permissions. Shares the current folder, not selected files.",
+                )}
+                onClick={() => {
+                  if (
+                    !profileId ||
+                    !bucket ||
+                    !profile ||
+                    !canCreateQiniuDirectoryShare(profile)
+                  )
+                    return;
+                  useQiniuShareStore.getState().openCreate({
+                    profileId,
+                    profileRevision: profile.updatedAt,
+                    bucketName: bucket,
+                    prefix: useObjectStore.getState().currentPrefix,
+                  });
+                }}
+              >
+                <IconShareNodes />{" "}
+                {t("分享当前目录（只读）", "Share current folder (read-only)")}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -448,10 +574,28 @@ export function ObjectToolbar() {
         </div>
       </div>
 
+      {uploadNotice && (
+        <p role="note" className="basis-full text-[11px] text-foreground/60">
+          {uploadNotice}
+          {t(
+            "；同步、文件夹/打包下载及跨空间传输暂不可用。",
+            "; sync, folder/archive downloads, and cross-bucket transfers are not available yet.",
+          )}
+        </p>
+      )}
+      {deleteBlocked && (
+        <p role="note" className="basis-full text-[11px] text-foreground/60">
+          {deleteBlocked}
+        </p>
+      )}
+
       <ConfirmDialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        onConfirm={() => void requestDelete()}
+        onConfirm={() => {
+          if (deleteBlocked) return toast.warning(deleteBlocked);
+          void requestDelete();
+        }}
         title={t("删除文件", "Delete files")}
         message={t(
           `确定删除 ${selectedKeys.size} 个文件吗？此操作无法撤销。`,

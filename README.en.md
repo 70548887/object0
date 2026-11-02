@@ -2,73 +2,125 @@
 
 [简体中文](README.md) | **English**
 
-**A desktop workspace for managing multiple cloud-storage accounts.**
+**One desktop workspace for multiple cloud-storage accounts and buckets.**
 
-Yuncang brings compatible S3 and Cloudflare R2 accounts into one desktop application. It is a customized fork of [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0); the original MIT license and copyright notices are preserved.
+Yuncang puts Qiniu Kodo, Cloudflare R2, Amazon S3 and compatible connections in one window: select an account, switch buckets, browse files, upload/download, inspect transfer destinations and create sharing links.
 
-## Download
+Based on [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0), with the upstream MIT license and copyright notices preserved.
 
-Get the Windows x64 installer or portable ZIP from [GitHub Releases](https://github.com/70548887/object0/releases).
+[Download preview](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1) · [Release notes](docs/RELEASE_v1.7.0-preview.1.md) · [MIT license](LICENSE)
 
-- **Installer:** a guided Windows installation with an uninstall entry.
-- **Portable ZIP:** extract the entire archive to a writable local directory and run `object0.exe`. Keep the adjacent `WebView2Runtime` folder. No separate WebView2 installation is required.
-- Verify downloads against `SHA256SUMS.txt` on the same release page.
+> **Preview status:** several Qiniu application workflows are connected, but this is not a complete Kodo console or proof of compatibility with every public/private deployment. Back up important data and validate permissions and operations in a dedicated test bucket first.
+>
+> **Local credential warning:** this version saves AK/SK **in plaintext on this computer** in `accounts.local.json`. Normal use does not require a Yuncang passphrase or recovery key. Any program that can read the file can read its credentials. Do not share it, commit it or include it in a release package.
 
-Previously published v1.6.0 packages still carry the historical **object0** name and Chinese-only UI. The rename and runtime language switch described here are in the latest source; published release files are not silently replaced. Internal executable names, repository URLs and data identifiers remain unchanged for compatibility.
+## Supported storage services
 
-## Language
+Adding an account starts with a provider choice, not a mandatory Qiniu form. Each account has its own bucket list and connection settings.
 
-The interface defaults to **Simplified Chinese**. Choose **Settings → Language → English** to switch immediately. A language selector is also available before unlocking the vault. Your choice is saved locally and restored on restart.
+| Provider | Connection and bucket handling |
+|---|---|
+| **Qiniu Kodo** | Native APIs for public cloud, account bucket discovery and per-bucket region resolution; explicit private/restricted-identity paths with the limitations below. |
+| **Cloudflare R2** | S3-compatible API, multiple accounts and buckets; region is normally `auto`. Bucket-scoped credentials can specify a default bucket. |
+| **Amazon S3** | AWS S3 API with the corresponding region and access credentials. |
+| **DigitalOcean Spaces** | The region's S3-compatible Endpoint. |
+| **MinIO** | Your own MinIO S3 service. |
+| **Google Cloud Storage** | Enabled **S3/XML interoperability with HMAC credentials**, not Google OAuth or the native JSON API. |
+| **Backblaze B2** | The region's S3-compatible API. |
+| **Custom S3-compatible storage** | An explicit Endpoint, Region and credentials; operations depend on the service implementation. |
 
-Switching language does not translate account names, bucket names, file names, object keys, URLs or credentials. Existing forms and transfer state are retained.
+A supported connection type does not imply identical features across providers. Bucket listing, object access and link signing depend on the actual credentials, region and server policies.
 
-## Features
+## Product features
 
-- Multiple AWS S3, Cloudflare R2 and S3-compatible accounts.
-- File browsing, upload, download, copy, move and folder operations.
-- An encrypted local credential vault, account details and connection testing.
-- Transfer queues, folder synchronization and conflict handling.
-- Expiring share links and QR codes; validity up to 7 days.
-- Bucket usage and object counts through bounded S3 scans, with optional official R2 analytics.
-- Light and dark themes, keyboard controls and responsive desktop dialogs.
+### Multiple accounts and buckets
 
-## Getting started
+- Switch accounts in the sidebar and browse each account's spaces/buckets.
+- Open several bucket tabs and browse folders with the existing search, details, sorting and pagination interface.
+- Qiniu bucket rows include region and permission hints. Native names and S3 identifiers remain distinct rather than treating a display name as an API identifier.
 
-1. Launch the app and create or unlock your local vault.
-2. Add a storage account and enter its provider, endpoint and access credentials.
-3. For R2, use `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` and region `auto`; specify the default bucket if credentials are bucket-scoped.
-4. Test the connection, save the account and select a bucket.
+### Transfers and destination tracking
 
-Connection success and available operations depend on the permissions granted by your provider. Failed reads are shown as errors, not as zero usage.
+- Choose files with Upload, or **drag multiple computer files directly onto the bucket content area or its blank space** to upload to the current folder.
+- The drag overlay shows the destination bucket/folder. Changing accounts, buckets or folders does not silently retarget an existing gesture.
+- Use Upload Folder for directories, subject to the provider's implemented capabilities. A dropped directory is not disguised as a regular file upload.
+- Job rows retain the **account name, provider, bucket and full object path captured when the job was created**, with Copy location. Switching or renaming accounts later does not rewrite that snapshot.
+- Old jobs explicitly show missing historical account/location information; the current page is never used to guess it.
+- S3 connections retain existing copy, move, delete and synchronization workflows. Unfinished Qiniu operations are explicitly disabled as described below.
 
-## Data and compatibility
+### Sharing and usage
 
-- Existing encrypted accounts remain in `%USERPROFILE%\.config\object0` on Windows.
-- The application identifier, OS keychain service and browser preference keys retain their historical IDs to preserve existing data.
-- Portable means the program does not need installation; credentials are not stored beside the EXE or carried in the ZIP.
-- Run only one installed or portable instance at a time. Finish transfers and exit the old version before updating.
-- The app's upstream automatic updater is disabled by default. Download customized updates from this repository.
-- Current release packages are unsigned; Windows may show an unknown publisher. Check the repository source and SHA256 without disabling system protection.
+- Single-file links, copying and QR codes. S3 signed links have an application limit of seven days and remain subject to server and credential expiry.
+- Qiniu origin, CDN and test domains can be selected per bucket; the first available entry is selected by default. HTTP displays a plaintext-transport warning and is never an automatic downgrade from HTTPS.
+- Confirmed public, unprotected Qiniu resources use public URLs: **the client cannot enforce an expiry on public access**. Private/protected resources use expiring signatures. The native 30-day signing cap is application policy, not an availability guarantee.
+- The status bar shows usage, object count, source and refresh state. Incomplete official statistics remain partial or fall back to an explicitly identified bounded scan; failed reads are not reported as zero.
+- Light/dark themes, instant Chinese/English switching, keyboard operation and narrow-window layouts.
 
-R2's **10 GB-month** Standard-storage allowance is an account-wide billing allowance, not a per-bucket capacity limit. Scanning objects may incur list-request charges; official analytics can lag behind changes.
+## Current Qiniu Kodo scope
 
-## Development
+This preview keeps Yuncang's Tauri/Rust architecture and references [Qiniu Kodo Browser](https://github.com/qiniu/kodo-browser) for workflows and protocol behavior. It **does not embed its Electron client**.
 
-The application uses **Tauri 2 + Rust + React + TypeScript + Tailwind CSS**. Use **Bun**, not npm, pnpm or yarn.
+Connected workflows:
+
+- **AK/SK one-click connection** for ordinary public accounts, with bucket/region discovery and basic file listings.
+- Native file upload. Public native permanent-credential uploads above 5 MiB use durable multipart jobs with pause and manual resume.
+- Downloads through configured or discovered download domains, with Range-based durable recovery for public native downloads.
+- Single-file links and domain selection with explicit public/private behavior.
+- Public read-only directory-share creation, extraction-code login, scoped browsing and single-file download.
+- Six-category official usage/object statistics and an explicitly identified bounded-scan fallback.
+- Explicit scoped S3 bucket bindings for restricted accounts and Session Tokens. Native names, S3 IDs, regions and Endpoints must be configured deliberately.
+
+Remaining limitations:
+
+- Private-cloud and restricted-identity paths primarily have local mock-contract coverage. **Target private deployments have not completed real-environment acceptance.** Uploads for binding mode, private cloud and temporary credentials remain unavailable.
+- Private share creation, private/S3 durable transfer recovery, Qiniu cross-bucket/cross-cloud copy/move/sync, recursive directory management, rate limiting, full preview and controlled text editing are incomplete.
+- Destructive mirror synchronization stays disabled. A disabled button is not an implemented capability; do not use this preview for production mirror cleanup.
+- Domain binding, certificates, test-domain expiry, file-type restrictions and server access policies can still affect downloads and sharing. Generating a URL is not verification of its external availability.
+
+Details: [Qiniu uploads](docs/QINIU_RESUMABLE_UPLOADS.md) · [Range downloads](docs/QINIU_RANGE_DOWNLOADS.md) · [Directory sharing](docs/QINIU_DIRECTORY_SHARING.md) · [File links](docs/QINIU_SHARE_LINK_FIXES.md) · [Usage](docs/QINIU_USAGE.md) · [Job locations](docs/JOB_LOCATION_SNAPSHOTS.md).
+
+## Windows downloads and use
+
+Preview: [**v1.7.0-preview.1**](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1). It does not replace the existing stable [v1.6.0](https://github.com/70548887/object0/releases/tag/v1.6.0); older packages do not contain all features described here.
+
+- [Windows x64 installer](https://github.com/70548887/object0/releases/download/v1.7.0-preview.1/object0_1.7.0-preview.1_windows_x64_setup.exe): follow the setup wizard; an uninstall entry is provided.
+- [Windows x64 portable ZIP](https://github.com/70548887/object0/releases/download/v1.7.0-preview.1/object0_1.7.0-preview.1_windows_x64_portable.zip): **extract the entire archive** to a writable local folder, then run `object0.exe`. Keep the complete adjacent `WebView2Runtime` folder; no separate WebView2 installation is needed.
+- [SHA256 checksums](https://github.com/70548887/object0/releases/download/v1.7.0-preview.1/SHA256SUMS.txt): compare each downloaded file.
+
+Windows 10/11 x64. Packages are not commercially code-signed and Windows may show an unknown publisher. Check the repository source and SHA256 without disabling system protection. See the [Windows guide](docs/PORTABLE_EN.md).
+
+### Quick start
+
+1. Launch directly into local account management. An old encrypted vault can be imported once with its original Yuncang passphrase or skipped; the original file is retained and a recovery key is not mandatory.
+2. Choose Add account, select Qiniu, R2, S3 or another provider, then enter its connection details. Ordinary public Qiniu needs only AK/SK and Connect; private/restricted identities use Qiniu advanced settings.
+3. Select an account and bucket in the sidebar, open a folder and upload/download or drop computer files.
+4. Inspect job status, errors and the captured account/bucket destination in the task panel.
+5. Choose Chinese or English under Settings → Language. This README also has a language link at the top.
+
+Language switching does not translate account names, bucket names, filenames, object keys, URLs or credentials.
+
+## Data and upgrades
+
+- Windows accounts are saved in `%USERPROFILE%\.config\object0\accounts.local.json`, in plaintext by default. Old `vault.enc` is retained only as an optional import source.
+- Portable means no installation, not portable accounts. Release packages contain no preconfigured account, credentials, vault or user jobs.
+- Installer and portable editions share application identity and local configuration. Run only one edition at a time; finish transfers and back up settings before upgrading.
+- New versions can read jobs without location snapshots. Older versions may reject native checkpoints with new fields; do not delete account or task files to force a downgrade.
+- The upstream automatic updater is disabled by default. Download updates manually from this repository.
+
+## Development and verification
+
+**Tauri 2 · Rust · React · TypeScript · Tailwind CSS**. Use **Bun**, not npm, pnpm or yarn.
 
 ```sh
 bun install --frozen-lockfile
+bun run test:frontend
 bun run build
+cargo test --manifest-path src-tauri/Cargo.toml --release --lib --locked
 bun run tauri dev
-bun test tests/share-expiration.test.ts tests/share-expiration-i18n.test.ts tests/i18n.test.ts
 ```
 
-Windows distribution also requires the pinned fixed WebView2 runtime described by `packaging/windows-runtime.json`. See [Windows distribution notes](docs/PORTABLE_ZH.md) and [development conventions](CLAUDE.md).
+Windows builds require the fixed WebView2 runtime in `packaging/windows-runtime.json`. The latest feature-stage local checks passed **428 Rust tests with one ignored**, and **284 frontend tests / 26 isolated regression groups**. These are local and mock-contract results, not acceptance of every real cloud or installer environment. Refer to the [version's release notes](docs/RELEASE_v1.7.0-preview.1.md) for verification scope.
 
-## Verification and limitations
+## License and acknowledgements
 
-UI language switching is tested with local sample data. Real S3/R2 operations require your own valid credentials; no user secrets are included in the repository or release archives. Detailed verification and platform coverage are recorded in each release's notes.
-
-## License and attribution
-
-[MIT](LICENSE). Based on **object0** by its original authors and contributors. Microsoft WebView2 is redistributed under its own terms, included with the Windows packages. The fork does not claim original authorship of upstream code.
+[MIT](LICENSE). Thanks to the original **object0** author and contributors. This fork preserves upstream copyright notices and does not claim upstream code as original work. Qiniu references are recorded in [Qiniu sources](src-tauri/src/qiniu/SOURCES.md). Microsoft WebView2 is redistributed under separate terms included with Windows packages.

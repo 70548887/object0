@@ -1,6 +1,7 @@
 import type { ShareHistoryEntry } from "@shared/s3.types";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { shareLinkState } from "@/components/share/share-expiration";
 import { useUIStore } from "./useUIStore";
 
 interface ShareHistoryState {
@@ -44,7 +45,7 @@ export const useShareHistoryStore = create<ShareHistoryState>()(
         const now = Date.now();
         set((state) => {
           const entries = state.entries.filter(
-            (e) => new Date(e.expiresAt).getTime() > now,
+            (e) => shareLinkState(e, now) !== "expired",
           );
           if (entries.length === state.entries.length) {
             return state;

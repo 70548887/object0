@@ -46,6 +46,8 @@ import {
   useUIStore,
   useVaultStore,
 } from "@/stores";
+import { qiniuUnfinishedTransferReason } from "../objects/qiniu-transfer-gates";
+import { toast } from "./Toast";
 
 interface PaletteCommand {
   id: string;
@@ -74,8 +76,16 @@ export function CommandPalette() {
   const toggleTheme = useThemeStore((s) => s.toggle);
   const theme = useThemeStore((s) => s.theme);
   const lock = useVaultStore((s) => s.lock);
+  const plaintext = useVaultStore((s) => s.storageMode === "plaintext");
   const activeProfile = useProfileStore((s) => s.activeProfile);
   const activeProfileId = useProfileStore((s) => s.activeProfileId);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((profile) => profile.id === activeProfileId),
+  );
+  const syncBlocked = qiniuUnfinishedTransferReason(
+    latestProfile ?? activeProfile,
+    "sync",
+  );
   const bucket = useBucketStore((s) => s.selectedBucket);
   const selectedKeys = useObjectStore((s) => s.selectedKeys);
   const selectedCount = selectedKeys.size;
@@ -145,13 +155,17 @@ export function CommandPalette() {
         section: t("应用", "App"),
         action: () => setSettingsOpen(!settingsOpen),
       },
-      {
-        id: "lock-vault",
-        label: t("锁定密码库", "Lock Vault"),
-        Icon: IconLock,
-        section: t("应用", "App"),
-        action: lock,
-      },
+      ...(!plaintext
+        ? [
+            {
+              id: "lock-vault",
+              label: t("锁定密码库", "Lock Vault"),
+              Icon: IconLock,
+              section: t("应用", "App"),
+              action: lock,
+            },
+          ]
+        : []),
       {
         id: "toggle-live-folder-sync",
         label: folderSyncPanelOpen
@@ -166,7 +180,10 @@ export function CommandPalette() {
         label: t("选择同步方式", "Choose Sync Type"),
         Icon: IconCodeCompare,
         section: t("同步", "Sync"),
-        action: openSyncChooser,
+        action: () => {
+          if (syncBlocked) return toast.warning(syncBlocked);
+          openSyncChooser();
+        },
       },
     ];
 

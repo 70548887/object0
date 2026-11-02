@@ -23,8 +23,14 @@ import {
   useObjectStore,
   useProfileStore,
   useUIStore,
+  useVaultStore,
 } from "@/stores";
 import { toast } from "../common/Toast";
+import { showDeleteResults } from "./DeleteResultNotice";
+import {
+  qiniuFolderMutationBlockReason,
+  qiniuUnfinishedTransferReason,
+} from "./qiniu-transfer-gates";
 
 interface ObjectContextMenuProps {
   /** The object key or folder prefix for this item */
@@ -50,6 +56,25 @@ export function ObjectContextMenu({
 }: ObjectContextMenuProps) {
   useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
+  const activeProfile = useProfileStore((s) => s.activeProfile);
+  const latestProfile = useVaultStore((s) =>
+    s.profiles.find((profile) => profile.id === profileId),
+  );
+  const profile = latestProfile ?? activeProfile;
+  const transferBlocked = qiniuUnfinishedTransferReason(profile, "transfer");
+  const renameBlocked = qiniuFolderMutationBlockReason(
+    profile,
+    [objectKey],
+    "rename",
+  );
+  const deleteBlocked = qiniuFolderMutationBlockReason(
+    profile,
+    [objectKey],
+    "delete",
+  );
+  const folderDownloadBlocked = isFolder
+    ? qiniuUnfinishedTransferReason(profile, "folder-download")
+    : null;
   const bucket = useBucketStore((s) => s.selectedBucket);
   const openShareDialog = useUIStore((s) => s.openShareDialog);
   const setDetailKey = useUIStore((s) => s.setDetailKey);
@@ -68,6 +93,7 @@ export function ObjectContextMenu({
 
   const handleDownload = async () => {
     if (!profileId || !bucket) return;
+    if (folderDownloadBlocked) return toast.warning(folderDownloadBlocked);
     try {
       if (isFolder) {
         const result = await rpcCall("transfer:download-folder", {
@@ -118,18 +144,35 @@ export function ObjectContextMenu({
   };
 
   const handleRename = () => {
+    if (renameBlocked) return toast.warning(renameBlocked);
     onRename(objectKey);
+  };
+
+  const handleTransfer = (defaultMode: "copy" | "move") => {
+    if (transferBlocked) return toast.warning(transferBlocked);
+    openTransferDialog({ keys: [objectKey], defaultMode });
   };
 
   const handleDelete = async () => {
     if (!profileId || !bucket) return;
+    if (deleteBlocked) return toast.warning(deleteBlocked);
     try {
-      await rpcCall("objects:delete", {
+      const report = await rpcCall("objects:delete", {
         profileId,
         bucket,
         keys: [objectKey],
+        expectedProfileRevision: profile?.updatedAt,
       });
-      toast.success(t(`已删除“${fileName}”`, `Deleted “${fileName}”`));
+      showDeleteResults([objectKey], report, bucket);
+      // The request may complete after navigation or a credential edit. Only
+      // refresh the view that still belongs to the captured request identity.
+      const current = useProfileStore.getState();
+      if (
+        current.activeProfileId !== profileId ||
+        current.activeProfile?.updatedAt !== profile?.updatedAt ||
+        useBucketStore.getState().selectedBucket !== bucket
+      )
+        return;
       const prefix = useObjectStore.getState().currentPrefix;
       useObjectStore.getState().loadObjects(profileId, bucket, prefix);
     } catch (err: unknown) {
@@ -152,7 +195,11 @@ export function ObjectContextMenu({
       )}
 
       {/* Download */}
-      <ContextMenuItem onClick={() => void handleDownload()}>
+      <ContextMenuItem
+        onClick={() => void handleDownload()}
+        disabled={!!folderDownloadBlocked}
+        title={folderDownloadBlocked ?? undefined}
+      >
         <IconCloudArrowDown className="size-4 shrink-0" />{" "}
         {t("下载", "Download")}
       </ContextMenuItem>
@@ -165,15 +212,19 @@ export function ObjectContextMenu({
       )}
 
       {/* Rename */}
-      <ContextMenuItem onClick={handleRename}>
+      <ContextMenuItem
+        onClick={handleRename}
+        disabled={!!renameBlocked}
+        title={renameBlocked ?? undefined}
+      >
         <IconPen className="size-4 shrink-0" /> {t("重命名", "Rename")}
       </ContextMenuItem>
 
       {/* Copy to bucket */}
       <ContextMenuItem
-        onClick={() =>
-          openTransferDialog({ keys: [objectKey], defaultMode: "copy" })
-        }
+        onClick={() => handleTransfer("copy")}
+        disabled={!!transferBlocked}
+        title={transferBlocked ?? undefined}
       >
         <IconCopy className="size-4 shrink-0" />{" "}
         {t("复制到存储桶", "Copy to bucket")}
@@ -181,9 +232,9 @@ export function ObjectContextMenu({
 
       {/* Move to bucket */}
       <ContextMenuItem
-        onClick={() =>
-          openTransferDialog({ keys: [objectKey], defaultMode: "move" })
-        }
+        onClick={() => handleTransfer("move")}
+        disabled={!!transferBlocked}
+        title={transferBlocked ?? undefined}
       >
         <IconArrowRightArrowLeft className="size-4 shrink-0" />{" "}
         {t("移动到存储桶", "Move to bucket")}
@@ -201,6 +252,8 @@ export function ObjectContextMenu({
       <ContextMenuItem
         variant="destructive"
         onClick={() => void handleDelete()}
+        disabled={!!deleteBlocked}
+        title={deleteBlocked ?? undefined}
       >
         <IconTrashCan className="size-4 shrink-0" /> {t("删除", "Delete")}
       </ContextMenuItem>

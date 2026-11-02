@@ -81,6 +81,7 @@ pub(crate) fn handle_tray_menu_action(app: &AppHandle, action_id: &str) {
         TRAY_MENU_QUIT => {
             let state = app.state::<AppState>();
             state.is_quitting.store(true, Ordering::SeqCst);
+            native_jobs::pause_for_exit(app);
             stop_all_folder_sync_rules(app);
             app.exit(0);
             return;

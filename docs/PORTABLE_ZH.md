@@ -1,38 +1,56 @@
-# object0 Windows 中文版
+# 云仓 Windows 使用说明
 
-## 便携压缩包
+适用版本：**1.7.0-preview.1**。本版是七牛适配及桌面功能预览，不是所有真实云环境的兼容性保证。旧 v1.6.0 包不会被覆盖，也不包含本版全部功能。
 
-将整个 ZIP 解压到一个可写目录，双击其中的 `object0.exe` 即可启动。
-保留 `WebView2Runtime` 文件夹与程序相邻；本包已包含固定版 Microsoft Edge WebView2 运行时，打开界面不要求另外安装运行时。
-不要直接在压缩软件中运行 EXE，也不要只复制一个 EXE。
-
-- 支持 Windows 10 / 11 的 x64 系统。
-- 程序界面可离线打开；连接 S3 / R2、上传、下载和分享仍需网络及有效账号凭据。
-- “便携”表示无需安装程序，不表示账号随 U 盘移动。账号与加密密码库继续保存在当前用户 C 盘的 `%USERPROFILE%\.config\object0`，不会存入本压缩包。
-- 安装版与便携版使用同一份账号配置，请一次只运行一个版本。
+> **凭据提示：AK/SK 默认明文保存在本机 `accounts.local.json`。任何能读取该文件的程序都能读取密钥。请勿共享、上传或随安装包分发账号配置。**
 
 ## 安装包
 
-`object0_<版本>_windows_x64_setup.exe` 是中文 NSIS 安装包，按向导安装即可。
-安装或切换新版前，先正常退出旧版本并等待传输任务结束。发布包不包含任何预置账号、密钥或示例密码库。
+运行 `object0_1.7.0-preview.1_windows_x64_setup.exe`，按中文安装向导操作。安装后可在设置中切换中文或 English，提供卸载入口。
 
-## 完整性校验
+安装或更换版本前，请等待传输任务结束并正常退出旧程序。发布包没有预置账号、密钥、密码库或用户任务，也不会为了安装自动删除已有配置。
 
-下载同一版本的 `SHA256SUMS.txt`。在 PowerShell 中运行：
+## 便携 ZIP
+
+将 `object0_1.7.0-preview.1_windows_x64_portable.zip` **完整解压**到本地可写目录，运行其中的 `object0.exe`。
+
+- 保留完整 `WebView2Runtime` 文件夹与 EXE 相邻；固定 Microsoft Edge WebView2 运行时已经包含，无需另行安装。
+- 不要在压缩软件中直接运行，不要只取出一个 EXE。
+- 支持 Windows 10／11 x64。界面可离线打开，云存储连接与操作仍需网络和有效权限。
+- “便携”不表示账号跟随 U 盘移动。配置保存在当前 Windows 用户的 `%USERPROFILE%\.config\object0`，不保存在 ZIP 中。
+- 安装版与便携版共享配置，请一次只运行一个实例。
+
+## 首次使用
+
+1. 本版默认进入本地明文账号管理，不再创建密码或要求恢复密钥。
+2. 添加账号时先选择服务商：七牛云 Kodo、Cloudflare R2、Amazon S3 等均直接可选。
+3. 普通七牛公有云输入 AK/SK 后点击“连接”；私有云、受限空间及 Session Token 在七牛高级配置中设置，不代表这些部署已完整验收。
+4. 在左侧选择空间／桶，浏览文件，或将电脑文件拖到内容区域上传到当前目录。文件夹使用“上传文件夹”入口。
+5. 任务详情会保留新任务创建时的账号、服务商、桶和对象路径，可复制这些位置信息；旧记录没有保存过的字段显示“未记录”。
+
+七牛文件外链默认选择第一个可用域名。HTTP 有明文传输提示。公开资源的公开直链没有客户端可强制的到期时间；私有／受保护资源使用限时签名，仍受服务端和域名策略限制。
+
+## 旧配置与升级
+
+- 本版正常账号文件为 `%USERPROFILE%\.config\object0\accounts.local.json`，默认明文，不能将其视为密码库保护。
+- 旧加密 `vault.enc` 保留，可用原云仓密码一次性导入，或选择跳过直接使用；不是七牛 SecretKey，也不强制输入恢复密钥。
+- 没有旧密码时不能凭空读取旧密文；请勿删库、重置旧文件或把密码／密钥发到聊天中。
+- 升级前备份账号配置和未完成任务。新版可读缺字段的旧任务；旧程序不保证能读取新增显示字段的原生断点记录，不要用旧版恢复这些新记录。
+- 本预览仍未完成全部七牛跨云、递归目录、编辑和私有部署能力，先在独立测试空间验证，勿执行生产镜像清理。
+
+## 完整性与来源
+
+从 [本仓库发布页](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.1) 下载同版安装包、便携 ZIP 与 `SHA256SUMS.txt`。
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\object0_<版本>_windows_x64_portable.zip
-Get-FileHash -Algorithm SHA256 .\object0_<版本>_windows_x64_setup.exe
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_setup.exe
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.1_windows_x64_portable.zip
 ```
 
-将得到的哈希与校验文件对应项比较。本项目未声称具有 Windows 代码签名；发布页中的 SHA256 用于核对下载文件是否一致。
+将哈希与校验文件逐项比较。当前包未使用商业 Windows 代码签名；未知发布者提示不应通过关闭安全保护来绕过。
 
 ## 许可证与更新
 
-object0 使用 MIT 许可证，原作者版权声明保留在随包 `LICENSE` 中。
-Microsoft Edge WebView2 运行时版权归 Microsoft 所有，按其运行时分发条款提供。
-完整 Microsoft 固定运行时许可随包放在 `WEBVIEW2-LICENSE.html`。固定运行时不自动升级，请使用后续整包更新获得运行时安全修复。
-本地中文定制版默认停用上游自动更新，请从本 fork 的 GitHub Releases 手动下载新版本：
-<https://github.com/70548887/object0/releases>
+云仓基于 object0，保留 MIT 许可证和原版权声明。Microsoft WebView2 许可随包放在 `WEBVIEW2-LICENSE.html`，固定运行时不会自行更新，请通过后续整包更新获取新版本。上游自动更新默认停用，请从本 fork 手动下载。
 
-统计页面的 10 GB·月是 R2 标准存储的账号免费计费额度，不是单桶容量上限。真实连接失败时应查看界面给出的具体原因，不会将读取失败显示为 0。
+用量读取失败会显示错误，不会当成零；统计来源、扫描范围和服务端延迟应以界面说明为准。产品说明和能力边界见 [README](../README.md) 与 [本版发行说明](RELEASE_v1.7.0-preview.1.md)。

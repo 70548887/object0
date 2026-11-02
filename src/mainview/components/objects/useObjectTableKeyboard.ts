@@ -1,5 +1,6 @@
 import type { S3Object, S3Prefix } from "@shared/s3.types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { updateNavigationTab } from "@/hooks/useS3Objects";
 import { useObjectStore } from "@/stores";
 
 interface UseObjectTableKeyboardParams {
@@ -166,6 +167,7 @@ export function useObjectTableKeyboard({
               if (profileId && bucket) {
                 const prevPrefix =
                   store.prefixHistory[store.prefixHistory.length - 1] ?? "";
+                updateNavigationTab(profileId, bucket, prevPrefix);
                 store.loadObjects(profileId, bucket, prevPrefix);
               }
             }

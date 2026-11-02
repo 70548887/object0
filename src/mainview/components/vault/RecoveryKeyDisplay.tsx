@@ -14,11 +14,13 @@ import { IconCheck, IconCopy, IconDownload, IconKey } from "@/lib/icons";
 
 interface RecoveryKeyDisplayProps {
   recoveryKey: string;
+  backupPath?: string | null;
   onDone: () => void;
 }
 
 export function RecoveryKeyDisplay({
   recoveryKey,
+  backupPath,
   onDone,
 }: RecoveryKeyDisplayProps) {
   useT();
@@ -118,6 +120,13 @@ export function RecoveryKeyDisplay({
               {t("下载", "Download")}
             </Button>
           </div>
+
+          {backupPath && (
+            <p className="break-all rounded-md border border-border p-2 text-xs text-muted-foreground">
+              {t("更换前的加密备份：", "Encrypted pre-rotation backup: ")}
+              {backupPath}
+            </p>
+          )}
 
           <div className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3">
             <Checkbox

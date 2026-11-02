@@ -1,8 +1,8 @@
 import type { ProfileInfo } from "@shared/profile.types";
 import { PROVIDER_LABELS } from "@shared/profile.types";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useS3Buckets } from "@/hooks";
-import { t, useT } from "@/lib/i18n";
+import { localize, t, useT } from "@/lib/i18n";
 import {
   IconArrowsRotate,
   IconAws,
@@ -16,17 +16,27 @@ import {
   IconLock,
   IconPlus,
   IconServer,
+  IconShareNodes,
   IconUser,
   IconUserGroup,
 } from "@/lib/icons";
 import { rpcCall } from "@/lib/rpc-client";
-import { useFavoritesStore, useVaultStore } from "@/stores";
+import {
+  useBucketStore,
+  useFavoritesStore,
+  useObjectStore,
+  useProfileStore,
+  useTabStore,
+  useVaultStore,
+} from "@/stores";
+import { useQiniuShareStore } from "@/stores/useQiniuShareStore";
 import { BucketList } from "../buckets/BucketList";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { toast } from "../common/Toast";
 import { ProfileDetailsDialog } from "../profiles/ProfileDetailsDialog";
 import { ProfileForm } from "../profiles/ProfileForm";
 import { ProfileList } from "../profiles/ProfileList";
+import { QiniuBucketPanel } from "../qiniu/QiniuBucketPanel";
 import { Button } from "../ui/button";
 import {
   SidebarContent,
@@ -44,10 +54,12 @@ export function Sidebar() {
   useT();
   const profiles = useVaultStore((s) => s.profiles);
   const lock = useVaultStore((s) => s.lock);
+  const plaintext = useVaultStore((s) => s.storageMode === "plaintext");
   const {
     activeProfile,
     buckets,
     bucketsLoading,
+    error: bucketError,
     selectedBucket,
     selectBucket,
     selectFavoriteBucket,
@@ -65,6 +77,39 @@ export function Sidebar() {
     [favorites],
   );
   const [addingProfile, setAddingProfile] = useState(false);
+  const [qiniuManagementOpen, setQiniuManagementOpen] = useState(false);
+  const qiniuProfile =
+    profiles.find((profile) => profile.id === activeProfile?.id) ??
+    activeProfile;
+  const handleQiniuBucketRemoved = useCallback(
+    (profileId: string, bucket: string) => {
+      // Remove only the deleted scope, without auto-selecting an adjacent tab
+      // from another account or changing the user's active profile.
+      if (useProfileStore.getState().activeProfileId !== profileId) return;
+      if (useBucketStore.getState().selectedBucket === bucket) {
+        useBucketStore.getState().setSelectedBucket(null);
+        useObjectStore.getState().reset();
+      }
+      useTabStore.setState((state) => {
+        const removed = new Set(
+          state.tabs
+            .filter(
+              (tab) => tab.profileId === profileId && tab.bucket === bucket,
+            )
+            .map((tab) => tab.id),
+        );
+        return {
+          tabs: state.tabs.filter((tab) => !removed.has(tab.id)),
+          activeTabId:
+            state.activeTabId && removed.has(state.activeTabId)
+              ? null
+              : state.activeTabId,
+        };
+      });
+      setQiniuManagementOpen(false);
+    },
+    [],
+  );
   const [viewingProfile, setViewingProfile] = useState<ProfileInfo | null>(
     null,
   );
@@ -223,6 +268,28 @@ export function Sidebar() {
           )}
         </SidebarGroup>
 
+        <div className="px-2 py-2 group-data-[collapsible=icon]:px-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-foreground/65 group-data-[collapsible=icon]:justify-center"
+            onClick={() => useQiniuShareStore.getState().openLogin()}
+            title={t(
+              "连接七牛共享目录（只读）",
+              "Connect to a Qiniu shared directory (read-only)",
+            )}
+            aria-label={t(
+              "连接七牛共享目录（只读）",
+              "Connect to a Qiniu shared directory (read-only)",
+            )}
+          >
+            <IconShareNodes className="size-3.5 shrink-0" />
+            <span className="truncate group-data-[collapsible=icon]:hidden">
+              {t("连接共享目录", "Connect shared directory")}
+            </span>
+          </Button>
+        </div>
+
         {/* Buckets section (when profile selected) — pinned to the bottom */}
         {activeProfile && (
           <SidebarGroup className="mt-auto p-0 group-data-[collapsible=icon]:border-border group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-1">
@@ -238,16 +305,39 @@ export function Sidebar() {
                   </span>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-foreground/40 hover:text-primary group-data-[collapsible=icon]:hidden"
-                onClick={refreshBuckets}
-                title={t("刷新存储桶列表", "Refresh Buckets")}
-              >
-                <IconArrowsRotate className="size-[11px]" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">
+                {activeProfile.provider === "qiniu" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-foreground/40 hover:text-primary"
+                    onClick={() => setQiniuManagementOpen(true)}
+                    title={t("管理七牛空间", "Manage Qiniu buckets")}
+                    aria-label={t("管理七牛空间", "Manage Qiniu buckets")}
+                  >
+                    <IconGear className="size-[11px]" aria-hidden="true" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-foreground/40 hover:text-primary group-data-[collapsible=icon]:hidden"
+                  onClick={refreshBuckets}
+                  title={t("刷新存储桶列表", "Refresh Buckets")}
+                >
+                  <IconArrowsRotate className="size-[11px]" />
+                </Button>
+              </div>
             </SidebarGroupLabel>
+            {bucketError && (
+              <p
+                role="alert"
+                className="break-words px-3 py-2 text-xs leading-relaxed text-destructive group-data-[collapsible=icon]:hidden"
+              >
+                {localize(bucketError)}
+              </p>
+            )}
             <BucketList
               buckets={buckets}
               loading={bucketsLoading}
@@ -273,18 +363,31 @@ export function Sidebar() {
               </>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-foreground/40 hover:text-destructive"
-            onClick={lock}
-            title={t("锁定密码库", "Lock Vault")}
-          >
-            <IconLock className="size-4" />
-            <span className="text-[11px] group-data-[collapsible=icon]:hidden">
-              {t("锁定", "Lock")}
+          {!plaintext && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-foreground/40 hover:text-destructive"
+              onClick={lock}
+              title={t("锁定密码库", "Lock Vault")}
+            >
+              <IconLock className="size-4" />
+              <span className="text-[11px] group-data-[collapsible=icon]:hidden">
+                {t("锁定", "Lock")}
+              </span>
+            </Button>
+          )}
+          {plaintext && (
+            <span
+              className="text-[10px] text-warning group-data-[collapsible=icon]:hidden"
+              title={t(
+                "凭据以明文保存在本机",
+                "Credentials are stored locally as plaintext",
+              )}
+            >
+              {t("明文", "Plaintext")}
             </span>
-          </Button>
+          )}
         </div>
       </SidebarFooter>
 
@@ -292,6 +395,15 @@ export function Sidebar() {
       <SidebarRail />
 
       {/* ── Modals ── */}
+      {qiniuProfile?.provider === "qiniu" && (
+        <QiniuBucketPanel
+          profile={qiniuProfile}
+          bucketName={selectedBucket}
+          open={qiniuManagementOpen}
+          onOpenChange={setQiniuManagementOpen}
+          onRemoved={handleQiniuBucketRemoved}
+        />
+      )}
       <ProfileForm
         open={addingProfile}
         onClose={() => setAddingProfile(false)}
@@ -342,6 +454,7 @@ function providerIcon(provider: string): LucideIconComponent {
     minio: IconServer,
     gcs: IconGoogle,
     backblaze: IconFire,
+    qiniu: IconCloud,
     custom: IconGear,
   };
   return map[provider] ?? IconCloud;

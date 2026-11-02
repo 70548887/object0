@@ -7,6 +7,7 @@ import type {
 } from "@shared/s3.types";
 import { create } from "zustand";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { t } from "@/lib/i18n";
 import { rpcCall } from "@/lib/rpc-client";
 import { useUIStore } from "./useUIStore";
 
@@ -23,7 +24,7 @@ interface ObjectState {
   // Pagination
   isTruncated: boolean;
   nextCursor: string | undefined;
-  pageHistory: string[]; // stack of startAfter cursors
+  pageHistory: string[]; // opaque cursors already consumed in the current scope
 
   // Sorting
   sortField: SortField;
@@ -41,7 +42,7 @@ interface ObjectState {
     bucket: string,
     prefix?: string,
     pageSize?: number,
-    startAfter?: string,
+    cursor?: string,
   ) => Promise<void>;
   navigateToPrefix: (prefix: string) => void;
   navigateBack: () => void;
@@ -63,6 +64,8 @@ const defaultFilters: ObjectFilters = {
 // Monotonic token guarding against out-of-order objects:list responses. Each
 // loadObjects call claims the next value; only the latest may commit its result.
 let loadGeneration = 0;
+let currentScope = "";
+let consumedCursors = new Set<string>();
 
 export const useObjectStore = create<ObjectState>()((set, get) => ({
   objects: [],
@@ -79,19 +82,38 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
   filters: { ...defaultFilters },
   selectedKeys: new Set(),
 
-  loadObjects: async (profileId, bucket, prefix, pageSize, startAfter) => {
+  loadObjects: async (profileId, bucket, prefix, pageSize, cursor) => {
     const generation = ++loadGeneration;
+    const resolvedPrefix = prefix ?? get().currentPrefix;
+    const resolvedPageSize =
+      pageSize ?? useUIStore.getState().pageSize ?? DEFAULT_PAGE_SIZE;
+    const scope = JSON.stringify([
+      profileId,
+      bucket,
+      resolvedPrefix,
+      resolvedPageSize,
+    ]);
     try {
+      if (cursor && scope !== currentScope) {
+        throw new Error(
+          t(
+            "分页范围已改变，请从第一页重新加载",
+            "The listing scope changed. Reload from the first page",
+          ),
+        );
+      }
+      if (!cursor || scope !== currentScope) {
+        currentScope = scope;
+        consumedCursors = new Set();
+      }
       set({ loading: true, error: null });
-      const resolvedPageSize =
-        pageSize ?? useUIStore.getState().pageSize ?? DEFAULT_PAGE_SIZE;
 
       const result = await rpcCall("objects:list", {
         profileId,
         bucket,
-        prefix: prefix ?? get().currentPrefix,
+        prefix: resolvedPrefix,
         maxKeys: resolvedPageSize,
-        startAfter,
+        cursor,
       });
 
       // A newer load started while this request was in flight — drop the stale
@@ -99,11 +121,25 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
       // tab switch).
       if (generation !== loadGeneration) return;
 
+      if (cursor) consumedCursors.add(cursor);
+      if (
+        result.isTruncated &&
+        (!result.nextCursor || consumedCursors.has(result.nextCursor))
+      ) {
+        throw new Error(
+          t(
+            "存储服务返回异常分页标识，请刷新列表后重试",
+            "Storage returned an invalid or repeated cursor. Refresh the list and retry",
+          ),
+        );
+      }
+
       set({
         objects: result.objects,
         prefixes: result.prefixes,
         isTruncated: result.isTruncated,
-        nextCursor: result.nextCursor,
+        nextCursor: result.isTruncated ? result.nextCursor : undefined,
+        pageHistory: [...consumedCursors],
         loading: false,
         selectedKeys: new Set(),
       });
@@ -118,6 +154,9 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
   },
 
   navigateToPrefix: (prefix) => {
+    ++loadGeneration;
+    currentScope = "";
+    consumedCursors = new Set();
     const current = get().currentPrefix;
     set((s) => ({
       currentPrefix: prefix,
@@ -130,6 +169,9 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
   navigateBack: () => {
     const history = get().prefixHistory;
     if (history.length === 0) return;
+    ++loadGeneration;
+    currentScope = "";
+    consumedCursors = new Set();
 
     const previous = history[history.length - 1];
     set({
@@ -176,7 +218,10 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
 
   clearSelection: () => set({ selectedKeys: new Set() }),
 
-  reset: () =>
+  reset: () => {
+    ++loadGeneration;
+    currentScope = "";
+    consumedCursors = new Set();
     set({
       objects: [],
       prefixes: [],
@@ -189,5 +234,6 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
       pageHistory: [],
       selectedKeys: new Set(),
       filters: { ...defaultFilters },
-    }),
+    });
+  },
 }));

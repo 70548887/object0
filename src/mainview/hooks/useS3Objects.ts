@@ -3,8 +3,21 @@ import {
   useBucketStore,
   useObjectStore,
   useProfileStore,
+  useTabStore,
   useUIStore,
 } from "@/stores";
+
+/** Persist only explicit folder navigation, never a stale render after tab switch. */
+export function updateNavigationTab(
+  profileId: string,
+  bucket: string,
+  prefix: string,
+) {
+  const state = useTabStore.getState();
+  const tab = state.tabs.find((item) => item.id === state.activeTabId);
+  if (tab?.profileId === profileId && tab.bucket === bucket)
+    state.updateTabPrefix(tab.id, prefix);
+}
 
 /**
  * Convenience hook to manage S3 object listing with currently-selected
@@ -46,6 +59,7 @@ export function useS3Objects() {
     (prefix: string) => {
       navigateToPrefix(prefix);
       if (!profileId || !bucket) return;
+      updateNavigationTab(profileId, bucket, prefix);
       loadObjects(profileId, bucket, prefix, pageSize);
     },
     [profileId, bucket, pageSize, navigateToPrefix, loadObjects],
@@ -57,6 +71,7 @@ export function useS3Objects() {
     const prev = history[history.length - 1];
     navigateBack();
     if (!profileId || !bucket) return;
+    updateNavigationTab(profileId, bucket, prev);
     loadObjects(profileId, bucket, prev, pageSize);
   }, [profileId, bucket, pageSize, navigateBack, loadObjects]);
 

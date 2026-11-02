@@ -45,7 +45,7 @@ Never mix implementation changes with version bumps.
 1. Implementation lands as `feat`/`fix`/`refactor`/… commits.
 2. A **separate** bump commit touches only the version files:
    `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
-   (+ `bun.lock`). Sync them from the target tag:
+   (+ the root package version in `src-tauri/Cargo.lock`, and `bun.lock` if needed). Sync them from the target tag:
 
    ```fish
    bun run release:sync-version --version vX.Y.Z
@@ -66,16 +66,19 @@ version.
 
 ## Build & Release (GitHub Actions)
 
-Pushing a `v*` tag (`vX.Y.Z` or `vX.Y.Z-rc.N`) triggers
-`.github/workflows/release.yml`:
+This fork's `.github/workflows/release.yml` is explicitly dispatched with an
+existing exact tag (`vX.Y.Z` or a preview such as `vX.Y.Z-preview.N`). A tag push
+alone does not publish a release.
 
-1. Generates release notes from Conventional Commits, creates/updates the GitHub Release.
-2. Matrix-builds Tauri bundles: macOS dmg (arm64 + x64), Linux deb/rpm/appimage,
-   Windows nsis/msi — plus standalone `--no-bundle` binaries and signed updater JSON.
-3. Publishes `object0-bin` to the AUR for non-prerelease tags (no `-` in the tag).
+1. Checks out the tag and verifies versions, local regression tests and the pinned Microsoft runtime.
+2. Builds a Windows x64 NSIS installer and portable ZIP, with an explicit asset allowlist and SHA256 checksums.
+3. Uploads to a draft, verifies downloaded bytes, then publishes. Preview tags stay prereleases and do not replace the latest stable release.
 
-`origin` is SSH, so commits touching `.github/workflows/**` push without the HTTPS
-`workflow`-scope limitation.
+Local release preparation follows the same source/version and package checks.
+Do not claim macOS/Linux artifacts, code signing or updater manifests were built
+by this Windows-only workflow. Upstream updater endpoints stay disabled.
+Inspect the actual `origin` transport and authenticated account before publishing;
+do not embed tokens in remotes or scripts, and never push this fork's work to `upstream`.
 
 ## Updater Manifest
 

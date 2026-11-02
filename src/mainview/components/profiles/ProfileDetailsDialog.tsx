@@ -1,6 +1,6 @@
 import type { ProfileInfo } from "@shared/profile.types";
 import { PROVIDER_LABELS } from "@shared/profile.types";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,12 +20,47 @@ import {
   copyAllProfileInformation,
   copyCredential,
   copyValue,
+  profileConnectionDetails,
   readCredential,
 } from "./profileCredentials";
 
 interface ProfileDetailsDialogProps {
   profile: ProfileInfo;
   onClose: () => void;
+}
+
+export function SessionTokenStatus({
+  hasSessionToken,
+}: {
+  hasSessionToken?: boolean;
+}) {
+  useT();
+  const id = useId();
+  const status =
+    hasSessionToken === true
+      ? t("已设置", "Configured")
+      : hasSessionToken === false
+        ? t("未设置", "Not configured")
+        : t(
+            "未知（服务未返回状态）",
+            "Unknown (the service did not return a status)",
+          );
+  return (
+    <div className="space-y-1.5">
+      <p id={id} className="text-sm font-medium">
+        {t("会话令牌状态", "Session token status")}
+      </p>
+      <p role="status" aria-labelledby={id} className="text-sm">
+        {status}
+      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {t(
+          "仅显示配置状态。令牌值保留在本机后端，不读取、不显示、不复制。",
+          "Only configuration status is shown. The token stays in the local backend and is not read, displayed or copied.",
+        )}
+      </p>
+    </div>
+  );
 }
 
 function InformationRow({ label, value }: { label: string; value: string }) {
@@ -175,14 +210,9 @@ export function ProfileDetailsDialog({
             label={t("存储服务商", "Provider")}
             value={PROVIDER_LABELS[profile.provider]}
           />
-          <InformationRow
-            label={t("接口地址", "Endpoint")}
-            value={profile.endpoint ?? ""}
-          />
-          <InformationRow
-            label={t("区域", "Region")}
-            value={profile.region ?? ""}
-          />
+          {profileConnectionDetails(profile).map(({ label, value }) => (
+            <InformationRow key={label} label={label} value={value} />
+          ))}
           <InformationRow
             label={t("默认存储桶", "Default bucket")}
             value={profile.defaultBucket ?? ""}
@@ -196,11 +226,7 @@ export function ProfileDetailsDialog({
             field="secretAccessKey"
             label={t("访问密钥", "Secret access key")}
           />
-          <HiddenCredentialRow
-            profile={profile}
-            field="sessionToken"
-            label={t("会话令牌（如有）", "Session token (if any)")}
-          />
+          <SessionTokenStatus hasSessionToken={profile.hasSessionToken} />
         </div>
 
         <DialogFooter>
@@ -210,10 +236,7 @@ export function ProfileDetailsDialog({
             onClick={() => void copyAllProfileInformation(profile)}
           >
             <IconCopy className="size-3.5" />{" "}
-            {t(
-              "复制全部信息（含密钥）",
-              "Copy all details (including secrets)",
-            )}
+            {t("复制连接信息（含 AK/SK）", "Copy connection details (AK/SK)")}
           </Button>
           <Button type="button" onClick={onClose}>
             {t("关闭", "Close")}

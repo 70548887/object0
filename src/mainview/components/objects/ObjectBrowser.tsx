@@ -11,8 +11,8 @@ import {
 } from "@/lib/icons";
 import {
   useBucketStore,
+  useObjectStore,
   useProfileStore,
-  useTabStore,
   useUIStore,
 } from "@/stores";
 import { EmptyState } from "../common/EmptyState";
@@ -23,9 +23,8 @@ export function ObjectBrowser() {
   useT();
   const profileId = useProfileStore((s) => s.activeProfileId);
   const bucket = useBucketStore((s) => s.selectedBucket);
+  const hasPreviousPage = useObjectStore((s) => s.pageHistory.length > 0);
   const viewMode = useUIStore((s) => s.viewMode);
-  const activeTabId = useTabStore((s) => s.activeTabId);
-  const updateTabPrefix = useTabStore((s) => s.updateTabPrefix);
   const {
     objects,
     prefixes,
@@ -53,13 +52,6 @@ export function ObjectBrowser() {
       refresh();
     }
   }, [profileId, bucket, refresh]);
-
-  // Sync current prefix to active tab
-  useEffect(() => {
-    if (activeTabId) {
-      updateTabPrefix(activeTabId, currentPrefix);
-    }
-  }, [activeTabId, currentPrefix, updateTabPrefix]);
 
   // Apply client-side search filter
   const searchTerm = filters.search.toLowerCase();
@@ -148,27 +140,47 @@ export function ObjectBrowser() {
     );
   }
 
-  if (objects.length === 0 && prefixes.length === 0) {
+  if (objects.length === 0 && prefixes.length === 0 && !isTruncated) {
     return (
       <EmptyState
         icon={<IconFolderOpen className="size-12 opacity-40" />}
         title={
-          currentPrefix
-            ? t("文件夹为空", "Folder is empty")
-            : t("存储桶为空", "Bucket is empty")
+          hasPreviousPage
+            ? t("本页暂无条目", "No entries on this page")
+            : currentPrefix
+              ? t("文件夹为空", "Folder is empty")
+              : t("存储桶为空", "Bucket is empty")
         }
-        description={t("此位置没有文件。", "There are no files here.")}
+        description={
+          hasPreviousPage
+            ? t(
+                "已到分页末尾；这不表示整个存储桶为空。",
+                "The end of pagination was reached; this does not mean the whole bucket is empty.",
+              )
+            : t("此位置没有文件。", "There are no files here.")
+        }
         action={
-          currentPrefix ? (
+          hasPreviousPage ? (
+            <Button variant="ghost" size="sm" onClick={refresh}>
+              <IconArrowLeft /> {t("返回第一页", "Return to first page")}
+            </Button>
+          ) : currentPrefix ? (
             <Button variant="ghost" size="sm" onClick={goBack}>
               <IconArrowLeft /> {t("返回", "Back")}
             </Button>
           ) : undefined
         }
-        hint={t(
-          "将文件拖到这里，或使用工具栏上的上传按钮。",
-          "Drop files here, or use Upload in the toolbar.",
-        )}
+        hint={
+          hasPreviousPage
+            ? t(
+                "可返回第一页重新查看列表。",
+                "Return to the first page to review the listing.",
+              )
+            : t(
+                "将文件拖到这里，或使用工具栏上的上传按钮。",
+                "Drop files here, or use Upload in the toolbar.",
+              )
+        }
       />
     );
   }
@@ -184,19 +196,41 @@ export function ObjectBrowser() {
         icon={<IconMagnifyingGlass className="size-12 opacity-40" />}
         title={t("没有匹配结果", "No matching results")}
         description={t(
-          `未找到与“${filters.search}”匹配的文件`,
-          `No files match “${filters.search}”`,
+          `当前页未找到与“${filters.search}”匹配的文件`,
+          `No files on this page match “${filters.search}”`,
         )}
-        hint={t(
-          "试试更短或范围更广的搜索词。",
-          "Try a shorter or broader search term.",
-        )}
+        action={
+          isTruncated ? (
+            <Button size="sm" onClick={nextPage} disabled={loading}>
+              {t("加载更多", "Load more")}
+            </Button>
+          ) : undefined
+        }
+        hint={
+          isTruncated
+            ? t(
+                "筛选仅针对当前页，后续页可能还有匹配结果。",
+                "Filtering applies to this page; later pages may contain matching files.",
+              )
+            : t(
+                "试试更短或范围更广的搜索词。",
+                "Try a shorter or broader search term.",
+              )
+        }
       />
     );
   }
 
   return (
     <div className="flex h-full flex-col">
+      {objects.length === 0 && prefixes.length === 0 && isTruncated && (
+        <p role="status" className="px-4 py-3 text-xs text-muted-foreground">
+          {t(
+            "本页暂无条目，仍有后续页面；请继续加载。",
+            "This page has no entries, but more pages are available. Continue loading.",
+          )}
+        </p>
+      )}
       {viewMode === "table" ? (
         <ObjectTable
           objects={filteredObjects}

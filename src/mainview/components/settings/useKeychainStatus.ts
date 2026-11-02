@@ -4,7 +4,7 @@ import { rpcCall } from "@/lib/rpc-client";
 
 // Tracks whether the vault passphrase is stored in the OS keychain, exposes
 // display-ready status text/badge, and a handler to forget the stored entry.
-export function useKeychainStatus() {
+export function useKeychainStatus(enabled = true) {
   const t = useT();
   const [hasStoredPassphrase, setHasStoredPassphrase] = useState<
     boolean | null
@@ -46,6 +46,7 @@ export function useKeychainStatus() {
           : "bg-muted text-foreground/55";
 
   useEffect(() => {
+    if (!enabled) return;
     let mounted = true;
     const loadKeychainStatus = async () => {
       try {
@@ -73,7 +74,7 @@ export function useKeychainStatus() {
     return () => {
       mounted = false;
     };
-  }, [t]);
+  }, [t, enabled]);
 
   const forgetStoredPassphrase = async () => {
     try {
