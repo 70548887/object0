@@ -25,6 +25,7 @@ import {
   useVaultStore,
 } from "@/stores";
 import { useLocaleStore } from "@/stores/useLocaleStore";
+import { UpdateEntry } from "../updates/UpdateDialog";
 import { LegacyImportDialog } from "../vault/LegacyImport";
 
 export function SettingsPanel() {
@@ -87,6 +88,28 @@ export function SettingsPanel() {
           {/* Settings body */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
+              <section className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                <h4 className="text-sm font-semibold">
+                  {t("关于与更新", "About and updates")}
+                </h4>
+                <UpdateEntry />
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "显示实际版本，检查 GitHub 发布和签名更新。",
+                    "View the actual version and check GitHub releases and signed updates.",
+                  )}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    useUIStore.getState().setUpdateDialogOpen(true);
+                  }}
+                >
+                  {t("检查软件更新", "Check software updates")}
+                </Button>
+              </section>
               {/* Appearance */}
               <section>
                 <h4 className="mb-3 font-semibold text-foreground/50 text-xs uppercase tracking-wider">

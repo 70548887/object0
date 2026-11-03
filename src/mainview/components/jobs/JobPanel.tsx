@@ -24,7 +24,11 @@ const VIRTUAL_SECTION_HEIGHT = 26;
 // Expanded/active rows still use measureElement for their actual height.
 const VIRTUAL_JOB_HEIGHT = 72;
 
-export function JobPanel() {
+export function JobPanel({
+  presentation = "popover",
+}: {
+  presentation?: "popover" | "workspace";
+} = {}) {
   const t = useT();
   const { jobs, refreshJobs, clearCompleted, restoreJobs, restoring, error } =
     useJobStore();
@@ -113,12 +117,22 @@ export function JobPanel() {
   }, [rowVirtualizer, shouldVirtualize]);
 
   return (
-    <div className="flex max-h-[70vh] flex-col">
+    <div
+      className={
+        presentation === "workspace"
+          ? "flex h-full min-h-0 min-w-0 flex-1 flex-col"
+          : "flex max-h-[70vh] flex-col"
+      }
+    >
       {/* Header */}
-      <div className="flex flex-row items-center justify-between gap-2 border-border border-b px-4 py-3">
+      <div className="flex shrink-0 flex-row flex-wrap items-center justify-between gap-2 border-border border-b px-4 py-3">
         <div className="flex min-w-0 items-center gap-2 font-semibold text-sm">
           <IconListCheck className="size-4 shrink-0 text-foreground/60" />
-          <span className="truncate">{t("任务", "Jobs")}</span>
+          <span className="truncate">
+            {presentation === "workspace"
+              ? t("传输列表", "Transfers")
+              : t("任务", "Jobs")}
+          </span>
           {activeJobs.length > 0 && (
             <span className="rounded-full bg-info/15 px-1.5 py-px text-[9px] text-info tabular-nums">
               {activeJobs.length}
@@ -184,16 +198,18 @@ export function JobPanel() {
           >
             <IconArrowsRotate className="size-[10px]" />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-foreground/50 hover:text-foreground"
-            onClick={() => setJobPanelOpen(false)}
-            title={t("关闭", "Close")}
-          >
-            <IconXmark className="size-4" />
-          </Button>
+          {presentation === "popover" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-foreground/50 hover:text-foreground"
+              onClick={() => setJobPanelOpen(false)}
+              title={t("关闭", "Close")}
+            >
+              <IconXmark className="size-4" />
+            </Button>
+          )}
         </div>
       </div>
       {error && (

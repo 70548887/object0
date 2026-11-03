@@ -92,6 +92,32 @@ export interface S3StatResult {
   restoreStatus?: number;
 }
 
+// Controlled UTF-8 text editing. ETags remain opaque, quoted identities.
+export interface ObjectTextReadReq {
+  profileId: string;
+  expectedProfileRevision: string;
+  bucket: string;
+  key: string;
+}
+
+export interface ObjectTextReadRes {
+  content: string;
+  etag: string;
+  contentType: string;
+  byteLength: number;
+}
+
+export interface ObjectTextWriteReq extends ObjectTextReadReq {
+  content: string;
+  expectedEtag?: string;
+  createOnly: boolean;
+}
+
+export interface ObjectTextWriteRes {
+  etag: string | null;
+  byteLength: number;
+}
+
 // ── Upload request ──
 export interface UploadReq {
   profileId: string;

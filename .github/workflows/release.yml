@@ -4,10 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag, for example v1.7.0-preview.1
+        description: Existing release tag containing the updater implementation
         required: true
-        default: v1.7.0-preview.1
         type: string
+      signed_updates:
+        description: Publish signed online-update assets (requires dedicated public variable and private secrets)
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -26,6 +30,9 @@ jobs:
       CARGO_PROFILE_RELEASE_OPT_LEVEL: '1'
       CARGO_PROFILE_RELEASE_LTO: 'false'
       CARGO_PROFILE_RELEASE_DEBUG: '0'
+      YUNCANG_BUILD_KIND: 'release'
+      YUNCANG_UPDATER_PUBLIC_KEY: ${{ inputs.signed_updates && vars.YUNCANG_UPDATER_PUBLIC_KEY || '' }}
+      SIGNED_UPDATES: ${{ inputs.signed_updates }}
     defaults:
       run:
         shell: pwsh
@@ -58,6 +65,9 @@ jobs:
       - name: Verify source release version
         run: |
           $expected = $env:RELEASE_TAG.Substring(1)
+          $commit = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve the exact release commit.' }
+          "YUNCANG_BUILD_HASH=$commit" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $package = Get-Content package.json -Raw | ConvertFrom-Json
           $tauri = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           if ($package.version -ne $expected -or $tauri.version -ne $expected) {
@@ -65,6 +75,15 @@ jobs:
           }
           if ($tauri.bundle.createUpdaterArtifacts) { throw 'Unsigned local releases must not generate upstream updater artifacts.' }
           if (@($tauri.plugins.updater.endpoints).Count -ne 0) { throw 'The fork must not inherit an upstream update feed.' }
+          if ($env:SIGNED_UPDATES -eq 'true' -and [string]::IsNullOrWhiteSpace($env:YUNCANG_UPDATER_PUBLIC_KEY)) {
+            throw 'Configure the dedicated YUNCANG_UPDATER_PUBLIC_KEY repository variable before building signed updates.'
+          }
+          if ($env:SIGNED_UPDATES -eq 'true') {
+            $helper = 'src-tauri/src/portable_update.rs'
+            if (-not (Test-Path -LiteralPath $helper) -or -not (Select-String -LiteralPath $helper -SimpleMatch '--yuncang-verify-update-file' -Quiet)) {
+              throw 'The selected tag predates signed updater support; do not run an old GUI executable as a validator.'
+            }
+          }
 
       - name: Fetch pinned Microsoft WebView2 fixed runtime
         run: |
@@ -122,6 +141,14 @@ jobs:
         run: |
           ./scripts/release/package-windows.ps1 -BuildDir ./src-tauri/target -OutputDir ./release-assets
 
+      - name: Sign update packages and manifest, then verify with compiled trust anchor
+        if: inputs.signed_updates
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.YUNCANG_UPDATER_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.YUNCANG_UPDATER_PRIVATE_KEY_PASSWORD }}
+        run: |
+          ./scripts/release/sign-github-updates.ps1 -AssetsDir ./release-assets -ValidatorExe ./src-tauri/target/release/object0.exe -NotesFile ./docs/PORTABLE_ZH.md
+
       - name: Preserve release artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -130,6 +157,8 @@ jobs:
             release-assets/*_setup.exe
             release-assets/*_portable.zip
             release-assets/SHA256SUMS.txt
+            release-assets/*.sig
+            release-assets/yuncang-update.json
           if-no-files-found: error
           retention-days: 14
 
@@ -145,6 +174,9 @@ jobs:
             "object0_$($version)_windows_x64_portable.zip",
             'SHA256SUMS.txt'
           )
+          if ($env:SIGNED_UPDATES -eq 'true') {
+            $names += @("object0_$($version)_windows_x64_setup.exe.sig", "object0_$($version)_windows_x64_portable.zip.sig", 'yuncang-update.json', 'yuncang-update.json.sig')
+          }
           $files = @($names | ForEach-Object { Join-Path './release-assets' $_ })
           $existing = gh release view $env:RELEASE_TAG --repo $env:GH_REPO --json isDraft 2>$null
           if ($LASTEXITCODE -eq 0) {

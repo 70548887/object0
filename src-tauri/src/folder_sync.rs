@@ -64,6 +64,7 @@ pub(crate) async fn run_folder_sync_once(
     control: &FolderSyncTaskControl,
 ) -> Result<(), String> {
     let state = app.state::<AppState>();
+    let _operation = update_guard::begin(&state)?;
     let profile = profile_for_id(&state, &rule.profile_id)?;
     let client = to_s3_client(&profile)?;
     let mut usage_change = usage::UsageChangeGuard::new(app, &rule.profile_id, &rule.bucket);
@@ -406,6 +407,8 @@ pub(crate) fn stop_folder_sync_rule(app: &AppHandle, rule_id: &str) {
 }
 
 pub(crate) fn start_folder_sync_rule(app: &AppHandle, rule_id: &str) -> Result<(), String> {
+    let operation_state=app.state::<AppState>();
+    let _operation=update_guard::begin(&operation_state)?;
     let rule = get_folder_sync_rule(rule_id)?;
     if !rule.enabled {
         return Ok(());

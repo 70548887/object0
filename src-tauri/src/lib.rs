@@ -20,7 +20,7 @@ use std::{
     path::Component,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::{Duration as StdDuration, Instant},
@@ -63,12 +63,16 @@ mod rpc;
 mod rpc_method;
 mod s3;
 mod s3_errors;
+mod text_objects;
 mod storage_backend;
 mod sync;
 mod sync_confirmation;
 mod tray;
 mod transfer_checkpoint;
 mod updater;
+mod update_guard;
+mod github_updates;
+pub mod portable_update;
 mod usage;
 mod util;
 mod vault;
@@ -663,6 +667,9 @@ struct UpdaterRuntime {
 }
 
 struct AppState {
+    github_updates: Mutex<github_updates::Runtime>,
+    updates_installing: AtomicBool,
+    updates_active_operations: AtomicUsize,
     vault: Mutex<VaultRuntime>,
     jobs: Mutex<JobRuntime>,
     folder_sync: Mutex<FolderSyncRuntime>,
@@ -680,6 +687,9 @@ struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            github_updates: Mutex::new(github_updates::Runtime::default()),
+            updates_installing: AtomicBool::new(false),
+            updates_active_operations: AtomicUsize::new(0),
             vault: Mutex::new(VaultRuntime::default()),
             jobs: Mutex::new(JobRuntime::default()),
             folder_sync: Mutex::new(FolderSyncRuntime::default()),

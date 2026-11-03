@@ -20,6 +20,7 @@ interface ObjectState {
   // Navigation
   currentPrefix: string;
   prefixHistory: string[];
+  prefixForward: string[];
 
   // Pagination
   isTruncated: boolean;
@@ -46,6 +47,7 @@ interface ObjectState {
   ) => Promise<void>;
   navigateToPrefix: (prefix: string) => void;
   navigateBack: () => void;
+  navigateForward: () => void;
   setSort: (field: SortField) => void;
   setFilters: (filters: Partial<ObjectFilters>) => void;
   toggleSelect: (key: string) => void;
@@ -81,6 +83,7 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
   error: null,
   currentPrefix: "",
   prefixHistory: [],
+  prefixForward: [],
   isTruncated: false,
   nextCursor: undefined,
   pageHistory: [],
@@ -174,6 +177,7 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
       error: null,
       currentPrefix: prefix,
       prefixHistory: [...s.prefixHistory, current],
+      prefixForward: [],
       selectedKeys: new Set(),
       isTruncated: false,
       nextCursor: undefined,
@@ -197,11 +201,34 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
       error: null,
       currentPrefix: previous,
       prefixHistory: history.slice(0, -1),
+      prefixForward: [...get().prefixForward, get().currentPrefix],
       selectedKeys: new Set(),
       isTruncated: false,
       nextCursor: undefined,
       pageHistory: [],
     });
+  },
+
+  navigateForward: () => {
+    const forward = get().prefixForward;
+    if (forward.length === 0) return;
+    ++loadGeneration;
+    currentScope = "";
+    consumedCursors = new Set();
+    clearNavigationTargets();
+    set((s) => ({
+      objects: [],
+      prefixes: [],
+      loading: true,
+      error: null,
+      currentPrefix: forward[forward.length - 1],
+      prefixHistory: [...s.prefixHistory, s.currentPrefix],
+      prefixForward: forward.slice(0, -1),
+      selectedKeys: new Set(),
+      isTruncated: false,
+      nextCursor: undefined,
+      pageHistory: [],
+    }));
   },
 
   setSort: (field) => {
@@ -257,6 +284,7 @@ export const useObjectStore = create<ObjectState>()((set, get) => ({
       error: null,
       currentPrefix: "",
       prefixHistory: [],
+      prefixForward: [],
       isTruncated: false,
       nextCursor: undefined,
       pageHistory: [],

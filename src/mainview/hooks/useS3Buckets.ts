@@ -5,6 +5,7 @@ import {
   useObjectStore,
   useProfileStore,
   useTabStore,
+  useUIStore,
   useVaultStore,
 } from "@/stores";
 
@@ -29,8 +30,22 @@ export function useS3Buckets() {
 
   const selectBucket = useCallback(
     (bucket: string) => {
-      if (activeProfileId && activeProfile) {
+      const live = useProfileStore.getState();
+      const vault = useVaultStore.getState();
+      if (
+        activeProfileId &&
+        activeProfile &&
+        vault.unlocked &&
+        live.activeProfileId === activeProfileId &&
+        live.activeProfile?.updatedAt === activeProfile.updatedAt &&
+        vault.profiles.some(
+          (profile) =>
+            profile.id === activeProfileId &&
+            profile.updatedAt === activeProfile.updatedAt,
+        )
+      ) {
         openBucket(activeProfileId, activeProfile.name, bucket);
+        useUIStore.getState().setMainSection("storage");
       }
     },
     [activeProfileId, activeProfile, openBucket],
@@ -38,10 +53,22 @@ export function useS3Buckets() {
 
   const switchProfile = useCallback(
     (profile: ProfileInfo | null) => {
+      if (profile) {
+        const vault = useVaultStore.getState();
+        if (
+          !vault.unlocked ||
+          !vault.profiles.some(
+            (item) =>
+              item.id === profile.id && item.updatedAt === profile.updatedAt,
+          )
+        )
+          return;
+      }
       resetObjects();
       setSelectedBucket(null);
       useTabStore.getState().setActiveTab(null);
       setActiveProfile(profile);
+      useUIStore.getState().setMainSection("storage");
     },
     [setActiveProfile, setSelectedBucket, resetObjects],
   );
@@ -57,11 +84,18 @@ export function useS3Buckets() {
    */
   const selectFavoriteBucket = useCallback(
     (profileId: string, bucket: string) => {
-      const profiles = useVaultStore.getState().profiles;
+      const { profiles, unlocked } = useVaultStore.getState();
       const profile = profiles.find((p) => p.id === profileId);
-      if (!profile) return;
+      if (!unlocked || !profile) return false;
       // ContentArea binds the account and validates Qiniu discovery before load.
       openBucket(profileId, profile.name, bucket);
+      const state = useTabStore.getState();
+      const tab = state.tabs.find((item) => item.id === state.activeTabId);
+      if (tab?.profileId === profileId && tab.bucket === bucket) {
+        useUIStore.getState().setMainSection("storage");
+        return true;
+      }
+      return false;
     },
     [openBucket],
   );

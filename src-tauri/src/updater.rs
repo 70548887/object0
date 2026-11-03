@@ -196,16 +196,7 @@ pub(crate) async fn apply_downloaded_update(app: &AppHandle) -> Result<(), Strin
 }
 
 pub(crate) async fn run_periodic_updater_checks(app: AppHandle) {
-    // A local customization must not silently fetch or install upstream builds.
-    if custom_update_configuration().is_err() {
-        return;
-    }
-    tokio::time::sleep(StdDuration::from_secs(UPDATE_CHECK_INITIAL_DELAY_SECS)).await;
-
-    loop {
-        if let Err(err) = download_update_if_available(&app).await {
-            eprintln!("Periodic updater check failed: {err}");
-        }
-        tokio::time::sleep(StdDuration::from_secs(UPDATE_CHECK_INTERVAL_SECS)).await;
-    }
+    // New UI owns the explicit opt-in, low-frequency CHECK schedule. Do not
+    // silently download through the previous environment-controlled feed.
+    let _ = app;
 }

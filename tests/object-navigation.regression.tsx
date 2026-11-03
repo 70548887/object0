@@ -284,6 +284,22 @@ assert.equal(
   "a directory-only result remains navigable",
 );
 
+// Forward restores the exact scope and still leaves automatic loading to the
+// browser. Returning back keeps the original parent-directory fixture intact.
+const beforeForward = requests.length;
+actions().goForward();
+assertCleared();
+assert.equal(requests.length, beforeForward);
+browser();
+flushEffects();
+assert.equal(requests.length, beforeForward + 1);
+assert.equal(last().request.prefix, "parent/child/");
+await settle(page());
+actions().goBack();
+browser();
+flushEffects();
+await settle({ ...page(), prefixes: [{ prefix: "parent/child/" }] });
+
 // Same-prefix navigation is a no-op, not an abandoned pending scope.
 const sameHistory = [...state().prefixHistory];
 const sameCount = requests.length;

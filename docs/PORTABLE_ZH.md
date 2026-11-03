@@ -1,18 +1,18 @@
 # 云仓 Windows 使用说明
 
-适用版本：**1.7.0-preview.2**。本版是七牛适配及桌面功能预览，不是所有真实云环境的兼容性保证。旧 v1.6.0 包不会被覆盖，也不包含本版全部功能。
+适用版本：**1.7.0-preview.3**。本版是七牛适配及桌面功能预览，不是所有真实云环境的兼容性保证。旧 v1.6.0 和 preview.2 发布资产不会被覆盖，也不包含本版全部功能。
 
 > **凭据提示：AK/SK 默认明文保存在本机 `accounts.local.json`。任何能读取该文件的程序都能读取密钥。请勿共享、上传或随安装包分发账号配置。**
 
 ## 安装包
 
-运行 `object0_1.7.0-preview.2_windows_x64_setup.exe`，按中文安装向导操作。安装后可在设置中切换中文或 English，提供卸载入口。
+运行 `object0_1.7.0-preview.3_windows_x64_setup.exe`，按中文安装向导操作。安装后可在设置中切换中文或 English，提供卸载入口。
 
 安装或更换版本前，请等待传输任务结束并正常退出旧程序。发布包没有预置账号、密钥、密码库或用户任务，也不会为了安装自动删除已有配置。
 
 ## 便携 ZIP
 
-将 `object0_1.7.0-preview.2_windows_x64_portable.zip` **完整解压**到本地可写目录，运行其中的 `object0.exe`。
+将 `object0_1.7.0-preview.3_windows_x64_portable.zip` **完整解压**到本地可写目录，运行其中的 `object0.exe`。覆盖／重新解压升级前必须先退出旧程序。
 
 - 保留完整 `WebView2Runtime` 文件夹与 EXE 相邻；固定 Microsoft Edge WebView2 运行时已经包含，无需另行安装。
 - 不要在压缩软件中直接运行，不要只取出一个 EXE。
@@ -21,6 +21,10 @@
 - 安装版与便携版共享配置，请一次只运行一个实例。
 
 ## 本次修复
+
+相对 preview.2：全宽标题、紧凑侧栏，地址移到操作栏上方；收藏、最近、传输与分享记录可在主列表查看。空白区右键提供刷新和能力范围内的新建目录／文本。文本限 1 MiB UTF-8（`txt`／`md`／`markdown`）；七牛不开放文本创建／编辑，S3 条件创建同名不覆盖，已有文本仅 R2 可条件保存，冲突保留草稿。新建目录仍受服务商与身份权限限制。分享历史保存默认关闭，需主动开启；打开不自动删除过期项，提供手动清理，顶部分享 Sheet 保留。
+
+更新界面显示实际编译版本和稳定／预览通道，但本次没有专用更新签名配置，**自动下载／安装禁用，只支持手动升级**。取消后的迟到 ready 事件不应重新启用安装按钮；本地测试不等于真实 Windows 升级全链路验收。
 
 本版修复排队复制／移动及归档下载的账号变更保护，补齐队列删除的同类检查；目录切换会立即清除旧文件和操作目标，并统一自动列表加载，避免重复请求。账号配置发生变化时，请重新确认被拒绝的旧任务，不要把它当作已经完成。
 
@@ -44,17 +48,17 @@
 
 ## 完整性与来源
 
-从 [本仓库发布页](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2) 下载同版安装包、便携 ZIP 与 `SHA256SUMS.txt`。
+从 [本仓库发布页](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.3) 下载同版安装包、便携 ZIP 与 `SHA256SUMS.txt`。
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.2_windows_x64_setup.exe
-Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.2_windows_x64_portable.zip
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.3_windows_x64_setup.exe
+Get-FileHash -Algorithm SHA256 .\object0_1.7.0-preview.3_windows_x64_portable.zip
 ```
 
 将哈希与校验文件逐项比较。当前包未使用商业 Windows 代码签名；未知发布者提示不应通过关闭安全保护来绕过。
 
 ## 许可证与更新
 
-云仓基于 object0，保留 MIT 许可证和原版权声明。Microsoft WebView2 许可随包放在 `WEBVIEW2-LICENSE.html`，固定运行时不会自行更新，请通过后续整包更新获取新版本。上游自动更新默认停用，请从本 fork 手动下载。
+云仓基于 object0，保留 MIT 许可证和原版权声明。Microsoft WebView2 许可随包放在 `WEBVIEW2-LICENSE.html`，固定运行时不会自行更新，请通过后续整包更新获取新版本。软件更新签名也未配置，不等于 Windows 商业代码签名；请从本 fork 手动下载并核对 SHA256，退出旧程序后安装或完整解压。详见 [更新边界](UPDATER.md)。
 
-用量读取失败会显示错误，不会当成零；统计来源、扫描范围和服务端延迟应以界面说明为准。产品说明和能力边界见 [README](../README.md) 与 [本版发行说明](RELEASE_v1.7.0-preview.2.md)。
+用量读取失败会显示错误，不会当成零；统计来源、扫描范围和服务端延迟应以界面说明为准。产品说明和能力边界见 [README](../README.md) 与 [本版发行说明](RELEASE_v1.7.0-preview.3.md)。

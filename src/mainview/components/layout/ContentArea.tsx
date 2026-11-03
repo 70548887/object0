@@ -13,6 +13,7 @@ import {
 import { EmptyState } from "../common/EmptyState";
 import { DropZone } from "../objects/DropZone";
 import { ObjectBrowser } from "../objects/ObjectBrowser";
+import { ObjectWorkspace } from "../objects/ObjectWorkspace";
 
 export function ContentArea() {
   useT();
@@ -186,9 +187,11 @@ export function ContentArea() {
 
   return (
     <div className="flex-1 overflow-hidden">
-      <DropZone>
-        <ObjectBrowser />
-      </DropZone>
+      <ObjectWorkspace>
+        <DropZone>
+          <ObjectBrowser />
+        </DropZone>
+      </ObjectWorkspace>
     </div>
   );
 }

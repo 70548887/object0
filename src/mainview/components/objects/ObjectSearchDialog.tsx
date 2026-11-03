@@ -12,6 +12,7 @@ import { useS3Objects } from "@/hooks";
 import { getFileName } from "@/lib/formatters";
 import { t, useT } from "@/lib/i18n";
 import { IconFile, IconFolder, IconMagnifyingGlass } from "@/lib/icons";
+import { shouldIgnoreFileSearchShortcut } from "@/lib/search-shortcut";
 import { useBucketStore, useProfileStore, useUIStore } from "@/stores";
 
 /**
@@ -38,7 +39,13 @@ export function ObjectSearchDialog() {
   // Ctrl/Cmd+F opens the overlay (only when a bucket is in view).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "f" &&
+        !e.shiftKey &&
+        !e.altKey &&
+        !shouldIgnoreFileSearchShortcut(e)
+      ) {
         if (!profileId || !bucket) return;
         e.preventDefault();
         setOpen(true);

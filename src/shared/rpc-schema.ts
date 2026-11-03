@@ -35,6 +35,10 @@ import type {
   MoveReq,
   ObjectListReq,
   ObjectListRes,
+  ObjectTextReadReq,
+  ObjectTextReadRes,
+  ObjectTextWriteReq,
+  ObjectTextWriteRes,
   S3StatResult,
   ShareReq,
   ShareRes,
@@ -366,6 +370,8 @@ export interface RPCSchema {
 
   // ── Objects ──
   "objects:list": { req: ObjectListReq; res: ObjectListRes };
+  "objects:read-text": { req: ObjectTextReadReq; res: ObjectTextReadRes };
+  "objects:write-text": { req: ObjectTextWriteReq; res: ObjectTextWriteRes };
   "objects:delete": {
     req: {
       profileId: string;
@@ -491,6 +497,23 @@ export interface RPCSchema {
   "folder-sync:resume-all": { req: undefined; res: undefined };
 
   // ── Updater ──
+  "updates:info": { req: undefined; res: import("./updater.types").UpdateInfo };
+  "updates:check": {
+    req: { channel: import("./updater.types").UpdateChannel };
+    res: import("./updater.types").UpdateCheckResult;
+  };
+  "updates:download": {
+    req: { releaseId: string };
+    res: import("./updater.types").UpdateSnapshot;
+  };
+  "updates:cancel": {
+    req: { releaseId: string };
+    res: import("./updater.types").UpdateSnapshot;
+  };
+  "updates:apply": {
+    req: { releaseId: string; exitConfirmed: true; draftsSaved: true };
+    res: { accepted: boolean };
+  };
   "updater:check": {
     req: undefined;
     res: {
@@ -524,6 +547,7 @@ export interface RPCSchema {
 
 // ── Event types (Bun → Webview push) ──
 export interface RPCEvents {
+  "updates:progress": import("./updater.types").UpdateSnapshot;
   "bucket-usage:changed": { profileId: string; bucket: string };
   "job:progress": ProgressEvent;
   "job:complete": JobCompleteEvent;

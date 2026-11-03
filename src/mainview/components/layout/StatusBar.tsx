@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
 import { useOnlineStatus } from "@/hooks";
 import { useBucketUsage } from "@/hooks/useBucketUsage";
 import { formatBytes, formatSpeed } from "@/lib/formatters";
 import { t, useT } from "@/lib/i18n";
 import {
-  IconArrowUpRightFromSquare,
   IconBucket,
   IconCheckDouble,
   IconCircleUser,
   IconFolderOpen,
   IconWifi,
 } from "@/lib/icons";
-import { onEvent, rpcCall } from "@/lib/rpc-client";
 import {
   useBucketStore,
   useFolderSyncStore,
@@ -22,6 +19,7 @@ import {
   useVaultStore,
 } from "@/stores";
 import { Progress } from "../ui/progress";
+import { UpdateEntry } from "../updates/UpdateDialog";
 import { BucketUsageStatus } from "./BucketUsageStatus";
 
 export function StatusBar() {
@@ -48,27 +46,6 @@ export function StatusBar() {
   const folderSyncSyncing = [...folderSyncStatuses.values()].filter(
     (s) => s.status === "syncing",
   ).length;
-
-  // ── Update status ──
-  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
-  const [updateReady, setUpdateReady] = useState(false);
-  const [applying, setApplying] = useState(false);
-
-  useEffect(() => {
-    return onEvent("update:available", (data) => {
-      setUpdateVersion(data.version);
-      setUpdateReady(data.updateReady);
-    });
-  }, []);
-
-  const handleApplyUpdate = useCallback(async () => {
-    setApplying(true);
-    try {
-      await rpcCall("updater:apply", undefined);
-    } catch {
-      setApplying(false);
-    }
-  }, []);
 
   const runningJobs = jobs.filter((j) => j.status === "running");
   const queuedJobs = jobs.filter((j) => j.status === "queued");
@@ -222,22 +199,7 @@ export function StatusBar() {
             </span>
           </button>
         )}
-        {updateReady && updateVersion && (
-          <button
-            type="button"
-            className="flex items-center gap-1 text-success transition-colors hover:text-success/80"
-            onClick={handleApplyUpdate}
-            disabled={applying}
-            title={t(`更新到 v${updateVersion}`, `Update to v${updateVersion}`)}
-          >
-            <IconArrowUpRightFromSquare className="size-3" />
-            <span className="hidden whitespace-nowrap @[1150px]/statusbar:inline">
-              {applying
-                ? t("正在更新…", "Updating…")
-                : t(`更新到 v${updateVersion}`, `Update to v${updateVersion}`)}
-            </span>
-          </button>
-        )}
+        <UpdateEntry compact />
       </div>
     </div>
   );

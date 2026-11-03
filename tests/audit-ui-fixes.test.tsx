@@ -228,13 +228,23 @@ test("audit A2: current-store checks reject an edited account before React props
 });
 
 test("audit A1: all upload entry points send the captured profile revision", () => {
-  for (const name of ["ObjectToolbar", "DropZone", "CreateFolderDialog"]) {
+  for (const name of [
+    "ObjectToolbar.tsx",
+    "DropZone.tsx",
+    "folder-creation.ts",
+  ]) {
     const source = readFileSync(
-      `src/mainview/components/objects/${name}.tsx`,
+      `src/mainview/components/objects/${name}`,
       "utf8",
     );
     expect(source).toContain("expectedProfileRevision:");
   }
+  expect(
+    readFileSync(
+      "src/mainview/components/objects/CreateFolderDialog.tsx",
+      "utf8",
+    ),
+  ).toContain("queueFolder(scope, name)");
 });
 
 test("audit A1: live upload checks protect a captured batch across edits, provider changes and directory switches", () => {

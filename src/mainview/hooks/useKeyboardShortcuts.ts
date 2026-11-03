@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { shouldIgnoreFileSearchShortcut } from "@/lib/search-shortcut";
 
 interface ShortcutMap {
   [combo: string]: (e: KeyboardEvent) => void;
@@ -17,6 +18,7 @@ export function useKeyboardShortcuts(shortcuts: ShortcutMap) {
       if (e.altKey) parts.push("alt");
       parts.push(e.key.toLowerCase());
       const combo = parts.join("+");
+      if (combo === "ctrl+f" && shouldIgnoreFileSearchShortcut(e)) return;
 
       const fn = shortcuts[combo];
       if (fn) {

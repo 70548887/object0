@@ -1,8 +1,12 @@
 import { lazy, Suspense } from "react";
 import { useTabStore, useUIStore } from "@/stores";
 import { DetailPanel } from "../objects/DetailPanel";
+import { TextEditorHost } from "../objects/TextEditorDialog";
 import { SidebarInset, SidebarProvider } from "../ui/sidebar";
+import { UpdateHost } from "../updates/UpdateDialog";
+import { AppTitleBar } from "./AppTitleBar";
 import { ContentArea } from "./ContentArea";
+import { NavigationWorkspace } from "./NavigationWorkspace";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { TabBar } from "./TabBar";
@@ -66,6 +70,7 @@ export function MainLayout() {
   const settingsOpen = useUIStore((s) => s.settingsOpen);
   const folderSyncPanelOpen = useUIStore((s) => s.folderSyncPanelOpen);
   const hasTabs = useTabStore((s) => s.tabs.length > 0);
+  const mainSection = useUIStore((s) => s.mainSection);
 
   return (
     // SidebarProvider is the outermost wrapper; controlled open state wired
@@ -81,26 +86,34 @@ export function MainLayout() {
       }
       className="h-screen flex-col"
     >
-      <div className="flex flex-1 overflow-hidden">
+      <AppTitleBar />
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Shadcn Sidebar primitive — collapse wired to useUIStore */}
         <Sidebar />
 
         {/* Main content area — slightly translucent so the ambient particle
             background shows faintly through the file/folder view. */}
         <SidebarInset className="flex flex-col overflow-hidden bg-background/85">
-          <TopBar />
-          {hasTabs && <TabBar />}
-          <div className="flex flex-1 overflow-hidden">
-            <ContentArea />
-          </div>
-          {/* Status bar lives inside the content column so it doesn't render
-              under the fixed sidebar and aligns with the sidebar footer. */}
-          <StatusBar />
+          {mainSection === "storage" ? (
+            <>
+              <TopBar />
+              {hasTabs && <TabBar />}
+              <div className="flex min-h-0 flex-1 overflow-hidden">
+                <ContentArea />
+              </div>
+              {/* Bucket context belongs only to its visible file workspace. */}
+              <StatusBar />
+            </>
+          ) : (
+            <NavigationWorkspace section={mainSection} />
+          )}
         </SidebarInset>
       </div>
 
       {/* DetailPanel self-manages as a Sheet (open={!!detailKey}) */}
       <DetailPanel />
+      <TextEditorHost />
+      <UpdateHost />
 
       {/* Right-side panel Sheets — each self-manages open state via useUIStore */}
       {settingsOpen && (
@@ -108,7 +121,7 @@ export function MainLayout() {
           <SettingsPanel />
         </Suspense>
       )}
-      {shareHistoryOpen && (
+      {shareHistoryOpen && mainSection !== "shares" && (
         <Suspense fallback={null}>
           <ShareHistory />
         </Suspense>
@@ -134,9 +147,11 @@ export function MainLayout() {
       <Suspense fallback={null}>
         <CommandPalette />
       </Suspense>
-      <Suspense fallback={null}>
-        <ObjectSearchDialog />
-      </Suspense>
+      {mainSection === "storage" && (
+        <Suspense fallback={null}>
+          <ObjectSearchDialog />
+        </Suspense>
+      )}
       <Suspense fallback={null}>
         <QiniuShareWorkspace />
       </Suspense>

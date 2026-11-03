@@ -115,6 +115,8 @@ Copy-Item -LiteralPath $license -Destination (Join-Path $portableRoot 'LICENSE')
 Copy-Item -LiteralPath $guide -Destination (Join-Path $portableRoot 'README.zh-CN.md')
 Copy-Item -LiteralPath $englishGuide -Destination (Join-Path $portableRoot 'README.en.md')
 Copy-Item -LiteralPath $webviewLicense -Destination (Join-Path $portableRoot 'WEBVIEW2-LICENSE.html')
+$packageIdentity = [ordered]@{ schemaVersion = 1; identifier = 'dev.object0.app'; version = $version; platform = 'windows-x86_64'; kind = 'portable' }
+$packageIdentity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $portableRoot 'yuncang-package.json') -Encoding utf8NoBOM
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($portableRoot, $portablePath, [IO.Compression.CompressionLevel]::Optimal, $true)
@@ -126,14 +128,14 @@ try {
     foreach ($entry in $files) {
         if (-not $entry.FullName.StartsWith($archivePrefix, [StringComparison]::Ordinal)) { throw 'ZIP root directory mismatch.' }
         $relative = $entry.FullName.Substring($archivePrefix.Length)
-        if ($relative -notin @('object0.exe', 'LICENSE', 'README.zh-CN.md', 'README.en.md', 'WEBVIEW2-LICENSE.html') -and -not $relative.StartsWith('WebView2Runtime/', [StringComparison]::Ordinal)) {
+        if ($relative -notin @('object0.exe', 'yuncang-package.json', 'LICENSE', 'README.zh-CN.md', 'README.en.md', 'WEBVIEW2-LICENSE.html') -and -not $relative.StartsWith('WebView2Runtime/', [StringComparison]::Ordinal)) {
             throw "Unexpected ZIP member: $relative"
         }
     }
-    foreach ($expected in @('object0.exe', 'LICENSE', 'README.zh-CN.md', 'README.en.md', 'WEBVIEW2-LICENSE.html', 'WebView2Runtime/msedgewebview2.exe')) {
+    foreach ($expected in @('object0.exe', 'yuncang-package.json', 'LICENSE', 'README.zh-CN.md', 'README.en.md', 'WEBVIEW2-LICENSE.html', 'WebView2Runtime/msedgewebview2.exe')) {
         if ($null -eq $archive.GetEntry($archivePrefix + $expected)) { throw "Missing ZIP member: $expected" }
     }
-    $expectedCount = @($runtimeEntries | Where-Object { -not $_.PSIsContainer }).Count + 5
+    $expectedCount = @($runtimeEntries | Where-Object { -not $_.PSIsContainer }).Count + 6
     if ($files.Count -ne $expectedCount) { throw 'ZIP member count does not match the explicit input allowlist.' }
 } finally { $archive.Dispose() }
 $verificationRoot = Join-Path $stagingRoot 'extracted-verification'

@@ -7,7 +7,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { formatRelativeDate, getFileName } from "@/lib/formatters";
 import { t, useT } from "@/lib/i18n";
 import {
@@ -24,45 +23,72 @@ import { toast } from "../common/Toast";
 import { shareLinkState } from "./share-expiration";
 
 type FilterMode = "all" | "active" | "expired";
+type Presentation = "sheet" | "workspace";
 
-export function ShareHistory() {
-  useT();
+export function ShareHistory({
+  presentation = "sheet",
+}: {
+  presentation?: Presentation;
+} = {}) {
   const shareHistoryOpen = useUIStore((s) => s.shareHistoryOpen);
   const setShareHistoryOpen = useUIStore((s) => s.setShareHistoryOpen);
+  if (presentation === "workspace") return <ShareHistoryPanel />;
+  return (
+    <Sheet open={shareHistoryOpen} onOpenChange={setShareHistoryOpen}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="flex w-[min(360px,100vw)] min-w-0 flex-col gap-0 p-0 sm:max-w-none"
+      >
+        <ShareHistoryPanel
+          presentation="sheet"
+          onClose={() => setShareHistoryOpen(false)}
+        />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** Shared record list for the workspace and the optional quick sheet. */
+export function ShareHistoryPanel({
+  presentation = "workspace",
+  onClose,
+}: {
+  presentation?: Presentation;
+  onClose?: () => void;
+} = {}) {
+  useT();
   const entries = useShareHistoryStore((s) => s.entries);
   const removeEntry = useShareHistoryStore((s) => s.removeEntry);
   const clearExpired = useShareHistoryStore((s) => s.clearExpired);
   const clearAll = useShareHistoryStore((s) => s.clearAll);
+  const persistShareHistory = useUIStore((s) => s.persistShareHistory);
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [now, setNow] = useState(() => Date.now());
 
-  // Auto-clean expired on mount
+  // Viewing history never removes records. Refresh expiry labels and filters only.
   useEffect(() => {
-    clearExpired();
-  }, [clearExpired]);
+    const timer = window.setInterval(() => setNow(Date.now()), 15000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  const now = new Date();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: now changes every render, we only re-filter on entries/filter
   const filtered = useMemo(() => {
     switch (filter) {
       case "active":
         return entries.filter((e) =>
-          ["active", "public"].includes(shareLinkState(e, now.getTime())),
+          ["active", "public"].includes(shareLinkState(e, now)),
         );
       case "expired":
-        return entries.filter(
-          (e) => shareLinkState(e, now.getTime()) === "expired",
-        );
+        return entries.filter((e) => shareLinkState(e, now) === "expired");
       default:
         return entries;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, filter]);
-
+  }, [entries, filter, now]);
   const activeCount = entries.filter((e) =>
-    ["active", "public"].includes(shareLinkState(e, now.getTime())),
+    ["active", "public"].includes(shareLinkState(e, now)),
   ).length;
   const expiredCount = entries.filter(
-    (e) => shareLinkState(e, now.getTime()) === "expired",
+    (e) => shareLinkState(e, now) === "expired",
   ).length;
 
   const handleCopy = async (url: string) => {
@@ -75,14 +101,13 @@ export function ShareHistory() {
   };
 
   const formatExpiry = (entry: ShareHistoryEntry): string => {
-    const state = shareLinkState(entry, now.getTime());
+    const state = shareLinkState(entry, now);
     if (state === "public")
       return t("公开 · 无固定到期", "Public · No fixed expiry");
     if (state === "unknown" || !entry.expiresAt)
       return t("有效期未知", "Expiration unknown");
-    const date = new Date(entry.expiresAt);
-    if (date <= now) return t("已过期", "Expired");
-    const diff = date.getTime() - now.getTime();
+    if (state === "expired") return t("已过期", "Expired");
+    const diff = new Date(entry.expiresAt).getTime() - now;
     if (diff < 3600000) {
       const mins = Math.round(diff / 60000);
       return t(`剩余 ${mins} 分钟`, `${mins} minutes left`);
@@ -95,183 +120,190 @@ export function ShareHistory() {
     return t(`剩余 ${days} 天`, `${days} days left`);
   };
 
+  const title = (
+    <>
+      <IconClockRotateLeft className="size-4 shrink-0 text-foreground/60" />
+      <span className="min-w-0 break-words">
+        {t("分享记录", "Sharing history")}
+      </span>
+      {entries.length > 0 && (
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/55">
+          {entries.length}
+        </span>
+      )}
+    </>
+  );
+
   return (
-    <Sheet
-      open={shareHistoryOpen}
-      onOpenChange={(o) => {
-        if (!o) setShareHistoryOpen(false);
-      }}
-    >
-      <SheetContent
-        side="right"
-        showCloseButton={false}
-        className="flex w-[360px] flex-col gap-0 p-0 sm:max-w-none"
-      >
+    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      {presentation === "sheet" ? (
         <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 border-border border-b px-4 py-3">
           <SheetTitle className="flex min-w-0 items-center gap-2 font-semibold text-sm">
-            <IconClockRotateLeft className="size-4 shrink-0 text-foreground/60" />
-            <span className="truncate">{t("分享记录", "Sharing history")}</span>
-            {entries.length > 0 && (
-              <span className="rounded-full bg-muted px-1.5 py-px text-[9px] text-foreground/55">
-                {entries.length}
-              </span>
-            )}
+            {title}
           </SheetTitle>
-          <div className="flex shrink-0 items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose}
+            aria-label={t("关闭", "Close")}
+            title={t("关闭", "Close")}
+          >
+            <IconXmark className="size-4" />
+          </Button>
+        </SheetHeader>
+      ) : (
+        <header className="shrink-0 border-border border-b px-4 py-3">
+          <h1 className="flex min-w-0 items-center gap-2 font-semibold text-sm">
+            {title}
+          </h1>
+        </header>
+      )}
+
+      {!persistShareHistory && (
+        <p className="shrink-0 border-border border-b px-4 py-2 text-foreground/55 text-xs">
+          {t(
+            "尚未开启保存分享记录，新分享不会记录；已有记录仍显示。可在设置中开启。",
+            "Saving sharing history is off. New shares are not recorded; existing records remain visible. Enable it in Settings.",
+          )}
+        </p>
+      )}
+
+      {entries.length > 0 && (
+        <div className="flex shrink-0 flex-wrap gap-1 border-border border-b px-4 py-2">
+          <Button
+            variant={filter === "all" ? "default" : "ghost"}
+            size="xs"
+            aria-pressed={filter === "all"}
+            onClick={() => setFilter("all")}
+          >
+            {t("全部（", "All (")}
+            {entries.length})
+          </Button>
+          <Button
+            variant={filter === "active" ? "default" : "ghost"}
+            size="xs"
+            aria-pressed={filter === "active"}
+            onClick={() => setFilter("active")}
+          >
+            {t("有效（", "Active (")}
+            {activeCount})
+          </Button>
+          <Button
+            variant={filter === "expired" ? "default" : "ghost"}
+            size="xs"
+            aria-pressed={filter === "expired"}
+            onClick={() => setFilter("expired")}
+          >
+            {t("已过期（", "Expired (")}
+            {expiredCount})
+          </Button>
+        </div>
+      )}
+
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-foreground/40">
+            <IconLinkSlash className="size-8" />
+            <span className="text-sm">
+              {entries.length === 0
+                ? t("暂无分享记录", "No sharing history yet")
+                : t("没有匹配记录", "No matching entries")}
+            </span>
+          </div>
+        ) : (
+          <ul className="min-w-0 divide-y divide-border">
+            {filtered.map((entry) => {
+              const state = shareLinkState(entry, now);
+              const isExpired = state === "expired";
+              const statusColor = isExpired
+                ? "bg-warning/15 text-warning"
+                : state === "unknown"
+                  ? "bg-muted text-foreground/60"
+                  : "bg-success/15 text-success";
+              return (
+                <li key={entry.id} className="flex min-w-0 gap-3 px-4 py-3">
+                  {isExpired ? (
+                    <IconLinkSlash className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                  ) : (
+                    <IconLink
+                      className={`mt-0.5 size-3.5 shrink-0 ${state === "unknown" ? "text-foreground/50" : "text-success"}`}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="min-w-0 break-all font-medium text-xs">
+                        {getFileName(entry.key)}
+                      </span>
+                      <span
+                        className={`rounded-full px-1.5 py-px text-[10px] ${statusColor}`}
+                      >
+                        {formatExpiry(entry)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 break-all text-[10px] text-foreground/50">
+                      {entry.bucket}/{entry.key}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-foreground/50">
+                      {t("分享时间 ", "Shared ")}
+                      {formatRelativeDate(entry.createdAt)}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {!isExpired && (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="min-h-8"
+                          onClick={() => handleCopy(entry.url)}
+                          title={t("复制链接", "Copy link")}
+                        >
+                          <IconCopy className="size-3" />
+                          {t("复制链接", "Copy link")}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="min-h-8 text-destructive"
+                        onClick={() => removeEntry(entry.id)}
+                        title={t("移除", "Remove")}
+                      >
+                        <IconTrash className="size-3" />
+                        {t("移除", "Remove")}
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {entries.length > 0 && (
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-1 border-border border-t px-4 py-2">
+          {expiredCount > 0 && (
             <Button
               variant="ghost"
-              size="icon-sm"
-              className="text-foreground/50 hover:text-foreground"
-              onClick={() => setShareHistoryOpen(false)}
-              title={t("关闭", "Close")}
-            >
-              <IconXmark className="size-4" />
-            </Button>
-          </div>
-        </SheetHeader>
-
-        {/* Filter tabs */}
-        {entries.length > 0 && (
-          <div className="flex gap-1 border-border border-b px-4 py-2">
-            <Button
-              variant={filter === "all" ? "default" : "ghost"}
               size="xs"
-              onClick={() => setFilter("all")}
+              className="min-h-8 text-warning"
+              onClick={clearExpired}
             >
-              {t("全部（", "All (")}
-              {entries.length})
-            </Button>
-            <Button
-              variant={filter === "active" ? "default" : "ghost"}
-              size="xs"
-              onClick={() => setFilter("active")}
-            >
-              {t("有效（", "Active (")}
-              {activeCount})
-            </Button>
-            <Button
-              variant={filter === "expired" ? "default" : "ghost"}
-              size="xs"
-              onClick={() => setFilter("expired")}
-            >
-              {t("已过期（", "Expired (")}
+              <IconBroom className="size-3" />
+              {t("清除已过期（", "Clear expired (")}
               {expiredCount})
             </Button>
-          </div>
-        )}
-
-        {/* Entries */}
-        <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-foreground/40">
-              <IconLinkSlash className="size-8" />
-              <span className="text-sm">
-                {entries.length === 0
-                  ? t("暂无分享记录", "No sharing history yet")
-                  : t("没有匹配记录", "No matching entries")}
-              </span>
-            </div>
-          ) : (
-            <Table>
-              <TableBody>
-                {filtered.map((entry) => {
-                  const isExpired =
-                    shareLinkState(entry, now.getTime()) === "expired";
-                  return (
-                    <TableRow
-                      key={entry.id}
-                      className={`group align-top ${isExpired ? "opacity-50" : ""}`}
-                    >
-                      <TableCell className="w-5 pt-3 pr-0 pl-4">
-                        {isExpired ? (
-                          <IconLinkSlash className="size-3.5 text-warning" />
-                        ) : (
-                          <IconLink className="size-3.5 text-success" />
-                        )}
-                      </TableCell>
-
-                      <TableCell className="min-w-0 px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-medium text-xs">
-                            {getFileName(entry.key)}
-                          </span>
-                          <span
-                            className={`shrink-0 rounded-full px-1.5 py-px text-[9px] ${
-                              isExpired
-                                ? "bg-warning/15 text-warning"
-                                : "bg-success/15 text-success"
-                            }`}
-                          >
-                            {formatExpiry(entry)}
-                          </span>
-                        </div>
-                        <div className="mt-0.5 truncate text-[10px] text-foreground/40">
-                          {entry.bucket}/{entry.key}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-foreground/40">
-                          {t("分享时间 ", "Shared ")}
-                          {formatRelativeDate(entry.createdAt)}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="w-14 pt-2 pr-3 pl-0">
-                        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          {!isExpired && (
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => handleCopy(entry.url)}
-                              title={t("复制链接", "Copy link")}
-                            >
-                              <IconCopy className="size-3" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-destructive"
-                            onClick={() => removeEntry(entry.id)}
-                            title={t("移除", "Remove")}
-                          >
-                            <IconTrash className="size-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
           )}
-        </div>
-
-        {/* Footer actions */}
-        {entries.length > 0 && (
-          <div className="flex items-center justify-between border-border border-t px-4 py-2">
-            {expiredCount > 0 && (
-              <Button
-                variant="ghost"
-                size="xs"
-                className="text-warning"
-                onClick={clearExpired}
-              >
-                <IconBroom className="size-3" />
-                {t("清除已过期（", "Clear expired (")}
-                {expiredCount})
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="xs"
-              className="text-destructive"
-              onClick={clearAll}
-            >
-              <IconTrash className="size-3" />
-              {t("全部清除", "Clear all")}
-            </Button>
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          <Button
+            variant="ghost"
+            size="xs"
+            className="min-h-8 text-destructive"
+            onClick={clearAll}
+          >
+            <IconTrash className="size-3" />
+            {t("全部清除", "Clear all")}
+          </Button>
+        </footer>
+      )}
+    </section>
   );
 }

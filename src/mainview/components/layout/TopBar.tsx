@@ -1,221 +1,50 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { lazy, Suspense } from "react";
 import { t, useT } from "@/lib/i18n";
-import {
-  IconClockRotateLeft,
-  IconFolderOpen,
-  IconGear,
-  IconListCheck,
-  IconMoon,
-  IconSun,
-} from "@/lib/icons";
-import { cn } from "@/lib/utils";
-import {
-  useBucketStore,
-  useFolderSyncStore,
-  useJobStore,
-  useProfileStore,
-  useShareHistoryStore,
-  useThemeStore,
-  useUIStore,
-} from "@/stores";
+import { IconMagnifyingGlass } from "@/lib/icons";
+import { useBucketStore, useProfileStore, useUIStore } from "@/stores";
 import { ObjectBreadcrumb } from "../objects/ObjectBreadcrumb";
 import { ObjectToolbar } from "../objects/ObjectToolbar";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
-import { WindowControls } from "./WindowControls";
 
-const JobPanel = lazy(() =>
-  import("../jobs/JobPanel").then((m) => ({ default: m.JobPanel })),
-);
-
+// Object-scoped actions and address/search only; window chrome is AppTitleBar.
 export function TopBar() {
   useT();
   const activeProfile = useProfileStore((s) => s.activeProfile);
   const bucket = useBucketStore((s) => s.selectedBucket);
-  const toggleTheme = useThemeStore((s) => s.toggle);
-  const theme = useThemeStore((s) => s.theme);
-  const jobPanelOpen = useUIStore((s) => s.jobPanelOpen);
-  const setJobPanelOpen = useUIStore((s) => s.setJobPanelOpen);
-  const jobs = useJobStore((s) => s.jobs);
-  const activeJobCount = jobs.filter(
-    (j) => j.status === "running" || j.status === "queued",
-  ).length;
-
-  const shareHistoryOpen = useUIStore((s) => s.shareHistoryOpen);
-  const setShareHistoryOpen = useUIStore((s) => s.setShareHistoryOpen);
-  const shareHistoryCount = useShareHistoryStore((s) => s.entries.length);
-  const folderSyncPanelOpen = useUIStore((s) => s.folderSyncPanelOpen);
-  const setFolderSyncPanelOpen = useUIStore((s) => s.setFolderSyncPanelOpen);
-  const syncingCount = useFolderSyncStore((s) => s.getSyncingCount);
-  const activeCount = useFolderSyncStore((s) => s.getActiveCount);
-  const settingsOpen = useUIStore((s) => s.settingsOpen);
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
-  const platform = useUIStore((s) => s.platform);
+  const setObjectSearchOpen = useUIStore((s) => s.setObjectSearchOpen);
 
   return (
-    // Custom title bar. `data-tauri-drag-region` makes the empty surface
-    // draggable on all platforms (unlike the `-webkit-app-region` CSS, which
-    // does not work on Linux/WebKitGTK). Interactive children are separate
-    // pointer targets, so they don't drag.
-    // biome-ignore lint/a11y/noStaticElementInteractions: window title-bar drag/maximize chrome, not content
-    <div
-      data-tauri-drag-region
-      className="flex flex-col border-border border-b bg-card/50"
-      onDoubleClick={(e) => {
-        // macOS/Windows get native double-click-to-maximize from the drag
-        // region; Linux needs an explicit handler. Only fire on the drag
-        // surface itself, never on a child control.
-        if (platform !== "linux") return;
-        if (!(e.target as HTMLElement).hasAttribute("data-tauri-drag-region")) {
-          return;
-        }
-        getCurrentWindow().toggleMaximize();
-      }}
-    >
-      {/* Top row: breadcrumb + global actions */}
-      <div data-tauri-drag-region className="flex items-center gap-2 px-3 py-2">
-        <div
-          className={cn(
-            "group/breadcrumb flex min-w-0 items-center",
-            // Clear the native macOS traffic lights, which float over the bar.
-            platform === "macos" && "pl-[72px]",
+    <div className="flex shrink-0 flex-col border-b border-border bg-card/85">
+      {/* Address/search precede the file-operation toolbar. */}
+      <div className="no-drag flex min-w-0 flex-wrap items-center gap-2 border-b border-border/70 bg-muted/20 px-3 py-1.5">
+        {activeProfile && bucket ? (
+          <ObjectBreadcrumb profileName={activeProfile.name} bucket={bucket} />
+        ) : (
+          <span className="min-w-0 flex-1 truncate py-1 text-xs text-muted-foreground">
+            {activeProfile
+              ? t("从左侧选择存储桶", "Choose a bucket from the sidebar")
+              : t(
+                  "从左侧选择或添加存储账号",
+                  "Select or add a storage account from the sidebar",
+                )}
+          </span>
+        )}
+        <button
+          type="button"
+          disabled={!activeProfile || !bucket}
+          onClick={() => setObjectSearchOpen(true)}
+          className="flex h-8 min-w-44 shrink-0 items-center gap-2 rounded-lg border border-border bg-background/80 px-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45"
+          title={t(
+            "搜索当前已加载目录中的文件和文件夹（Ctrl+F）",
+            "Search files and folders in the currently loaded directory (Ctrl+F)",
           )}
+          aria-label={t("搜索文件和文件夹", "Search files and folders")}
         >
-          {activeProfile && bucket ? (
-            <ObjectBreadcrumb
-              profileName={activeProfile.name}
-              bucket={bucket}
-            />
-          ) : (
-            <span className="text-foreground/40 text-sm">
-              {activeProfile
-                ? t("选择存储桶", "Select a bucket")
-                : t("请先选择存储账号", "Select a profile to begin")}
-            </span>
-          )}
-        </div>
-
-        {/* Dedicated drag surface: a plain spacer with nothing layered on top,
-            so the whole middle of the title bar reliably drags the window
-            (the breadcrumb's own nav elements aren't drag targets). */}
-        <div data-tauri-drag-region className="h-7 flex-1 self-stretch" />
-
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="no-drag"
-          onClick={toggleTheme}
-          title={t("切换主题（Ctrl+\\）", "Toggle Theme (Ctrl+\\)")}
-          aria-label={t("切换主题", "Toggle theme")}
-        >
-          {theme === "dark" ? (
-            <IconSun className="size-4" />
-          ) : (
-            <IconMoon className="size-4" />
-          )}
-        </Button>
-
-        <div className="no-drag relative">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setShareHistoryOpen(!shareHistoryOpen)}
-            title={t("分享记录", "Share History")}
-            aria-label={t("显示或隐藏分享记录", "Toggle share history")}
-          >
-            <IconClockRotateLeft className="size-4" />
-          </Button>
-          {shareHistoryCount > 0 && (
-            <Badge
-              variant="outline"
-              className="absolute -top-1 -right-1 min-w-4 px-1 text-[10px]"
-            >
-              {shareHistoryCount}
-            </Badge>
-          )}
-        </div>
-
-        <Popover open={jobPanelOpen} onOpenChange={setJobPanelOpen}>
-          <div className="no-drag relative">
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title={t(
-                    "显示或隐藏任务面板（Ctrl+J）",
-                    "Toggle Jobs Panel (Ctrl+J)",
-                  )}
-                  aria-label={t("显示或隐藏任务面板", "Toggle jobs panel")}
-                >
-                  <IconListCheck className="size-4" />
-                </Button>
-              }
-            />
-            {activeJobCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 min-w-4 border-transparent bg-info px-1 text-[10px] text-info-foreground">
-                {activeJobCount}
-              </Badge>
-            )}
-          </div>
-          <PopoverContent
-            align="end"
-            sideOffset={8}
-            className="flex w-[400px] flex-col gap-0 overflow-hidden p-0"
-          >
-            <Suspense fallback={null}>
-              <JobPanel />
-            </Suspense>
-          </PopoverContent>
-        </Popover>
-
-        <div className="no-drag relative">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setFolderSyncPanelOpen(!folderSyncPanelOpen)}
-            title={t(
-              "实时文件夹同步（本地与存储桶持续同步）",
-              "Live Folder Sync (continuous local <-> bucket)",
-            )}
-            aria-label={t(
-              "显示或隐藏实时同步面板",
-              "Toggle live folder sync panel",
-            )}
-          >
-            <IconFolderOpen
-              className={`size-4 ${syncingCount() > 0 ? "text-info" : ""}`}
-            />
-          </Button>
-          {activeCount() > 0 && (
-            <Badge className="absolute -top-1 -right-1 min-w-4 px-1 text-[10px] bg-success text-success-foreground border-transparent">
-              {activeCount()}
-            </Badge>
-          )}
-        </div>
-
-        <KeyboardShortcutsDialog />
-
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="no-drag"
-          onClick={() => setSettingsOpen(!settingsOpen)}
-          title={t("设置（Ctrl+,）", "Settings (Ctrl+,)")}
-          aria-label={t("显示或隐藏设置面板", "Toggle settings panel")}
-        >
-          <IconGear className="size-4" />
-        </Button>
-
-        {/* Custom min/maximize/close controls — Windows & Linux only; macOS
-            uses its native traffic lights. */}
-        {platform && platform !== "macos" && <WindowControls />}
+          <IconMagnifyingGlass className="size-3.5 shrink-0" />
+          <span>{t("搜索文件/文件夹", "Search files/folders")}</span>
+          <kbd className="ml-auto rounded border border-border bg-muted px-1 py-0.5 text-[10px]">
+            Ctrl+F
+          </kbd>
+        </button>
       </div>
-
-      {/* Toolbar row (when viewing objects) */}
       {activeProfile && bucket && <ObjectToolbar />}
     </div>
   );

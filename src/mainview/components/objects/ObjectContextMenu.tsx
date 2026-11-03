@@ -31,6 +31,8 @@ import {
   qiniuFolderMutationBlockReason,
   qiniuUnfinishedTransferReason,
 } from "./qiniu-transfer-gates";
+import { isEditableTextKey, textEditorBlockReason } from "./text-editor-model";
+import { captureWorkspaceScope, confirmTextScope } from "./text-editor-scope";
 
 interface ObjectContextMenuProps {
   /** The object key or folder prefix for this item */
@@ -81,6 +83,52 @@ export function ObjectContextMenu({
   const openTransferDialog = useUIStore((s) => s.openTransferDialog);
 
   const fileName = objectKey.split("/").filter(Boolean).pop() ?? objectKey;
+  const editBlocked = profile
+    ? textEditorBlockReason(profile.provider, true)
+    : null;
+  const handleEditText = () => {
+    try {
+      if (editBlocked) return toast.warning(editBlocked);
+      const scope = captureWorkspaceScope();
+      if (
+        !scope ||
+        scope.profileId !== profileId ||
+        scope.provider !== profile?.provider ||
+        scope.bucket !== bucket ||
+        scope.expectedProfileRevision !== profile?.updatedAt
+      )
+        throw new Error(
+          t(
+            "文件所属账号或空间已变化，请重新选择。",
+            "The file account or bucket changed. Select it again.",
+          ),
+        );
+      confirmTextScope(scope);
+      if (
+        !useObjectStore
+          .getState()
+          .objects.some((object) => object.key === objectKey)
+      )
+        throw new Error(
+          t(
+            "此文件已不在当前列表，请刷新后重新选择。",
+            "This file is no longer in the current listing. Refresh and select again.",
+          ),
+        );
+      useUIStore.getState().openTextEditor({
+        ...scope,
+        id: crypto.randomUUID(),
+        mode: "edit",
+        key: objectKey,
+      });
+    } catch (error) {
+      toast.warning(
+        error instanceof Error
+          ? localize(error.message)
+          : t("无法编辑此文件", "Cannot edit this file"),
+      );
+    }
+  };
 
   const handleCopyKey = async () => {
     try {
@@ -186,6 +234,16 @@ export function ObjectContextMenu({
 
   const menuContent = (
     <ContextMenuContent>
+      {!isFolder && isEditableTextKey(objectKey) && (
+        <ContextMenuItem
+          onClick={handleEditText}
+          disabled={!!editBlocked}
+          title={editBlocked ?? undefined}
+        >
+          <IconPen className="size-4 shrink-0" />
+          {t("编辑文本", "Edit text")}
+        </ContextMenuItem>
+      )}
       {/* Details (files only) */}
       {!isFolder && (
         <ContextMenuItem onClick={handleDetails}>

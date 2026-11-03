@@ -69,7 +69,7 @@ export default function App() {
     }
     // Resolve the host OS once, app-wide, so the window decorations (custom
     // controls on Windows/Linux, native on macOS) work on every screen —
-    // including the lock/loading screens that have no TopBar.
+    // including the lock/loading screens that have no AppTitleBar.
     rpcCall("system:platform", undefined).then(({ os }) =>
       useUIStore.getState().setPlatform(os),
     );
@@ -137,7 +137,7 @@ export default function App() {
           {screenKey === "local-accounts" && <LocalAccountsStartScreen />}
           {screenKey === "main" && <MainLayout />}
 
-          {/* Window decorations. The main screen's TopBar carries its own
+          {/* Window decorations. The main screen's AppTitleBar carries its own
               controls; every other screen gets this lightweight title bar so
               the window stays draggable/closable on Windows & Linux. */}
           {screenKey !== "main" && <WindowChrome />}

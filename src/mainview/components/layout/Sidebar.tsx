@@ -27,6 +27,7 @@ import {
   useObjectStore,
   useProfileStore,
   useTabStore,
+  useUIStore,
   useVaultStore,
 } from "@/stores";
 import { useQiniuShareStore } from "@/stores/useQiniuShareStore";
@@ -48,7 +49,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "../ui/sidebar";
-import { SidebarFavorites } from "./SidebarFavorites";
+import { SidebarQuickNav } from "./SidebarQuickNav";
 
 export function Sidebar() {
   useT();
@@ -144,26 +145,33 @@ export function Sidebar() {
   };
 
   return (
-    <SidebarPrimitive collapsible="icon">
-      {/* ── Header: active profile summary + collapse toggle ── */}
-      <SidebarHeader className="border-border border-b px-2 py-2">
+    <SidebarPrimitive collapsible="icon" className="absolute inset-y-0 h-full">
+      <SidebarHeader className="shrink-0 gap-1 border-border border-b px-3 py-2 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border/70 bg-background/55 px-2.5 py-2 group-data-[collapsible=icon]:hidden">
             {activeProfile ? (
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 {(() => {
                   const ProviderIcon = providerIcon(activeProfile.provider);
                   return (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <ProviderIcon className="size-4" />
                     </div>
                   );
                 })()}
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium text-sm leading-tight">
+                  <div
+                    className="truncate font-medium text-xs leading-tight"
+                    title={activeProfile.name}
+                  >
                     {activeProfile.name}
                   </div>
-                  <div className="truncate text-[11px] text-foreground/40">
+                  <div
+                    className="mt-0.5 truncate text-[10px] text-muted-foreground"
+                    title={
+                      selectedBucket ?? PROVIDER_LABELS[activeProfile.provider]
+                    }
+                  >
                     {PROVIDER_LABELS[activeProfile.provider]}
                     {selectedBucket && (
                       <>
@@ -176,41 +184,45 @@ export function Sidebar() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2.5 text-foreground/40">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 text-foreground/40">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-foreground/20 border-dashed">
                   <IconUser className="size-3" />
                 </div>
-                <span className="text-xs">
+                <span className="truncate text-xs">
                   {t("选择存储账号", "Select a profile")}
                 </span>
               </div>
             )}
+            <SidebarTrigger className="size-6 shrink-0 rounded-md text-muted-foreground hover:text-foreground [&_svg]:size-3.5" />
           </div>
-          <SidebarTrigger className="size-7 shrink-0 rounded-none text-foreground/50 hover:text-foreground" />
+          <SidebarTrigger className="hidden size-6 shrink-0 rounded-md text-muted-foreground hover:text-foreground group-data-[collapsible=icon]:flex [&_svg]:size-3.5" />
         </div>
       </SidebarHeader>
 
       {/* ── Scrollable content ── */}
-      <SidebarContent>
-        {/* Favorites section */}
-        {favoriteEntries.length > 0 && (
-          <SidebarFavorites
-            entries={favoriteEntries}
-            profiles={profiles}
-            activeProfileId={activeProfile?.id ?? null}
-            selectedBucket={selectedBucket}
-            onSelect={selectFavoriteBucket}
-            onToggleFavorite={toggleFavorite}
-          />
-        )}
+      <SidebarContent className="overflow-hidden">
+        <SidebarQuickNav
+          profiles={profiles}
+          favorites={favoriteEntries}
+          onSelectBucket={selectFavoriteBucket}
+          onToggleFavorite={toggleFavorite}
+          onShowStorage={() =>
+            document
+              .getElementById("sidebar-storage-accounts")
+              ?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+          }
+        />
 
         {/* Profiles section */}
-        <SidebarGroup className="p-0 group-data-[collapsible=icon]:mt-1 group-data-[collapsible=icon]:border-border group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-1">
+        <SidebarGroup
+          id="sidebar-storage-accounts"
+          className={`min-h-20 overflow-hidden p-0 ${activeProfile ? "max-h-[min(12rem,25vh)] shrink" : "flex-1"} group-data-[collapsible=icon]:mt-1 group-data-[collapsible=icon]:border-border group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-1`}
+        >
           <SidebarGroupLabel className="sticky top-0 z-10 flex items-center justify-between rounded-none border-border border-b bg-card px-3 text-foreground/50 group-data-[collapsible=icon]:pointer-events-none">
             <div className="flex items-center gap-1.5">
               <IconUserGroup className="size-[11px]" />
               <span className="font-semibold text-[11px] uppercase tracking-wider">
-                {t("存储账号", "Profiles")}
+                {t("账号与存储桶", "Accounts & buckets")}
               </span>
               {profiles.length > 0 && (
                 <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-foreground/40 tabular-nums">
@@ -229,46 +241,50 @@ export function Sidebar() {
             </Button>
           </SidebarGroupLabel>
 
-          {/* Profile list — rendered as SidebarMenu items */}
-          {profiles.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 p-4 group-data-[collapsible=icon]:hidden">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                <IconCloudArrowUp className="size-5 text-primary" />
+          {/* Account and bucket lists scroll independently so a long account
+              list cannot consume the bucket viewport in a short window. */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+            {/* Profile list — rendered as SidebarMenu items */}
+            {profiles.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 p-4 group-data-[collapsible=icon]:hidden">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                  <IconCloudArrowUp className="size-5 text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-sm">
+                    {t("暂无存储账号", "No profiles yet")}
+                  </p>
+                  <p className="mt-0.5 text-foreground/50 text-xs">
+                    {t(
+                      "添加一个 S3 兼容存储账号以开始使用",
+                      "Add an S3-compatible profile to get started",
+                    )}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-1"
+                  onClick={() => setAddingProfile(true)}
+                >
+                  <IconPlus className="size-3" />{" "}
+                  {t("添加存储账号", "Add Profile")}
+                </Button>
               </div>
-              <div className="text-center">
-                <p className="font-medium text-sm">
-                  {t("暂无存储账号", "No profiles yet")}
-                </p>
-                <p className="mt-0.5 text-foreground/50 text-xs">
-                  {t(
-                    "添加一个 S3 兼容存储账号以开始使用",
-                    "Add an S3-compatible profile to get started",
-                  )}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-1"
-                onClick={() => setAddingProfile(true)}
-              >
-                <IconPlus className="size-3" />{" "}
-                {t("添加存储账号", "Add Profile")}
-              </Button>
-            </div>
-          ) : (
-            <ProfileList
-              profiles={profiles}
-              activeId={activeProfile?.id ?? null}
-              onSelect={switchProfile}
-              onView={(p) => setViewingProfile(p)}
-              onEdit={(p) => setEditingProfile(p)}
-              onDelete={(p) => setDeletingProfile(p)}
-            />
-          )}
+            ) : (
+              <ProfileList
+                profiles={profiles}
+                activeId={activeProfile?.id ?? null}
+                onSelect={switchProfile}
+                onView={(p) => setViewingProfile(p)}
+                onEdit={(p) => setEditingProfile(p)}
+                onDelete={(p) => setDeletingProfile(p)}
+              />
+            )}
+          </div>
         </SidebarGroup>
 
-        <div className="px-2 py-2 group-data-[collapsible=icon]:px-1">
+        <div className="shrink-0 px-2 py-1 group-data-[collapsible=icon]:px-1">
           <Button
             variant="ghost"
             size="sm"
@@ -292,7 +308,7 @@ export function Sidebar() {
 
         {/* Buckets section (when profile selected) — pinned to the bottom */}
         {activeProfile && (
-          <SidebarGroup className="mt-auto p-0 group-data-[collapsible=icon]:border-border group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-1">
+          <SidebarGroup className="mt-auto min-h-32 flex-1 overflow-hidden p-0 group-data-[collapsible=icon]:border-border group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-1">
             <SidebarGroupLabel className="sticky top-0 z-10 flex items-center justify-between rounded-none border-border border-b bg-card px-3 text-foreground/50 group-data-[collapsible=icon]:pointer-events-none">
               <div className="flex items-center gap-1.5">
                 <IconBucket className="size-[11px]" />
@@ -338,20 +354,38 @@ export function Sidebar() {
                 {localize(bucketError)}
               </p>
             )}
-            <BucketList
-              buckets={buckets}
-              loading={bucketsLoading}
-              selectedBucket={selectedBucket}
-              profileId={activeProfile?.id ?? null}
-              onSelect={selectBucket}
-            />
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]"
+              data-testid="sidebar-bucket-viewport"
+            >
+              <BucketList
+                buckets={buckets}
+                loading={bucketsLoading}
+                selectedBucket={selectedBucket}
+                profileId={activeProfile?.id ?? null}
+                onSelect={selectBucket}
+              />
+            </div>
           </SidebarGroup>
         )}
       </SidebarContent>
 
       {/* ── Footer: profile count + lock ── */}
-      <SidebarFooter className="h-8 justify-center border-border border-t px-3 py-0">
-        <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
+      <SidebarFooter className="shrink-0 gap-1 border-border border-t px-2 py-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 justify-start gap-2.5 text-xs text-muted-foreground group-data-[collapsible=icon]:justify-center"
+          onClick={() => useUIStore.getState().setSettingsOpen(true)}
+          title={t("设置与关于", "Settings and about")}
+          aria-label={t("设置与关于", "Settings and about")}
+        >
+          <IconGear className="size-4 shrink-0" />
+          <span className="group-data-[collapsible=icon]:hidden">
+            {t("设置", "Settings")}
+          </span>
+        </Button>
+        <div className="flex items-center justify-between px-1 group-data-[collapsible=icon]:justify-center">
           <div className="text-[11px] text-foreground/35 group-data-[collapsible=icon]:hidden">
             {profiles.length} {t("个账号", "accounts")}
             {profiles.length !== 1 ? "" : ""}

@@ -1,6 +1,6 @@
 [package]
 name = "object0"
-version = "1.7.0-preview.2"
+version = "1.7.0-preview.3"
 description = "FOSS desktop S3 bucket manager built with Tauri"
 authors = ["object0 contributors"]
 edition = "2021"
@@ -30,10 +30,13 @@ percent-encoding = "2"
 pbkdf2 = "0.12"
 rand = "0.8"
 sha2 = "0.10"
+semver = "1.0.28"
+minisign-verify = "0.2.5"
+zip = { version = "4.6.1", default-features = false, features = ["deflate-flate2"] }
 hmac = "0.13"
 sha1 = "0.11"
 futures-util = "0.3"
-reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "stream"] }
 rfd = "0.15"
 tokio = { version = "1", features = ["fs", "io-util", "sync", "time"] }
 walkdir = "2"

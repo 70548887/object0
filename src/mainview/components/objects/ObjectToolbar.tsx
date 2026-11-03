@@ -380,10 +380,14 @@ export function ObjectToolbar() {
   ]);
 
   return (
-    <div
-      className={`no-drag flex items-center gap-2 border-t border-border px-3 py-2${profile?.provider === "qiniu" ? " flex-wrap" : ""}`}
-    >
-      <div className="flex items-center gap-1.5">
+    <div className="no-drag flex min-w-0 flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+      {/* Wrap both between groups and within each group. A viewport breakpoint
+          cannot account for the expanded sidebar, translated labels, or a
+          filter chip; each group must fit its actual available content width. */}
+      <fieldset
+        aria-label={t("文件操作", "File actions")}
+        className="m-0 flex min-w-0 basis-96 flex-1 flex-wrap items-center gap-1.5 border-0 p-0"
+      >
         <Button
           size="sm"
           onClick={() => void handleUpload()}
@@ -513,13 +517,16 @@ export function ObjectToolbar() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </fieldset>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      <fieldset
+        aria-label={t("文件列表控件", "File list controls")}
+        className="m-0 ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5 border-0 p-0"
+      >
         {filters.search && (
           <button
             type="button"
-            className="flex h-7 items-center gap-1.5 rounded-md bg-muted px-2 text-foreground/80 text-xs hover:bg-muted/70"
+            className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-md bg-muted px-2 text-foreground/80 text-xs hover:bg-muted/70"
             onClick={() => setFilters({ search: "" })}
             title={t("清除筛选", "Clear filters")}
             aria-label={t("清除筛选", "Clear filters")}
@@ -550,7 +557,7 @@ export function ObjectToolbar() {
           <IconArrowsRotate />
         </Button>
 
-        <div className="flex rounded-lg border border-border overflow-hidden">
+        <div className="flex shrink-0 rounded-lg border border-border overflow-hidden">
           <Button
             variant={viewMode === "table" ? "secondary" : "ghost"}
             size="icon-sm"
@@ -558,6 +565,7 @@ export function ObjectToolbar() {
             onClick={() => setViewMode("table")}
             title={t("列表视图", "List view")}
             aria-label={t("切换到列表视图", "Switch to list view")}
+            aria-pressed={viewMode === "table"}
           >
             <IconTableList />
           </Button>
@@ -568,11 +576,12 @@ export function ObjectToolbar() {
             onClick={() => setViewMode("grid")}
             title={t("网格视图", "Grid view")}
             aria-label={t("切换到网格视图", "Switch to grid view")}
+            aria-pressed={viewMode === "grid"}
           >
             <IconGrip />
           </Button>
         </div>
-      </div>
+      </fieldset>
 
       {uploadNotice && (
         <p role="note" className="basis-full text-[11px] text-foreground/60">

@@ -469,6 +469,19 @@ assert.equal(
 assert.equal(useObjectStore.getState().currentPrefix, "a/");
 (links[0].props.onClick as () => void)();
 assert.equal(
+  useObjectStore.getState().currentPrefix,
+  "a/",
+  "a captured address callback cannot revive an obsolete prefix",
+);
+const freshBreadcrumb = ObjectBreadcrumb({
+  profileName: profile.name,
+  bucket: "bucket-a",
+});
+const freshLinks = walkTree(freshBreadcrumb).filter(
+  (node) => node.type === BreadcrumbLink,
+);
+(freshLinks[0].props.onClick as () => void)();
+assert.equal(
   useTabStore.getState().tabs.find((tab) => tab.id === "tab-a")?.prefix,
   "",
 );

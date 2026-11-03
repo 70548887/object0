@@ -247,6 +247,7 @@ mod clear_race_tests{
 
 pub(crate) fn try_start_queued_jobs(app: AppHandle) {
     let state = app.state::<AppState>();
+    if state.updates_installing.load(Ordering::SeqCst) { return; }
 
     let mut start_now: Vec<(JobTask, Arc<AtomicBool>)> = Vec::new();
     let mut running_snapshots: Vec<JobInfo> = Vec::new();
@@ -664,6 +665,7 @@ pub(crate) fn enqueue_job(
 ) -> Result<String, String> {
     let job_id = Uuid::new_v4().to_string();
     let state = app.state::<AppState>();
+    let _operation = update_guard::begin(&state)?;
     // Validate captured transfer identities and label them under one vault lock.
     // The JobLocation fields remain display-only; guards use task bindings.
     let (source, destination) = match state.vault.lock() {

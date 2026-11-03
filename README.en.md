@@ -8,13 +8,19 @@ Yuncang puts Qiniu Kodo, Cloudflare R2, Amazon S3 and compatible connections in 
 
 Based on [sayedhfatimi/object0](https://github.com/sayedhfatimi/object0), with the upstream MIT license and copyright notices preserved.
 
-[Download preview](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2) · [Release notes](docs/RELEASE_v1.7.0-preview.2.md) · [MIT license](LICENSE)
+[Download preview](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.3) · [Release notes](docs/RELEASE_v1.7.0-preview.3.md) · [MIT license](LICENSE)
 
 > **Preview status:** several Qiniu application workflows are connected, but this is not a complete Kodo console or proof of compatibility with every public/private deployment. Back up important data and validate permissions and operations in a dedicated test bucket first.
 >
 > **Local credential warning:** this version saves AK/SK **in plaintext on this computer** in `accounts.local.json`. Normal use does not require a Yuncang passphrase or recovery key. Any program that can read the file can read its credentials. Do not share it, commit it or include it in a release package.
 
-## Fixes in this preview
+## Additions and fixes in this preview
+
+- Right-click blank content space to refresh and, when permitted, create a folder or `.txt` / `.md` text. Text is limited to 1 MiB UTF-8 with `txt` / `md` / `markdown` extensions. Qiniu text creation/editing is unavailable. S3-compatible text creation requires server-side conditional create and never overwrites an existing name; editing existing text is R2-only, retaining drafts on version conflicts without an unconditional-write fallback. Folder creation remains subject to provider and identity permissions.
+- A full-width title, compact sidebar and address above the action bar; favorites, recent items, transfers and share history can appear in the main list, with captured account, bucket and full transfer paths.
+- Saving share history is off by default and requires opt-in. Opening history does not automatically remove expired records; cleanup is manual. The top sharing Sheet remains available.
+- About & Updates shows the actual compiled version with stable/preview channels. **No dedicated updater signing configuration is provided in this release: automatic download/installation is unavailable; upgrade manually.** Signature failures remain fail-closed.
+- Fixes the race where a late ready event could re-enable installation after cancellation; retains move account-revision/path checks and responsive-layout fixes.
 
 - Queued copy/move jobs bind both account revisions and providers. Archive downloads and queued deletes receive equivalent protection; editing an account rejects stale jobs instead of silently retargeting them.
 - Entering or returning from a folder immediately clears old rows, selection and operation targets, preventing actions on former-folder files while the new listing loads.
@@ -87,11 +93,11 @@ Details: [Qiniu uploads](docs/QINIU_RESUMABLE_UPLOADS.md) · [Range downloads](d
 
 ## Windows downloads and use
 
-Preview: [**v1.7.0-preview.2**](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2). It does not replace the existing stable [v1.6.0](https://github.com/70548887/object0/releases/tag/v1.6.0); older packages do not contain all features described here.
+Preview: [**v1.7.0-preview.3**](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.3). It does not replace release assets for stable [v1.6.0](https://github.com/70548887/object0/releases/tag/v1.6.0) or [preview.2](https://github.com/70548887/object0/releases/tag/v1.7.0-preview.2); older packages do not contain all features described here.
 
-- [Windows x64 installer](https://github.com/70548887/object0/releases/download/v1.7.0-preview.2/object0_1.7.0-preview.2_windows_x64_setup.exe): follow the setup wizard; an uninstall entry is provided.
-- [Windows x64 portable ZIP](https://github.com/70548887/object0/releases/download/v1.7.0-preview.2/object0_1.7.0-preview.2_windows_x64_portable.zip): **extract the entire archive** to a writable local folder, then run `object0.exe`. Keep the complete adjacent `WebView2Runtime` folder; no separate WebView2 installation is needed.
-- [SHA256 checksums](https://github.com/70548887/object0/releases/download/v1.7.0-preview.2/SHA256SUMS.txt): compare each downloaded file.
+- [Windows x64 installer](https://github.com/70548887/object0/releases/download/v1.7.0-preview.3/object0_1.7.0-preview.3_windows_x64_setup.exe): follow the setup wizard; an uninstall entry is provided.
+- [Windows x64 portable ZIP](https://github.com/70548887/object0/releases/download/v1.7.0-preview.3/object0_1.7.0-preview.3_windows_x64_portable.zip): **extract the entire archive** to a writable local folder, then run `object0.exe`. Keep the complete adjacent `WebView2Runtime` folder; no separate WebView2 installation is needed.
+- [SHA256 checksums](https://github.com/70548887/object0/releases/download/v1.7.0-preview.3/SHA256SUMS.txt): compare each downloaded file.
 
 Windows 10/11 x64. Packages are not commercially code-signed and Windows may show an unknown publisher. Check the repository source and SHA256 without disabling system protection. See the [Windows guide](docs/PORTABLE_EN.md).
 
@@ -111,7 +117,7 @@ Language switching does not translate account names, bucket names, filenames, ob
 - Portable means no installation, not portable accounts. Release packages contain no preconfigured account, credentials, vault or user jobs.
 - Installer and portable editions share application identity and local configuration. Run only one edition at a time; finish transfers and back up settings before upgrading.
 - New versions can read jobs without location snapshots. Older versions may reject native checkpoints with new fields; do not delete account or task files to force a downgrade.
-- The upstream automatic updater is disabled by default. Download updates manually from this repository.
+- This release has no dedicated Yuncang updater signing configuration. An update-check UI is not a usable online-upgrade path: automatic download/installation is disabled. Download matching complete packages from this fork and exit the old application before installation or complete extraction/replacement. See [updater boundaries](docs/UPDATER.md).
 
 ## Development and verification
 
@@ -125,7 +131,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --release --lib --locked
 bun run tauri dev
 ```
 
-Windows builds require the fixed WebView2 runtime in `packaging/windows-runtime.json`. The latest feature-stage local checks passed **433 Rust tests with one ignored**, and **284 frontend tests / 27 isolated regression groups**. These are local and mock-contract results, not acceptance of every real cloud or installer environment. Refer to the [version's release notes](docs/RELEASE_v1.7.0-preview.2.md) for verification scope.
+Windows builds require the fixed WebView2 runtime in `packaging/windows-runtime.json`. This release candidate passed **467 Rust tests with two ignored**, **286 frontend tests with 1779 assertions**, and **36 additional isolated regression groups** locally. See the [release notes](docs/RELEASE_v1.7.0-preview.3.md) for scope. No GitHub CI run is claimed. Native signed real-upgrade flows, private deployments and multi-machine installation still require real-environment acceptance; local tests and mock contracts are not full acceptance.
 
 ## License and acknowledgements
 

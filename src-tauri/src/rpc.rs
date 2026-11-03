@@ -152,6 +152,24 @@ struct ObjectCursor {
     token: String,
 }
 
+fn is_current_directory_marker(key: &str, prefix: Option<&str>) -> bool {
+    prefix.is_some_and(|value| !value.is_empty() && value.ends_with('/') && key == value)
+}
+
+#[cfg(test)]
+mod directory_marker_tests {
+    use super::*;
+    #[test]
+    fn hides_only_the_current_folder_marker_not_children_or_zero_byte_files() {
+        assert!(is_current_directory_marker("中文/+%?#/", Some("中文/+%?#/")));
+        assert!(!is_current_directory_marker("中文/+%?#/child/", Some("中文/+%?#/")));
+        assert!(!is_current_directory_marker("中文/+%?#/empty.txt", Some("中文/+%?#/")));
+        assert!(!is_current_directory_marker("prefix", Some("prefix")));
+        assert!(!is_current_directory_marker("", Some("")));
+        assert!(!is_current_directory_marker("folder/", None));
+    }
+}
+
 fn decode_object_cursor(input: &ObjectsListInput, max_keys: u16) -> Result<Option<String>, String> {
     let Some(cursor) = input.cursor.as_deref() else { return Ok(None) };
     if cursor.is_empty() || cursor.len() > 65_536 { return Err("Invalid object listing cursor".to_string()); }
@@ -250,8 +268,10 @@ pub(crate) async fn rpc_request(
     payload: Option<Value>,
 ) -> Result<Value, String> {
     let payload = payload_or_null(payload);
+    let update_control = method.starts_with("updates:") || method.starts_with("updater:");
     let method = RpcMethod::parse(&method)
         .ok_or_else(|| format!("RPC method not implemented yet: {method}"))?;
+    let _operation = if update_control { None } else { Some(update_guard::begin(&state)?) };
 
     match method {
         RpcMethod::VaultOpenLocal => {
@@ -1023,7 +1043,7 @@ pub(crate) async fn rpc_request(
                             if continuation_token.as_deref()==Some(token){return Err("Storage repeated its object listing continuation token".to_string());}
                             Some(encode_object_cursor(&input,max_keys,token)?)
                         }else{None};
-                        let objects:Vec<Value>=output.contents().iter().map(|object|json!({"key":object.key().unwrap_or_default(),"size":object.size().unwrap_or(0).max(0),"lastModified":object.last_modified().map(s3_datetime_to_iso).unwrap_or_default(),"etag":object.e_tag().unwrap_or_default().trim_matches('"'),"storageClass":object.storage_class().map(|value|value.as_str())})).collect();
+                        let objects:Vec<Value>=output.contents().iter().filter(|object|!is_current_directory_marker(object.key().unwrap_or_default(),input.prefix.as_deref())).map(|object|json!({"key":object.key().unwrap_or_default(),"size":object.size().unwrap_or(0).max(0),"lastModified":object.last_modified().map(s3_datetime_to_iso).unwrap_or_default(),"etag":object.e_tag().unwrap_or_default().trim_matches('"'),"storageClass":object.storage_class().map(|value|value.as_str())})).collect();
                         let prefixes:Vec<Value>=output.common_prefixes().iter().filter_map(|prefix|prefix.prefix().map(|value|json!({"prefix":value}))).collect();
                         return Ok(json!({"objects":objects,"prefixes":prefixes,"isTruncated":truncated,"nextCursor":next}));
                     }
@@ -1035,7 +1055,7 @@ pub(crate) async fn rpc_request(
                         return Err("Qiniu returned a missing or repeated object cursor".to_string());
                     }
                     let next = page.next_cursor.as_deref().map(|cursor| encode_object_cursor(&input, max_keys, cursor)).transpose()?;
-                    let objects: Vec<Value> = page.objects.into_iter().map(|object| json!({
+                    let objects: Vec<Value> = page.objects.into_iter().filter(|object|!is_current_directory_marker(&object.key,input.prefix.as_deref())).map(|object| json!({
                         "key":object.key,"size":object.size,"lastModified":object.last_modified,"etag":object.etag,
                         "storageClass":object.storage_type.map(|value| format!("qiniu:{value}")),
                         "restoreStatus":object.restore_status,
@@ -1064,6 +1084,7 @@ pub(crate) async fn rpc_request(
             let objects: Vec<Value> = output
                 .contents()
                 .iter()
+                .filter(|item| !is_current_directory_marker(item.key().unwrap_or_default(), input.prefix.as_deref()))
                 .map(|item| {
                     json!({
                         "key": item.key().unwrap_or_default(),
@@ -1200,6 +1221,18 @@ pub(crate) async fn rpc_request(
                 "lastModified": output.last_modified().map(s3_datetime_to_iso).unwrap_or_else(now_iso),
                 "type": output.content_type().unwrap_or("application/octet-stream"),
             }))
+        }
+
+        RpcMethod::ObjectsReadText => {
+            let input: text_objects::ReadInput = parse_payload(payload)?;
+            let result = text_objects::read_for_state(&state, &input).await?;
+            serde_json::to_value(result).map_err(|_| "无法返回文本内容 / Could not return text content".to_string())
+        }
+        RpcMethod::ObjectsWriteText => {
+            let input: text_objects::WriteInput = parse_payload(payload)?;
+            let result = text_objects::write_for_state(&state, &input).await?;
+            usage::emit_changed(&app, &input.profile_id, &input.bucket);
+            serde_json::to_value(result).map_err(|_| "无法返回保存结果 / Could not return save result".to_string())
         }
 
         RpcMethod::TransferUpload => {
@@ -2024,74 +2057,23 @@ pub(crate) async fn rpc_request(
         }
 
         RpcMethod::UpdaterCheck => {
-            let (cached_version, cached_ready) = updater_cached_state(&app);
-            let current_version = env!("CARGO_PKG_VERSION").to_string();
-
-            let updater = match configured_updater(&app) {
-                Ok(updater) => updater,
-                Err(err) => {
-                    let version = cached_version.unwrap_or(current_version);
-                    return Ok(json!({
-                        "version": version,
-                        "hash": "",
-                        "updateAvailable": cached_ready,
-                        "updateReady": cached_ready,
-                        "error": format!("Updater unavailable: {err}")
-                    }));
-                }
-            };
-
-            match updater.check().await {
-                Ok(Some(update)) => {
-                    let version = update.version;
-                    let update_ready =
-                        cached_ready && cached_version.as_deref() == Some(version.as_str());
-                    Ok(json!({
-                        "version": version,
-                        "hash": "",
-                        "updateAvailable": true,
-                        "updateReady": update_ready,
-                        "error": ""
-                    }))
-                }
-                Ok(None) => {
-                    let version = cached_version.unwrap_or(current_version);
-                    Ok(json!({
-                        "version": version,
-                        "hash": "",
-                        "updateAvailable": cached_ready,
-                        "updateReady": cached_ready,
-                        "error": ""
-                    }))
-                }
-                Err(err) => {
-                    let version = cached_version.unwrap_or(current_version);
-                    Ok(json!({
-                        "version": version,
-                        "hash": "",
-                        "updateAvailable": cached_ready,
-                        "updateReady": cached_ready,
-                        "error": format!("Update check failed: {err}")
-                    }))
-                }
-            }
+            // Compatibility detection still uses the repository-pinned path;
+            // old callers cannot reuse an arbitrary environment feed.
+            let result = github_updates::check(&app, github_updates::Channel::Stable).await?;
+            Ok(json!({"version":result.release.as_ref().map(|r|r.version.as_str()).unwrap_or(&result.info.current_version),"hash":result.info.build_hash,"updateAvailable":result.release.is_some(),"updateReady":false,"error":""}))
         }
         RpcMethod::UpdaterDownload => {
-            let success = download_update_if_available(&app).await?;
-            Ok(json!({ "success": success }))
+            Err("请在新版更新窗口选择并下载固定版本 / Select and download a fixed release in the new update dialog".into())
         }
         RpcMethod::UpdaterApply => {
-            apply_downloaded_update(&app).await?;
-            Ok(Value::Null)
+            Err("旧更新入口已停用，请使用有退出保护的更新窗口 / Legacy installation is disabled; use the guarded update dialog".into())
         }
-        RpcMethod::UpdaterLocalInfo => Ok(json!({
-            "version": env!("CARGO_PKG_VERSION"),
-            "hash": "",
-            "baseUrl": updater_local_info_base_url(),
-            "channel": updater_channel(),
-            "name": native_locale::app_name(),
-            "identifier": "dev.object0.app"
-        })),
+        RpcMethod::UpdaterLocalInfo => { let info=github_updates::info(); Ok(json!({"version":info.current_version,"hash":info.build_hash,"baseUrl":info.release_url,"channel":"stable","name":native_locale::app_name(),"identifier":"dev.object0.app"})) },
+        RpcMethod::UpdatesInfo => Ok(serde_json::to_value(github_updates::info()).map_err(|_|"Update info serialization failed".to_string())?),
+        RpcMethod::UpdatesCheck => {let input:github_updates::CheckInput=parse_payload(payload)?;Ok(serde_json::to_value(github_updates::check(&app,input.channel).await?).map_err(|_|"Update check serialization failed".to_string())?)},
+        RpcMethod::UpdatesDownload => {let input:github_updates::SelectionInput=parse_payload(payload)?;Ok(serde_json::to_value(github_updates::download(&app,&input.release_id).await?).map_err(|_|"Update download serialization failed".to_string())?)},
+        RpcMethod::UpdatesCancel => {let input:github_updates::SelectionInput=parse_payload(payload)?;Ok(serde_json::to_value(github_updates::cancel(&app,&input.release_id)?).map_err(|_|"Update cancel serialization failed".to_string())?)},
+        RpcMethod::UpdatesApply => {let input:github_updates::ApplyInput=parse_payload(payload)?;github_updates::apply(&app,&input)?;Ok(json!({"accepted":true}))},
         RpcMethod::SystemPlatform => Ok(json!({ "os": std::env::consts::OS })),
         RpcMethod::SystemSetLanguage => {
             let locale = payload.get("locale").and_then(Value::as_str)

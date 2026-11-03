@@ -78,6 +78,7 @@ export function CommandPalette() {
   const lock = useVaultStore((s) => s.lock);
   const plaintext = useVaultStore((s) => s.storageMode === "plaintext");
   const activeProfile = useProfileStore((s) => s.activeProfile);
+  const mainSection = useUIStore((s) => s.mainSection);
   const activeProfileId = useProfileStore((s) => s.activeProfileId);
   const latestProfile = useVaultStore((s) =>
     s.profiles.find((profile) => profile.id === activeProfileId),
@@ -181,12 +182,18 @@ export function CommandPalette() {
         Icon: IconCodeCompare,
         section: t("同步", "Sync"),
         action: () => {
+          if (useUIStore.getState().mainSection !== "storage") return;
           if (syncBlocked) return toast.warning(syncBlocked);
           openSyncChooser();
         },
       },
     ];
 
+    if (mainSection !== "storage") {
+      return baseCommands.filter(
+        (command) => command.id !== "choose-sync-type",
+      );
+    }
     if (!activeProfileId || !bucket) {
       return baseCommands;
     }
@@ -352,7 +359,7 @@ export function CommandPalette() {
             </CommandGroup>
           ))}
         </CommandList>
-        {activeProfile && bucket && (
+        {mainSection === "storage" && activeProfile && bucket && (
           <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
             {`${activeProfile.name} / ${bucket}`}
           </div>

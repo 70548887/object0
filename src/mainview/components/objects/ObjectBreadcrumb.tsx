@@ -9,10 +9,25 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { updateNavigationTab } from "@/hooks/useS3Objects";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useS3Objects } from "@/hooks/useS3Objects";
+import { directoryCrumbs } from "@/lib/file-navigation";
 import { t, useT } from "@/lib/i18n";
-import { IconBucket, IconCheck, IconCloud, IconCopy } from "@/lib/icons";
-import { useObjectStore, useProfileStore } from "@/stores";
+import {
+  IconArrowLeft,
+  IconArrowUp,
+  IconBucket,
+  IconCheck,
+  IconChevronRight,
+  IconCloud,
+  IconCopy,
+} from "@/lib/icons";
+import { useObjectStore } from "@/stores";
 
 interface ObjectBreadcrumbProps {
   profileName: string;
@@ -24,130 +39,177 @@ export function ObjectBreadcrumb({
   bucket,
 }: ObjectBreadcrumbProps) {
   useT();
-  const currentPrefix = useObjectStore((s) => s.currentPrefix);
-  const navigateToPrefix = useObjectStore((s) => s.navigateToPrefix);
-  const activeProfileId = useProfileStore((s) => s.activeProfileId);
+  const { currentPrefix, navigate, goBack, goForward, goUp } = useS3Objects();
+  const hasBack = useObjectStore((s) => s.prefixHistory.length > 0);
+  const hasForward = useObjectStore((s) => s.prefixForward.length > 0);
   const [copied, setCopied] = useState(false);
-
-  const parts = currentPrefix.split("/").filter(Boolean);
-
-  const handleNavigate = (index: number) => {
-    const prefix = index < 0 ? "" : `${parts.slice(0, index + 1).join("/")}/`;
-
-    navigateToPrefix(prefix);
-    if (activeProfileId) {
-      updateNavigationTab(activeProfileId, bucket, prefix);
-    }
-  };
-
-  const fullPath = currentPrefix ? `${bucket}/${currentPrefix}` : bucket;
-
-  const handleCopyPath = async () => {
+  const parts = directoryCrumbs(currentPrefix);
+  const collapsed = parts.length > 4;
+  const visible = collapsed ? [parts[0], ...parts.slice(-2)] : parts;
+  const fullPath = `${bucket}${currentPrefix ? `/${currentPrefix}` : ""}`;
+  const label = (name: string) => name || t("（空目录段）", "(empty segment)");
+  const copy = async () => {
     try {
       await navigator.clipboard.writeText(fullPath);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // clipboard may not be available
+      setCopied(false);
     }
   };
-
-  // For very deep paths, collapse middle segments — build a flat render list
-  // Each element is either a real part or null (ellipsis placeholder).
-  const MAX_VISIBLE = 4;
-  const shouldCollapse = parts.length > MAX_VISIBLE;
-
-  // Build the visible parts with their real indices
-  type PartItem = { label: string; realIndex: number; isLast: boolean };
-  const visibleParts: (PartItem | null)[] = shouldCollapse
-    ? [
-        { label: parts[0], realIndex: 0, isLast: false },
-        null, // ellipsis placeholder
-        ...parts.slice(parts.length - (MAX_VISIBLE - 2)).map((label, j) => {
-          const realIndex = parts.length - (MAX_VISIBLE - 2) + j;
-          return { label, realIndex, isLast: realIndex === parts.length - 1 };
-        }),
-      ]
-    : parts.map((label, i) => ({
-        label,
-        realIndex: i,
-        isLast: i === parts.length - 1,
-      }));
-
   return (
-    <div className="flex items-center gap-1">
-      <Breadcrumb className="text-xs">
-        <BreadcrumbList className="gap-1 text-xs">
-          {/* Profile root */}
-          <BreadcrumbItem>
-            <span className="flex items-center gap-1 text-foreground/50">
-              <IconCloud className="size-3 shrink-0" />
-              {profileName}
-            </span>
-          </BreadcrumbItem>
-
-          <BreadcrumbSeparator />
-
-          {/* Bucket */}
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              render={<button type="button" />}
-              className="flex items-center gap-1 font-medium"
-              onClick={() => handleNavigate(-1)}
-            >
-              <IconBucket className="size-3 shrink-0" />
-              {bucket}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-
-          {/* Prefix segments */}
-          {visibleParts.flatMap((item) => {
-            if (item === null) {
-              return [
-                <BreadcrumbSeparator key="sep-ellipsis" />,
-                <BreadcrumbItem key="ellipsis">
-                  <BreadcrumbEllipsis />
-                </BreadcrumbItem>,
-              ];
-            }
-            return [
-              <BreadcrumbSeparator key={`sep-${item.realIndex}`} />,
-              <BreadcrumbItem key={`part-${item.realIndex}`}>
-                {item.isLast ? (
-                  <BreadcrumbPage className="font-medium">
-                    {item.label}
-                  </BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink
-                    render={<button type="button" />}
-                    onClick={() => handleNavigate(item.realIndex)}
-                  >
-                    {item.label}
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>,
-            ];
-          })}
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* Copy path button */}
-      {currentPrefix && (
+    <fieldset
+      className="m-0 flex min-w-0 flex-1 items-center gap-2 border-0 p-0"
+      aria-label={t("地址导航", "Address navigation")}
+    >
+      <div className="flex shrink-0 items-center gap-0.5 border-r border-border pr-2">
         <Button
           variant="ghost"
-          size="icon-xs"
-          className="opacity-70 hover:opacity-100"
-          onClick={() => void handleCopyPath()}
-          title={t(`复制路径：${fullPath}`, `Copy path: ${fullPath}`)}
-          aria-label={t("复制当前路径", "Copy current path")}
+          size="icon-sm"
+          disabled={!hasBack}
+          onClick={goBack}
+          title={t("后退", "Back")}
+          aria-label={t("后退", "Back")}
         >
-          {copied ? (
-            <IconCheck className="size-3 text-success" />
-          ) : (
-            <IconCopy className="size-3" />
-          )}
+          <IconArrowLeft className="size-4" />
         </Button>
-      )}
-    </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!hasForward}
+          onClick={goForward}
+          title={t("前进", "Forward")}
+          aria-label={t("前进", "Forward")}
+        >
+          <IconChevronRight className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!currentPrefix}
+          onClick={goUp}
+          title={t("上一级", "Up one level")}
+          aria-label={t("上一级", "Up one level")}
+        >
+          <IconArrowUp className="size-4" />
+        </Button>
+      </div>
+      <div
+        className="min-w-0 flex-1 overflow-hidden"
+        title={`${profileName} / ${fullPath}`}
+      >
+        <Breadcrumb>
+          <BreadcrumbList className="flex-nowrap gap-1.5 text-xs">
+            <BreadcrumbItem className="min-w-0 max-w-28 shrink">
+              <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                <IconCloud className="size-3 shrink-0" />
+                <span className="truncate">{profileName}</span>
+              </span>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem className="min-w-0 max-w-36 shrink">
+              <BreadcrumbLink
+                render={<button type="button" />}
+                className="flex min-w-0 items-center gap-1 font-medium"
+                onClick={() => navigate("")}
+                title={bucket}
+              >
+                <IconBucket className="size-3 shrink-0" />
+                <span className="truncate">{bucket}</span>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {visible.flatMap((part, index) => {
+              const isLast = part.prefix === parts[parts.length - 1]?.prefix;
+              const element = (
+                <BreadcrumbItem
+                  key={part.prefix}
+                  className="min-w-0 max-w-48 shrink"
+                >
+                  {isLast ? (
+                    <BreadcrumbPage
+                      className="block truncate font-medium"
+                      title={part.prefix}
+                    >
+                      {label(part.label)}
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink
+                      render={<button type="button" />}
+                      className="block truncate"
+                      onClick={() => navigate(part.prefix)}
+                      title={part.prefix}
+                    >
+                      {label(part.label)}
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              );
+              const result = [
+                <BreadcrumbSeparator key={`sep-${part.prefix}`} />,
+                element,
+              ];
+              if (collapsed && index === 0)
+                result.push(
+                  <BreadcrumbSeparator key="sep-all" />,
+                  <BreadcrumbItem key="all">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <button
+                            type="button"
+                            className="flex size-6 items-center justify-center rounded-md hover:bg-muted"
+                            aria-label={t("展开完整路径", "Expand full path")}
+                            title={t("展开完整路径", "Expand full path")}
+                          />
+                        }
+                      >
+                        <BreadcrumbEllipsis />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        className="min-w-64 max-w-[min(30rem,90vw)]"
+                        align="start"
+                      >
+                        <DropdownMenuItem
+                          onClick={() => navigate("")}
+                          title={bucket}
+                        >
+                          <IconBucket className="size-3" />
+                          <span className="truncate">{bucket}/</span>
+                        </DropdownMenuItem>
+                        {parts.map((ancestor) => (
+                          <DropdownMenuItem
+                            key={ancestor.prefix}
+                            onClick={() => navigate(ancestor.prefix)}
+                            title={ancestor.prefix}
+                          >
+                            <span className="truncate font-mono text-xs">
+                              {ancestor.prefix}
+                            </span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </BreadcrumbItem>,
+                );
+              return result;
+            })}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="shrink-0 text-muted-foreground"
+        onClick={() => void copy()}
+        title={t(`复制路径：${fullPath}`, `Copy path: ${fullPath}`)}
+        aria-label={t("复制当前路径", "Copy current path")}
+      >
+        {copied ? (
+          <IconCheck className="size-3.5 text-success" />
+        ) : (
+          <IconCopy className="size-3.5" />
+        )}
+      </Button>
+    </fieldset>
   );
 }
